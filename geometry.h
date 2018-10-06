@@ -1,0 +1,109 @@
+#ifndef FILE_GEOMETRY_SEEN
+#define FILE_GEOMETRY_SEEN
+
+
+typedef
+struct {
+  int x;
+  int y;
+} virt_pos;
+//hardcode 2dim vector, because all my code only works with 2d and this allows for vectors to be on stack
+typedef
+struct {
+  double v1;
+  double v2;
+} vector_2;
+
+typedef
+struct {
+  int sides;
+  //want corners to be relative to center of polygon, otherwise updates of position are intensive
+  //by same token, rotation as well.
+  //considering a scale as well
+  double scale;
+  double rotation;
+  virt_pos center;
+  //also corners being vectors make more sence, since they are positions relative to center 
+  virt_pos* corners;
+  //normals, haven't considered much about them
+  //having them be unit vectors would be nice
+  //otherwise some way of determining which normal corresponds to which side or pair of corners
+  vector_2* normals; 
+} polygon;
+
+extern vector_2* zero_vec;
+
+extern virt_pos* zero_pos;
+
+polygon* createPolygon(int sides);
+
+void generate_normals_for_polygon(polygon* poly);
+
+void make_normal_polygon(polygon* poly);
+
+void make_square(polygon* poly);
+
+void stretch_deform_vert(polygon* poly, double amount);
+
+void stretch_deform_horz(polygon* poly, double amount);
+
+
+void freePolygon(polygon* poly);
+
+void get_actual_point(polygon* poly, int i, virt_pos* result);
+
+void get_actual_normal(polygon* poly, int i, vector_2* result);
+
+int do_polygons_intersect(polygon* p1, polygon* p2);
+
+void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2* line, double* min_result, double* max_result);
+
+void decompose_vector(vector_2* vec, vector_2* line, vector_2* p, vector_2* o);
+
+void project_point_onto_line(virt_pos* point, vector_2* line, virt_pos* result);
+
+double get_projected_length(virt_pos* point, vector_2* line);
+
+double distance_from_origin(virt_pos* point);
+
+double distance_between_points(virt_pos* p1, virt_pos* p2);
+
+int is_a_unit_vector(vector_2* vec);
+
+int isZeroVec(vector_2* vec);
+
+int isCloseEnoughToZeroVec(vector_2* vec);
+
+void make_unit_vector(vector_2* op, vector_2* result);
+
+
+void vector_2_add(vector_2* x, vector_2* y, vector_2* result);
+
+void vector_2_sub(vector_2* x, vector_2* y, vector_2* result);
+
+void vector_2_mul(vector_2* x, vector_2* y, vector_2* result);
+
+void vector_2_div(vector_2* x, vector_2* y, vector_2* result);
+
+void vector_2_scale(vector_2* v, double c, vector_2* result);
+
+double vector_2_magnitude(vector_2* v);
+ 
+void vector_2_rotate(vector_2* vec, double radians, vector_2* result);
+
+void virt_pos_add(virt_pos* p1, virt_pos* p2, virt_pos* result);
+
+void virt_pos_sub(virt_pos* p1, virt_pos* p2, virt_pos* result);
+
+void virt_pos_midpoint(virt_pos* p1, virt_pos* p2, virt_pos* result);
+
+void virt_pos_rotate(virt_pos* pos, double radians, virt_pos* result);
+ 
+void virt_pos_to_vector_2(virt_pos* in, vector_2* out);
+
+void vector_2_to_virt_pos(vector_2* in, virt_pos* out);
+
+void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result);
+
+
+#endif
