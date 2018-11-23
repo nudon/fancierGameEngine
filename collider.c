@@ -41,16 +41,37 @@ int matrix_index_compare_wrapper(void* m, void* b) {
 comparer matrix_index_comp = {.compare= matrix_index_compare_wrapper};
 
 
-//came up with a way to do ray-cast type things
-//just pretend a ray is a really narrow hitbox, find cells spanned
-//in each cell, can look for collision like regular, projecting along normals
-//for colliding objects, can do vector magick for finding distance along raycast at which point objects intersect
 
+
+int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot) {
+  polygon* poly = coll->shape;
+  int change = 0;
+  if (!isZeroPos(displace)) {
+    virt_pos_add(&(poly->center), displace, &(poly->center));
+    change++;
+  }
+  if (rot != 0.0) {
+    poly->rotation += rot;
+    change++;
+  }
+  if (change > 0) {
+    polygon* poly = coll->shape;
+    int size;;
+    collider_list_node* cln = coll->collider_node;
+    entries_for_collider(map, coll, cln->old_cells);
+    remove_collider_from_shm_entries(map, cln, cln->active_cells);
+    add_collider_to_shm_entries(map, cln, cln->old_cells);
+    update_refs(coll);
+  }
+  //fprintf(stderr, "update returns %d\n", change);
+  return change;
+}
+
+
+//safe variants of above functions
+//doesn't carry out updates if it resulted in collision
+//moves each object indiivdually and reverts if bad
 int safe_move(spatial_hash_map* map, collider* coll, virt_pos* displace) {
-  //move polygon by given amount, regenerate entries in collider_node old_cells, remove active_cells, add old_cells,
-
-  //also, will want a deeper function than this, want to create safe_rotate things as well
-  //potentially a safe_scale as well, i guess
   virt_pos old_pos = coll->shape->center;
   polygon* poly = coll->shape;
   virt_pos_add(&(poly->center), displace, &(poly->center));
@@ -66,7 +87,6 @@ int safe_move(spatial_hash_map* map, collider* coll, virt_pos* displace) {
 
 int safe_rotate(spatial_hash_map* map, collider* coll, double displace) {
   double old_rot = coll->shape->rotation;
-  //probably want to do some seperate function for changing rotaion of polygon, so that it's reduces to [0,2pi]
   polygon* poly = coll->shape;
   poly->rotation += displace;
   int safe = safe_update(map, coll);
@@ -76,6 +96,7 @@ int safe_rotate(spatial_hash_map* map, collider* coll, double displace) {
   else {
     update_refs(coll);
   }
+  return safe;
 }
 
 void update_refs(collider* coll) {
@@ -88,15 +109,10 @@ void update_refs(collider* coll) {
 
 int safe_update(spatial_hash_map* map, collider* coll){
   //returns 1 if update is safe, 0 if not
-  //move polygon by given amount, regenerate entries in collider_node old_cells, remove active_cells, add old_cells,
-
-  //also, will want a deeper function than this, want to create safe_rotate things as well
-  //potentially a safe_scale as well, i guess
   polygon* poly = coll->shape;
   int size, ret = 1;
   collider_list_node* cln = coll->collider_node;
   entries_for_collider(map, coll, cln->old_cells);
-  //potentiall don't need this, if number of unique entries is smare
   remove_collider_from_shm_entries(map, cln, cln->active_cells);
   
   add_collider_to_shm_entries(map, cln, cln->old_cells);
@@ -106,8 +122,7 @@ int safe_update(spatial_hash_map* map, collider* coll){
   collider* curr;
   for (int i = 0; i < size; i++) {
     curr = entries[i];
-    //? if I can do this
-    //well, could do odd things like curr->collider != coll->cln->collider
+    //just need to check if curr is the same as coll
     if (curr != coll) {
       if (do_polygons_intersect(poly, curr->shape)) {
 	//break, revert movement
@@ -123,6 +138,32 @@ int safe_update(spatial_hash_map* map, collider* coll){
   }
   return ret;
 }
+
+int anyCollisions(spatial_hash_map* map, collider* coll) {
+  //returns 1 if there are collisions, 0 if none
+  polygon* poly = coll->shape;
+  int size, ret = 0;
+  collider_list_node* cln = coll->collider_node;
+  vector* currCells = cln->active_cells;
+  entries_for_collider(map, coll, currCells);
+  size = number_of_unique_colliders_in_entries(map, currCells);
+  collider* entries[size];
+  size = unique_colliders_in_entries(map, currCells, entries);
+  collider* curr;
+  //fprintf(stderr, "There are %d colliders to check against for collisions!\n", size);
+  for (int i = 0; i < size; i++) {
+    curr = entries[i];
+    if (curr != coll) {
+      if (do_polygons_intersect(poly, curr->shape)) {
+	ret = 1;
+	break;
+      }
+    }
+  }
+  return ret;
+}
+
+
 
 collider* make_collider_from_polygon(polygon* poly) {
   collider* new = malloc(sizeof(collider));
@@ -161,8 +202,6 @@ void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
 
 
   
-  //wrong, consider a square box width sqaure map cells, box dim is 1.5 cell dim
-  //could occupy at most 9 cells at once. size is sum of box area / cell area + box permiter / cell length (round up w/ ciel instead of int truncate. or just add 1)
   polygon* bbox = collider->bbox;
   double cellW, cellH, boxW, boxH;
   cellW = map->cell_dim.width;
@@ -190,19 +229,15 @@ void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
   //do same for other dim, perimiter span should be product of other spans
   area_span = ceil((boxW * boxH) / (cellW * cellH));
   perimeter_span = (ceil((boxW / 2) / cellW) + ceil(boxH / 2) / cellH) * 4;
-  //potentially collider could be at a 4-corners of cells
   int size = area_span + perimeter_span;
   if (size < 4) {
     size = 4;
   }
   
   node->max_ref_amount = size;
-  //node->active_cells = calloc(size + 1, sizeof(matrix_index));
-  //node->old_cells = calloc(size + 1, sizeof(matrix_index));
   node->active_cells = newVectorOfSize(size);
   node->old_cells = newVectorOfSize(size);
   node->active_cell_nodes = calloc(size + 1, sizeof(gen_node));
-  //should use the global variable i made
   node->status = 0;
 
 
@@ -231,13 +266,11 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   //actually issue is slightly more annoying because center is not a pointer
   //might just copy select polygon values when needing to do stuff with bound box
 
-  //was also thinking,z if stacking rotation between boundbox and poly is an issue, could make rotation in poly point to rot in poly
+  //was also thinking, if stacking rotation between boundbox and poly is an issue, could make rotation in poly point to rot in poly
   //would take points at end of this and rotate by the optimal rotation
 
   //currently, only dealing with bounding box in entries for collider. so it wouldn't be too unwieldy to just manually copy center and rotations
   
-  //idea, take various rotations of polygon and project along orthog axis
-  //only need to check for rotation range between 0 and 45 degrees,
   double orig_rot = poly->rotation;
   poly->rotation = 0;
   double min, max, x_len, y_len, area;
@@ -249,7 +282,6 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   rots[1] = M_PI / 4;
   
   double rot_threshold = M_PI / 16;
-  //something like stop iterating when difference in rots is ~10 deg
   while(rots[1] - rots[0] > rot_threshold) {
     rots[2] = (rots[1] + rots[0] )/ 2;
     for (int i = 0; i < 3; i++) {
@@ -282,12 +314,6 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
     result->corners[1] = (virt_pos){.x = xmax, .y = ymin};
     result->corners[2] = (virt_pos){.x = xmax, .y = ymax};
     result->corners[3] = (virt_pos){.x = xmin, .y = ymax};
-    /*
-    result->corners[0] = (virt_pos){.x = -x_len / 2, .y = -y_len / 2};
-    result->corners[1] = (virt_pos){.x =  x_len / 2, .y = -y_len / 2};
-    result->corners[2] = (virt_pos){.x =  x_len / 2, .y =  y_len / 2};
-    result->corners[3] = (virt_pos){.x = -x_len / 2, .y =  y_len / 2};
-    */
     generate_normals_for_polygon(result);
   }
   else {
@@ -320,13 +346,10 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
   int cell_index = 0;
   int x_count = 0, y_count;
 
-  //finally, set cur_size to zero. 
   result->cur_size = 0;
   if (boundBox->sides == 4) {
     //start, translate points, figure out axis of bounding box
     //make unit vectors out of them, scale by the cell dimensions
-    //following depends on how I store bounding box. as a seperate polygon, rotation should probably be relative to a specific nuetral rotation of polyogn/collider
-    //so I should add bounding box rotation + polygon's current rotation
     get_actual_point(boundBox, 0, &c1);
     get_actual_point(boundBox,1, &c2);
     get_actual_point(boundBox, 2, &c3);
@@ -355,7 +378,7 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
     
     proj_x_dist = get_projected_length(&bb_axis_x_disp, &axis_x) / cellW;
     proj_y_dist = get_projected_length(&bb_axis_x_disp, &axis_y) / cellH;
-    max = fmax(fabs(proj_x_dist), fabs(proj_y_dist));
+    float max = fmax(fabs(proj_x_dist), fabs(proj_y_dist));
     if (max > 1) {
       max = 1 - (max - 1);
     }

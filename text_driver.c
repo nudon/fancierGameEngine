@@ -9,38 +9,10 @@
 #include "graphics.h"
 #include "body.h"
 #include "game_state.h"
-
-//hash map seems to generally work. generally errors are in determining max_occupied_cells, otherwise it's good
-//rarely crashes sometimes upon collisions too, usually when a thing is just barely colliding, from what I recall
-//thinking about keeping track of another list. would keep track of things that are currently colliding in shm
-//not a whole lot of benefit, asside from being able to defer collision detection all at once after everything moves. instead of noticing and resolving collisions as updtating positions, I'd be noticing and adding collision info to some list.
-
-//also, for movement, need to modify get input for polygon to respond to held down keys. seems to ignore them
-//for movement, want to continue at speed
-//eventually, when I get to jumping, want to add some variable amount to upwards velocity.
-//probably some 0-1 scale of (get_dT * gravity) * up_direction
-//so at first, little negative acceleration, but then eventually it kicks in
-//can probably have the 0-1 scale be related to time_spent_holding_jump and max_jumping_period
-//if tphj < mjp, scale = (1 - tshj / mjp)
-//else scale = 0;
+#include "input.h"
 
 
 
-//so, next up is a physics system. had an idea for objects in equilibrium states, such as objects resting on ground, in which case no calculations are done constantly reverifying their equilibirum. instead when touched by other objects, they get tested for if they are still in equilibrium
-//so far, collusiong detection is just stopping object. sat is unwieldy for determining normal of collision,
-
-
-//beyond that, had an idea for a poltergeist object which is responsible for moving objectes around.
-//the main playable character would just be a poltergeist with a function that takes keyboard input
-
-//also, was thinking about stuff like parallax scrolling and z-levels. given some z-level and some horizon line, should be able to work out some geomety to get scale to shrink/grow obkect
-//untested solution,but pretty easy. write virt_positions relative to vanishing point, then scale down.
-
-//had a simple idea for an editor. would have a list of polygons, have left/rightarrow + some mod move along list
-//some key and prompt to create a new normal polycon
-//maybe some arrow + mod to stretch_deform the normal polygon.
-//some other things for rotation. 
-//prototypes 
 static int init(SDL_Renderer** ret);
 
 static void myClose();
@@ -53,23 +25,26 @@ static int loadMedia();
 
 void setBGColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
+
+
+
 //maybe
-void body_move(spatial_hash_map* map, body* body, virt_pos* t_disp, double r_disp) {
+void body_move(spatial_hash_map* map, body* body, virt_pos* td, double rd) {
   //potentially move fizzle_update/resolve collisions to another thing
   //under motivation of moving all objects, then dealing with colliisons
   collider* coll = body->coll;
   polygon* poly = coll->shape;
   fizzle* fizz = body->fizz;
-  int t_collide = 0, r_collider = 0;
-  vector_2 loc = *zero_pos;
+  int t_collide = 0, r_collide = 0;
+  vector_2 loc = *zero_vec;
   if (td->x != 0 || td->y != 0) {
-    virt_pos_to_vector(d_disp, &loc);
+    virt_pos_to_vector_2(td, &loc);
     add_velocity(fizz, &loc);
     fizzle_update(fizz);
-    update_pos_with_curr_vel(&td, fizz);
-    t_collide = safe_move(map, coll, &td);
+    update_pos_with_curr_vel(td, fizz);
+    t_collide = safe_move(map, coll, td);
   }
-  if (r_disp != 0) {
+  if (rd != 0) {
     r_collide = safe_rotate(map, coll, rd);
   }
   if (t_collide != 0 || r_collide != 0) {
@@ -78,74 +53,64 @@ void body_move(spatial_hash_map* map, body* body, virt_pos* t_disp, double r_dis
   
 }
 
+void update_bodies(spatial_hash_map* map, gen_list* l) {
+  gen_node* curr = l->start;
+  collider* coll;
+  body* aBody;
+  fizzle* fizz;
+  virt_pos trans_disp;
+  double rot_disp;
+  vector_2 loc;
+  //curr = NULL;
+  
+  while (curr != NULL) {
+    //populate body
+
+ 
+    aBody = (body*)curr->stored;
+    fizz = aBody->fizz;
+    coll = aBody->coll;
+    
+    trans_disp = *zero_pos;
+    rot_disp = 0;
+    apply_poltergeist(aBody->polt, map, aBody, &trans_disp, &rot_disp);
+    virt_pos_to_vector_2(&trans_disp, &loc);
+    //I messed this up
+    add_velocity(fizz, &loc);
+    fizzle_update(fizz);
+    update_pos_with_curr_vel(&trans_disp, fizz);
+    //fprintf(stderr, "tranDisp is %d, %d\n", trans_disp.x, trans_disp.y);
+    aBody->status = 0;
+    if (update(map, coll, &trans_disp, rot_disp)) {
+      aBody->status = 1;
+    }
+    
+    curr = curr->next;
+  }
+  curr = l->start;
+  //curr = NULL;
+  while(curr != NULL) {
+    aBody = (body*)curr->stored;
+    coll = aBody->coll;
+    //fprintf(stderr, "just checking!\n");
+    if (aBody->status != 0) {
+      //fprintf(stderr, "actually checking for collisions !\n");
+      if (anyCollisions(map, coll)) {
+	//fprintf(stderr, "oh no theres a collisionsasdfasf!\n");
+	resolve_collisions(map, aBody);
+	//fizz->velocity = *zero_vec;
+      }
+      aBody->status = 0;
+    }
+  curr = curr->next;
+  }
+}
+
 //Globals
 static SDL_Window* gWin = NULL;
 
 static int FPS_CAP = 60;
 
-//static int updateWait = 15;
-
-
-int get_input_for_polygon(polygon* poly, virt_pos* trans_disp, double* rot_disp) {
-  int quit = 0;
-  SDL_Event e;
-  int mov_delta = 1;
-  double rot_delta = .3;
-  double scale_delta = 1;
-  //virt_pos trans_disp = (virt_pos){.x = 0, .y = 0};
-  //double rot_disp = 0;
-  while (SDL_PollEvent(&e) != 0 ) {
-    if (e.type == SDL_QUIT) {
-      quit = 1;
-    }
-    else if (e.type == SDL_KEYDOWN) {
-      if (!(SDL_GetModState() & KMOD_CTRL)) {
-	switch(e.key.keysym.sym) {
-	case SDLK_UP:
-	  trans_disp->y -= mov_delta;
-	  break;
-	case SDLK_DOWN:
-	  trans_disp->y += mov_delta;
-	  break;
-	case SDLK_RIGHT:
-	  trans_disp->x += mov_delta;
-	  break;
-	case SDLK_LEFT:
-	  trans_disp->x -= mov_delta;
-	  break;
-	default:
-
-	  break;
-	    
-	}
-      }
-      else {
-	switch(e.key.keysym.sym) {
-	  //scaling is bad thing to do with the shm being a thing
-	  //will probably crash when increasing size too much and generating entries for things
-	case SDLK_UP:
-	  poly->scale += scale_delta;
-	  break;
-	case SDLK_DOWN:
-	  poly->scale -= scale_delta;
-	  break;
-	case SDLK_RIGHT:
-	  *rot_disp += rot_delta;
-	  break;
-
-	case SDLK_LEFT:
-	  *rot_disp -= rot_delta;
-	  break;
-	default:
-
-	  break;
-	}
-      }
-    }
-  }
-  set_quit(quit);
-  return quit;
-}
 
 void print_out_extreme_diffs(polygon* poly) {
   double min, max;
@@ -161,27 +126,37 @@ void print_out_extreme_diffs(polygon* poly) {
   printf("\n");
 }
 
+body* make_user_body(spatial_hash_map* map) {
+  polygon* mainPoly = createNormalPolygon(4);
+  collider* coll;
+  fizzle* fizz;
+  body* body;
+  poltergeist* polt;
+  mainPoly->center.x = SCREEN_WIDTH / 4;
+  mainPoly->center.y = SCREEN_HEIGHT / 2;
+  mainPoly->scale = 4;
+  coll = make_collider_from_polygon(mainPoly);
+  insert_collider_in_shm(map, coll);
+  fizz = createFizzle();
+  init_fizzle(fizz);
+  body = createBody(fizz, coll);
+  polt = make_poltergeist();
+  give_user_poltergeist(polt);
+  body->polt = polt;
+  return body;
+}
+
+
 int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
+  //fprintf(stderr, "executing main test\n");
   int quit = 0;
   gen_node* curr;
   body* temp;
-  static polygon* controlll = NULL;
   static collider* coll = NULL;
   static body* body = NULL;
 
-  if (controlll == NULL) {
-    controlll = createPolygon(4);
-    controlll->center.x = SCREEN_WIDTH / 4;
-    controlll->center.y = SCREEN_HEIGHT / 2;
-    make_normal_polygon(controlll);
-    generate_normals_for_polygon(controlll);
-    controlll->scale = 4;
-    //stretch_deform_vert(controlll, 2);
-    coll = make_collider_from_polygon(controlll);
-    insert_collider_in_shm(map, coll);
-    fizzle* fizz = createFizzle();
-    init_fizzle(fizz);
-    body = createBody(fizz, coll);
+  if (body == NULL) {
+    body = make_user_body(map);
     prependToGen_list(list, createGen_node(body));
   }
   SDL_SetRenderDrawColor(cam->rend,0xff,0xff,0xff,0xff);
@@ -193,34 +168,16 @@ int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
   virt_pos td = (virt_pos){.x = 0, .y = 0};
   double rd = 0;
   int safe;
-  get_input_for_polygon(controlll, &td, &rd);
   quit = get_quit();
-  if (td.x != 0 || td.y != 0) {
-    //add input to body
-    vector_2 loc;
-    fizzle* fizz = body->fizz;
-    virt_pos_to_vector_2(&td, &loc);
-    //add_acceleration(fizz, &loc);
-    add_velocity(fizz, &loc);
-    fizzle_update(fizz);
-    //fprintf(stderr, "Velocity is %f\n", vector_2_magnitude(&(fizz->velocity)));
-    update_pos_with_curr_vel(&td, fizz);
-    safe = safe_move(map, coll, &td);
-    if (safe == 0) {
-      resolve_collisions(map, body);
-      //fizz->velocity = *zero_vec;
-    }
-      }
-  if (rd != 0) {
-    safe_rotate(map, coll, rd);
-  }
+  update_bodies( map, list);
+
   //collider_list_node* refs = coll->collider_node;
   //update hash map for coll
   //remove_collider_from_shm_entries(map, refs, refs->active_cells);
 
   //entries_for_collider(map, coll, refs->active_cells);
   //add_collider_to_shm_entries(map, refs, refs->active_cells);
-  draw_bbox(cam, coll);
+
   //draw_hash_map(cam, map);
   SDL_SetRenderDrawColor(cam->rend,0,0,0,0xff);
   curr = list->start;
@@ -329,6 +286,7 @@ int main(int argc, char** args) {
       insert_collider_in_shm(map, bos);
       prependToGen_list(collbbtd, createGen_node(bos));
       while (!quit) {
+
 	time_update();
 	main_test(&mainCam, ttd, map);
        	gen_node* curr = collbbtd->start;
@@ -338,9 +296,11 @@ int main(int argc, char** args) {
 	}
 	set_dT(time_between_updates());
 	update_wait = ms_per_frame - get_dT();
+	//printf("%d\n", update_wait);
 	if (update_wait > 0) {
 	  SDL_Delay(update_wait);
 	}
+	//draw_hash_map(&mainCam, map); 
 	SDL_RenderPresent(mainCam.rend);
 	quit = get_quit();
       }

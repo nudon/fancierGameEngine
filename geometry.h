@@ -37,6 +37,8 @@ extern virt_pos* zero_pos;
 
 polygon* createPolygon(int sides);
 
+polygon* createNormalPolygon(int sides);
+
 void generate_normals_for_polygon(polygon* poly);
 
 void make_normal_polygon(polygon* poly);
@@ -56,6 +58,8 @@ void get_actual_normal(polygon* poly, int i, vector_2* result);
 
 int do_polygons_intersect(polygon* p1, polygon* p2);
 
+int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv);
+
 void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2* line, double* min_result, double* max_result);
 
 void decompose_vector(vector_2* vec, vector_2* line, vector_2* p, vector_2* o);
@@ -69,6 +73,8 @@ double distance_from_origin(virt_pos* point);
 double distance_between_points(virt_pos* p1, virt_pos* p2);
 
 int is_a_unit_vector(vector_2* vec);
+
+int isZeroPos(virt_pos* pos);
 
 int isZeroVec(vector_2* vec);
 

@@ -41,7 +41,7 @@
 double timeInMS() {
   struct timespec curr;
   clock_gettime(CLOCK_REALTIME, &curr);
-  return curr.tv_sec * 1000.0 + curr.tv_nsec/1000000.0;
+  return curr.tv_sec * 1000.0 + curr.tv_nsec/1000000;
 }
 
 double timespec_difference(struct timespec* t1, struct timespec* t2) {

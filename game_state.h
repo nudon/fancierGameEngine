@@ -4,6 +4,6 @@
 
 void set_quit(int new);
 
-void get_quit();
+int get_quit();
 
 #endif

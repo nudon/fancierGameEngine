@@ -8,7 +8,7 @@ SDL_CONFIG  = `sdl2-config --cflags --libs` -lSDL2_image -lSDL2_ttf
 LINKFLAGS = -lm $(SDL_CONFIG)
 ENDFLAGS = $(LINKFLAGS)
 OUTPUT = test
-OBJECTS = geometry.o collider.o myVector.o myList.o myMatrix.o text_driver.o graphics.o physics.o body.o
+OBJECTS = geometry.o collider.o myVector.o myList.o myMatrix.o text_driver.o graphics.o physics.o body.o game_state.o poltergeist.o input.o
 
 all: 	$(OBJECTS)
 	$(CC) $(ENDFLAGS) -o  $(OUTPUT) -g $(OBJECTS)

@@ -11,7 +11,7 @@ vector* newVector() {
 }
 
 vector* newVectorOfSize(int size) {
-  vector* new = malloc(sizeof(new));
+  vector* new = malloc(sizeof(vector));
   new->elements = malloc(sizeof(void*) * size);
   new->max_size = size;
   new->cur_size = 0;
@@ -179,10 +179,14 @@ static int shiftRight(vector* vec, int start, int amount) {
 }
 
 void grow_vector(vector* vec) {
-  int new_max_size = vec->max_size * 2;
+  int old_max_size = vec->max_size;
+  int new_max_size = old_max_size * 2;
   void** temp = malloc(sizeof(void*) * new_max_size);
-  for (int i = 0; i < vec->max_size; i++) {
-    temp[i] = vec->elements[i];
+  for (int i = 0; i < new_max_size; i++) {
+    temp[i] = NULL;
+    if (i < old_max_size) {
+      temp[i] = vec->elements[i];
+    }
   }
   free(vec->elements);
   vec->elements = temp;

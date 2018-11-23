@@ -81,6 +81,11 @@ struct {
   gen_matrix* hash_map;
 } spatial_hash_map;
 
+int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot);
+
+int anyCollisions(spatial_hash_map* map, collider* coll);
+  
+
 int safe_move(spatial_hash_map* map, collider* coll, virt_pos* displace);
 
 int safe_rotate(spatial_hash_map* map, collider* coll, double displace);

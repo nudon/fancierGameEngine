@@ -1,34 +1,12 @@
 
 #include "body.h"
-//basic idea would be to calculate rebounding velocities based on conversation of momentum
-//for simplicity, start with redirecting velocity by flipping it across the normal force and negating components
-//would just take velocity, project onto normal, sutract result from original, get orthog component
-//take parrellel component, negate it, than add orthog back, should be rebound velocity
-//issue was grabbing normals. would just do a standard-dpi funciton call/copy
-//though this time, grab information about which side/normal resulted in a collision. potentiall have to iterate over all points to grab all colliding normals, and just take an average normal or something
 
-//will actually have modify some previous code to get colliding polgons and their colliding points
-//will probably be a similar manner to other things, calling a function to find number of collisions, creating structur onto stack,then repeating traversal to fill structure
-//could also malloc though, if it saves time, but I don't think it does
 
-//so need traversals for finding colliding polygons
-
-//and also traversals for finding colliding points
-
-//variants for both for counting collisions and inserting results into some structure
-
-//okay I'm listening to the mogs and about to drink
-//lets do this shit
-//also before I forget probably need to somehow manage problem of two onjects moving toward eachother, colliding, and how to solve collisions without repeating things, because naively I'll resolve the same collision twice
-//kind of a hard topic, since you'd need to keep track of which object-pairs have resolved collisions
-//actually thinking of doing it that way, just maintaining some pair-data structure of resolved collisions, do a search when resolving a new pair
-//probably some unsorted array or linked list
-//since I'm lazy, 
 void resolve_collisions(spatial_hash_map* map, body* main_body) {
-  //somehow need to connect fizzles with colliders
+
   fizzle* main_fizz = main_body->fizz;;
   collider* main_coll = main_body->coll;
-  vector* occupied = main_coll->collider_node->active_cells; //may be old_cells, tbd
+  vector* occupied = main_coll->collider_node->active_cells;
   int size = number_of_unique_colliders_in_entries(map, occupied);
   body* curr;
   collider* collisions[size];
@@ -43,11 +21,25 @@ void resolve_collisions(spatial_hash_map* map, body* main_body) {
 
 void resolve_collision(body* body1, body* body2) {
   //goal, add some forces to either body to simulate a collision
-  //sets a new velocity vector, also need to figure out where to reset some force components to zero
-  //yeah, force not being modified is odd. I guess if my dampening function works it will eventually zero-out, put kind of wasteful
-  //
-  //also, might be interesting to add some sort of snap to side feature
-  //right now because of the high acceleration, when object is stopped, stops far away from object
+
+    //cases this needs to cover
+  //case of a large object hitting a small one, should cause the small one to move with it, with little change in own direction
+  //opposite case, small object should rebound off of large object somehonew
+  //need to find some general principle that determines how a vector can rebound like that
+ 
+  //in my elucidite wisdom my notes on impulse are a 6th of a page,
+  //given two object, depening on things(mass or momentum?), can determine resulting directions of motion
+  //for object, colliding with another object on its  side with normal vector, decompose vector into parallell and orthogonal components
+  //beleive orhogonal component stays the same, parallell component is variable though.
+  //thnk it gets scaled by (mass1 - mass2), or some such. if mass1 >>>> mass2, things hardly change. if equal, cancles motion for obj 1, if mass1 <<<< mass2, object1 rebounds reflecting off of normal
+
+  //messed up a bit
+  //if mass of objects are equal
+  //then both objects should move with same velocity in end. depending on how many objects are moving
+  //final velocity may be zero or anything else really.
+  //also think I need to displace objects by mtv along with changing velocities
+ 
+
   
   polygon* p1 = body1->coll->shape;
   polygon* p2 = body2->coll->shape;
@@ -55,48 +47,41 @@ void resolve_collision(body* body1, body* body2) {
   //these simulate elasticity conditions
   //1 for fully elastic
   //0 for dead-stop
-  double f1scale = 0;
-  double f2scale = 0;
+  double f1scale = 1.1;
+  double f2scale = 1.1;
   get_normal_of_collision(body1, body2, &normal_of_collision);
-
-  //cases this needs to cover
-  //case of a large object hitting a small one, should cause the small one to move with it, with little change in own direction
-  //opposite case, small object should rebound off of large object somehonew
-  //need to find some general principle that determines how a vector can rebound like that
- 
-  //in my elucidite wisdom my notes on impulse are a 6th of a page,
-  //think I figured shit out thoug
-  //given two object, depening on things(mass or momentum?), can determine resulting directions of motion
-  //for object, colliding with another object on its  side with normal vector, decompose vector into parallell and orthogonal components
-  //beleive orhogonal component stays the same, parallell component is variable though.
-  //thnk it gets scaled by (mass1 - mass2), or some such. if mass1 >>>> mass2, things hardly change. if equal, cancles motion for obj 1, if mass1 <<<< mass2, object1 rebounds reflecting off of normal
-
-  vector_2 f1p, f1o, f2p, f2o, f1f, f2f;
-  fizzle* fizz1 = body1->fizz, *fizz2 = body2->fizz;
-  decompose_vector(&(fizz1->velocity), &normal_of_collision, &f1p, &f1o);
-  decompose_vector(&(fizz2->velocity), &normal_of_collision, &f2p, &f2o);
-  double diff = fizz1->mass - fizz2->mass;
-  vector_2_scale(&f1p, diff, &f1f);
-  vector_2_add(&f1f, &f1o, &f1f);
-  vector_2_scale(&f1f, f1scale, &f1f);
-  diff *= -1;
-  vector_2_scale(&f2p, diff, &f2f);
-  vector_2_add(&f2f, &f2o, &f2f);
-  vector_2_scale(&f2f, f2scale, &f2f);
-
-  fizz1->velocity = f1f;
-  fizz2->velocity = f2f;
-  //that should be it. somehow need to imporperate elascticitys things
-  //probably just some modifier to diff
-  //would be between 0 and 1, probably just take max of both fizz's elascticiy'
-  //since a bouncy ball hitting a wall is still mostly elasctic((?)?)
-  //all that should be left is maintaining the collision list and updating fizzles velocities
-  //for fizzle list, thinking of maintaining some standard so that larger/smaller pointer is first, though it hardlny matters
-  //otherwise collisions may be resolved multiple times 
+  int actual_collision = find_mtv_of_polygons(p1, p2, &normal_of_collision);
+  //potentially theres' no catual collision since everything has been coarse grain at this point
+  if (actual_collision != 0) {
+    fprintf(stderr, "theres an actual collision, do things\n");
+    vector_2 f1p, f1o, f2p, f2o, f1f, f2f;
+    fizzle* fizz1 = body1->fizz, *fizz2 = body2->fizz;
+    decompose_vector(&(fizz1->velocity), &normal_of_collision, &f1p, &f1o);
+    decompose_vector(&(fizz2->velocity), &normal_of_collision, &f2p, &f2o);
+    //originally
+    //double diff = fizz1->mass - fizz2->mass
+    double diff = fizz1->mass / (fizz2->mass + fizz1->mass);
+    vector_2_scale(&f1p, diff, &f1f);
+    vector_2_add(&f1f, &f1o, &f1f);
+    vector_2_scale(&f1f, f1scale, &f1f);
+    diff *= diff = -1 * fizz2->mass / (fizz2->mass + fizz1->mass);
+    vector_2_scale(&f2p, diff, &f2f);
+    vector_2_add(&f2f, &f2o, &f2f);
+    vector_2_scale(&f2f, f2scale, &f2f);
+    fprintf(stderr, "f1 final velocity:");
+    print_vector(&f1f);
+    fprintf(stderr, "f2 final velocity:");
+    print_vector(&f2f);
+    fizz1->velocity = f1f;
+    fizz2->velocity = f2f;
+  }
 }
 
 void get_normal_of_collision(body* body1, body* body2, vector_2* result) {
-  //just doing the vagually correct thing
+  //actually hard to obtain normal of collision using Seperation along axis
+  //because projecting onto normal of some side may min/maxes of shapes to overlap
+  //even though they may not intersect along that side.
+  //just returning differences between normals for now
   virt_pos diff;
   virt_pos_sub(&(body1->coll->shape->center), &(body2->coll->shape->center), &diff);
   virt_pos_to_vector_2(&diff, result);
@@ -156,21 +141,13 @@ void get_normal_of_collision(body* body1, body* body2, vector_2* result) {
 }
 
 
-
-
-/*
-typedef struct {
-  fizzle* fizz;
-  collider* coll;
-} body;
-*/
-
-
 body* createBody(fizzle* fizz, struct collider_struct* coll) {
   body* new = malloc(sizeof(body));
   new->fizz = fizz;
   new->coll = coll;
+  new->polt = NULL;
   coll->body = new;
+  
   return new;
 }
 
@@ -179,8 +156,3 @@ void freeBody(body* rm) {
   freeCollider(rm->coll);
   free(rm);
 }
-
-//also, kind of annoying, but I'll probably need to add a body pointer to the collider/list node somewhere
-//because otherwise fuck dogs are barking
-//otherwise when I'm going over collisions I have no way of knowing about other objects physical properties
-//yeah, will add it to collider structure, can initialize it to null in createCollider, then fill it when creatingBody

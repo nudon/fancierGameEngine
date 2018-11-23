@@ -34,21 +34,26 @@ polygon* createPolygon(int sides) {
   return new;
 }
 
+polygon* createNormalPolygon(int sides) {
+  polygon* poly = createPolygon(sides);
+  make_normal_polygon(poly);
+  generate_normals_for_polygon(poly);
+  return poly;
+}
+
 void generate_normals_for_polygon(polygon* poly) {
   //this needs a bit more work
   //just blindly rotating by 90 degrees could point normals inwards
-  //have to do some testing by taking some point on line(midpoint), displacing by normal
-  //then projecting center of poly and displaced point onto normal
-  //then also project midpoint onto normal
-  //if disp > midp > cent || cent > midp > disp, then normal is good
-  //else rotate normal 90 degrees
-  //shouldn't matter in terms of collision detection,
-  //but collision resolution might be messed up by it
+  //have to make normal point away from center
+  //can do this by comparing point on side, point displaced by normal vector, and center of polygon
   int sides = poly->sides;
   virt_pos p1, p2, cent, midp, disp;
   double  cent_l, midp_l, disp_l;
   vector_2 temp;
   cent = poly->center;
+  //corner points are stored relative to center
+  //just making center zero should work
+  cent = *zero_pos;
   for (int i = 0; i < sides; i++) {
     p1 = poly->corners[i];
     p2 = poly->corners[(i + 1) % sides];
@@ -145,8 +150,7 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
   vector_2_rotate(result, poly->rotation, result);
 }
 
-//was also thinking of doing some form of brush and sweep if the number of polygons potentially colliding in a cell is greater than 2
-//otherwise, need to do 
+
  int do_polygons_intersect(polygon* p1, polygon* p2) {
    //returns 1 if true, zero if false
   //was going to consider doing this so that the origin is the center of p1.
@@ -157,10 +161,59 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
   
   //need to do all below for potentially every normal of both polygons
   double offset_x, offset_y;
-  double p1_min, p1_max, p2_min, p2_max, max, min;
+  double p1_min, p1_max, p2_min, p2_max;
   virt_pos relative_point;
   vector_2 normal_vector;
   int isDone = 0, ret = 1, index = 0, polygon = 1;;
+  fprintf(stderr, "in dpi\n");
+  while(!isDone) {
+    if (polygon == 1) {
+      if (index < p1->sides) {
+	get_actual_normal(p1, index, &normal_vector);
+	index++;
+      }
+      else {
+	polygon = 2;
+	index = 0;
+      }
+    }
+    if (polygon == 2) {
+      if (index < p2->sides) {
+	get_actual_normal(p2, index, &normal_vector);
+	index++;
+	if (index >= p2->sides) {
+	  isDone = 1;
+	}
+      }
+    }
+    //if still worried about double range doing odd things
+    //could pass in difference between p1 and p2 centers, should workn
+    
+    extreme_projections_of_polygon(p1, &p1->center, &normal_vector, &p1_min, &p1_max);
+    extreme_projections_of_polygon(p2, &p1->center, &normal_vector, &p2_min, &p2_max);
+     if ( p1_max < p2_min || p2_max < p1_min) {
+      isDone = 1;
+      ret = 0;
+    }
+    
+  }
+  return ret;  
+}
+
+int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
+  //returns 1 if true, zero if false
+  //basically same thing as do_polygons_intersect
+  //though this will find all intersecting sides and supply an mtv
+
+  double offset_x, offset_y;
+  double p1_min, p1_max, p2_min, p2_max, max, min;
+  virt_pos relative_point;
+  vector_2 normal_vector;
+  int isDone = 0, ret = 0, index = 0, polygon = 1;
+  vector_2 mtv_loc = *zero_vec;
+  double mtv_mag = -12;
+  double temp_mag;
+  fprintf(stderr, "in mtv\n");
   while(!isDone) {
     if (polygon == 1) {
       if (index < p1->sides) {
@@ -185,12 +238,19 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
     //could pass in difference between p1 and p2 centers, should workn
     extreme_projections_of_polygon(p1, &p1->center, &normal_vector, &p1_min, &p1_max);
     extreme_projections_of_polygon(p2, &p1->center, &normal_vector, &p2_min, &p2_max);
-     if ( p1_max < p2_min || p2_max < p1_min) {
-      isDone = 1;
-      ret = 0;
+    //fprintf(stderr, "normal is %d, %d\n", normal_vector.v1, normal_vector.v2);
+     if ( p1_max > p2_min && p2_max > p1_min) {
+       temp_mag = fabs((fmin(p1_max, p2_max)) - (fmax(p1_min, p2_min)));
+       if (temp_mag < mtv_mag || mtv_mag < 0) {
+	 mtv_mag = temp_mag;
+	 mtv_loc = normal_vector;
+       }
+       //isDone = 1;
+       ret = 1;
     }
     
   }
+  *mtv = mtv_loc;
   return ret;  
 }
 
@@ -302,6 +362,10 @@ void  project_point_onto_line(virt_pos* point, vector_2* line, virt_pos* result)
   make_unit_vector(line, &unit);
   result->x = unit.v1 * projectedLength;
   result->y = unit.v2 * projectedLength;
+}
+
+int isZeroPos(virt_pos* pos) {
+  return (pos->x == 0 && pos->y ==0);
 }
 
 int isZeroVec(vector_2* vec) {
@@ -465,4 +529,8 @@ void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result) {
   //p1 is start, p2 is end
   result->v1 = p2->x - p1->x;
   result->v2 = p2->y - p1->y;
+}
+
+void print_vector(vector_2* vec) {
+  fprintf(stderr, "vector is %f, %f\n", vec->v1, vec->v2);
 }

@@ -41,4 +41,6 @@ void draw_line(camera* cam, pixel_pos* start, pixel_pos* end);
 void draw_polygon_outline(camera* cam, polygon* poly);
 
 void draw_bbox(camera* cam, collider* coll);
+
+void draw_virt_pos(camera* cam, virt_pos* virt);
 #endif

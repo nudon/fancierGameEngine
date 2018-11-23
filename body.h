@@ -3,10 +3,13 @@
 
 #include "collider.h"
 #include "physics.h"
+#include "poltergeist.h"
 
 typedef struct body_struct {
   fizzle* fizz;
   struct collider_struct* coll;
+  struct poltergeist_struct* polt;
+  int status;
 } body;
 
 body* createBody(fizzle* fizz, struct collider_struct* coll);
