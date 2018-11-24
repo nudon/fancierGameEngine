@@ -20,7 +20,34 @@ camera* getCam(){
   return gamgam;
 }
 
+//generally don't think these should be static
+//because if I want to change these while program is running, would be ?
+static int SCREEN_WIDTH = 720;
+static int SCREEN_HEIGHT = 480;
+//defined as the resolution in which virt_pos and pix_pos are identical
+static int ORIG_SCREEN_WIDTH = 720;
+static int ORIG_SCREEN_HEIGHT = 480;
+
+//so fun thing
+//if I want to support non whatever ^^^ resolution ratio is
+//need a virt_to_pixel scale for both axis
 double virt_to_pixel_scale = 1;
+
+//update these on screen resolution change
+double x_virt_to_pixel_scale = 1;
+double y_virt_to_pixel_scale = 1;
+//double x_virt_to_pixel_scale = SCREEN_WIDTH / ORIG_SCREEN_WIDTH;
+//double y_virt_to_pixel_scale = SCREEN_HEIGHT / ORIG_SCREEN_HEIGHT;
+
+int getScreenWidth() {
+  return SCREEN_WIDTH;
+}
+
+int getScreenHeight(){
+  return SCREEN_HEIGHT;
+}
+
+
 
 void virt_to_pixel(virt_pos* virt, pixel_pos* result) {
   result->x = virt->x * virt_to_pixel_scale;
@@ -41,7 +68,6 @@ void draw_hash_map(camera* cam, spatial_hash_map* map) {
   rect.h = map->cell_dim.height;
   int map_height = rows * map->cell_dim.height;
   int map_width = cols * map->cell_dim.width;
-  virt_pos map_dim = (virt_pos){.x = map_width, .y = map_height};
   virt_pos vs, vf;
   pixel_pos ps, pf;
   //draw grid outline of cell
@@ -92,7 +118,7 @@ void draw_hash_map(camera* cam, spatial_hash_map* map) {
 void drawWallIndication(camera* cam, SDL_Rect* rect) {
   //assumes dest is in virt_pos coordinates
   SDL_SetRenderDrawColor(cam->rend, 255, 0, 0, 0);
-  int pOff, xOff, yOff;
+  int xOff, yOff;
   int numLines = 3;
   virt_pos vs, vf;
   pixel_pos  ps, pf;

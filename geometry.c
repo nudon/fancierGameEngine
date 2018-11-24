@@ -160,12 +160,9 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
   //intending for normals to just point in same direction as surface, no need to change that with new origin
   
   //need to do all below for potentially every normal of both polygons
-  double offset_x, offset_y;
   double p1_min, p1_max, p2_min, p2_max;
-  virt_pos relative_point;
   vector_2 normal_vector;
   int isDone = 0, ret = 1, index = 0, polygon = 1;;
-  fprintf(stderr, "in dpi\n");
   while(!isDone) {
     if (polygon == 1) {
       if (index < p1->sides) {
@@ -205,15 +202,12 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
   //basically same thing as do_polygons_intersect
   //though this will find all intersecting sides and supply an mtv
 
-  double offset_x, offset_y;
-  double p1_min, p1_max, p2_min, p2_max, max, min;
-  virt_pos relative_point;
+  double p1_min, p1_max, p2_min, p2_max;
   vector_2 normal_vector;
   int isDone = 0, ret = 0, index = 0, polygon = 1;
   vector_2 mtv_loc = *zero_vec;
   double mtv_mag = -12;
   double temp_mag;
-  fprintf(stderr, "in mtv\n");
   while(!isDone) {
     if (polygon == 1) {
       if (index < p1->sides) {
@@ -257,7 +251,7 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
 //including an optional neworigin as a vague stress releif options
 //having fears that floating point arithmatic getting imprecice at higher values could mess up things
 void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2* line, double* min_result, double* max_result) {
-  double min, max, temp, rotation;
+  double min, max, temp;
   virt_pos relative_point, origin, offset;
   if (new_origin == NULL) {
     origin.x = 0;
@@ -384,7 +378,7 @@ int isCloseEnoughToZeroVec(vector_2* vec) {
 
 double get_projected_length(virt_pos* point, vector_2* line) {
   //float delta = atan2(line->v2, line->v1) - atan2(point->y, point->x);
-  double projectedLength = 0, temp;
+  double projectedLength = 0;
   
   if (!isZeroVec(line)) {
     float delta = atan2(point->y, point->x) - atan2(line->v2, line->v1);
@@ -427,9 +421,7 @@ double distance_between_points(virt_pos* p1, virt_pos* p2) {
    return ret;
  }
 
-void make_unit_vector(vector_2* op, vector_2* result) {
-  double error = .001;
-  
+void make_unit_vector(vector_2* op, vector_2* result) {  
   double mag;
   if ( !is_a_unit_vector(op)) {
     mag = vector_2_magnitude(op);

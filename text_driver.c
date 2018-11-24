@@ -33,7 +33,6 @@ void body_move(spatial_hash_map* map, body* body, virt_pos* td, double rd) {
   //potentially move fizzle_update/resolve collisions to another thing
   //under motivation of moving all objects, then dealing with colliisons
   collider* coll = body->coll;
-  polygon* poly = coll->shape;
   fizzle* fizz = body->fizz;
   int t_collide = 0, r_collide = 0;
   vector_2 loc = *zero_vec;
@@ -80,7 +79,7 @@ void update_bodies(spatial_hash_map* map, gen_list* l) {
     fizzle_update(fizz);
     update_pos_with_curr_vel(&trans_disp, fizz);
     //fprintf(stderr, "tranDisp is %d, %d\n", trans_disp.x, trans_disp.y);
-    aBody->status = 0;
+    //aBody->status = 0;
     if (update(map, coll, &trans_disp, rot_disp)) {
       aBody->status = 1;
     }
@@ -94,13 +93,13 @@ void update_bodies(spatial_hash_map* map, gen_list* l) {
     coll = aBody->coll;
     //fprintf(stderr, "just checking!\n");
     if (aBody->status != 0) {
+      aBody->status = 0;
       //fprintf(stderr, "actually checking for collisions !\n");
       if (anyCollisions(map, coll)) {
 	//fprintf(stderr, "oh no theres a collisionsasdfasf!\n");
 	resolve_collisions(map, aBody);
 	//fizz->velocity = *zero_vec;
       }
-      aBody->status = 0;
     }
   curr = curr->next;
   }
@@ -132,8 +131,8 @@ body* make_user_body(spatial_hash_map* map) {
   fizzle* fizz;
   body* body;
   poltergeist* polt;
-  mainPoly->center.x = SCREEN_WIDTH / 4;
-  mainPoly->center.y = SCREEN_HEIGHT / 2;
+  mainPoly->center.x = getScreenWidth() / 4;
+  mainPoly->center.y = getScreenHeight() / 2;
   mainPoly->scale = 4;
   coll = make_collider_from_polygon(mainPoly);
   insert_collider_in_shm(map, coll);
@@ -152,7 +151,6 @@ int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
   int quit = 0;
   gen_node* curr;
   body* temp;
-  static collider* coll = NULL;
   static body* body = NULL;
 
   if (body == NULL) {
@@ -165,9 +163,7 @@ int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
   //read input
   //move things
   //draw screen
-  virt_pos td = (virt_pos){.x = 0, .y = 0};
-  double rd = 0;
-  int safe;
+ 
   quit = get_quit();
   update_bodies( map, list);
 
@@ -208,21 +204,12 @@ int main(int argc, char** args) {
       mainCam.dest = NULL;
       mainCam.corner = &corner;
       setCam(&mainCam);
-      //do stuff
-      //INITIALIZE hash map
-      //create colliders for walls and moveable polygon
-      //insert
-
-      //fore walls, use the make squares function specifically
-      //then use the streatch deforem vertical and horz to make wall shape
-      //
 
       int cols = 20;
       int rows = 14;
-      //cols = 4;
-      //rows = 4;
-      int width = SCREEN_WIDTH / cols;
-      int height = SCREEN_HEIGHT / rows;
+
+      int width = getScreenWidth() / cols;
+      int height = getScreenHeight() / rows;
       spatial_hash_map* map = create_shm(width, height, cols, rows);
       gen_list* ttd = createGen_list();
       gen_list* collbbtd = createGen_list();
@@ -233,26 +220,26 @@ int main(int argc, char** args) {
 	walls[i] = createPolygon(4);
 	make_square(walls[i]);
 	if (i % 2 == 0) {
-	  stretch_deform_vert(walls[i], SCREEN_HEIGHT / 2);
-	  stretch_deform_horz(walls[i], SCREEN_WIDTH / 8);
-	  walls[i]->center.y = SCREEN_HEIGHT / 2;
+	  stretch_deform_vert(walls[i], getScreenHeight() / 2);
+	  stretch_deform_horz(walls[i], getScreenWidth() / 8);
+	  walls[i]->center.y = getScreenHeight() / 2;
 	  if (i == 2) {
 	    walls[i]->center.x = 0;
 	  }
 	  else {
-	    walls[i]->center.x = SCREEN_WIDTH;
+	    walls[i]->center.x = getScreenWidth();
 	  }
 	}
 	else {
 	  
-	  stretch_deform_horz(walls[i], SCREEN_WIDTH / 2);
-	  stretch_deform_vert(walls[i], SCREEN_HEIGHT / 8);
-	  walls[i]->center.x = SCREEN_WIDTH / 2;
+	  stretch_deform_horz(walls[i], getScreenWidth() / 2);
+	  stretch_deform_vert(walls[i], getScreenHeight() / 8);
+	  walls[i]->center.x = getScreenWidth() / 2;
 	  if (i == 3) {
 	    walls[i]->center.y = 0;
 	  }
 	  else {
-	    walls[i]->center.y = SCREEN_HEIGHT;
+	    walls[i]->center.y = getScreenHeight();
 	  }
 	  
 	}
@@ -273,8 +260,8 @@ int main(int argc, char** args) {
       polygon* triom = NULL;
       collider* bos = NULL;
       triom = createPolygon(3);
-      triom->center.x = SCREEN_WIDTH / 2;
-      triom->center.y = SCREEN_HEIGHT / 2;
+      triom->center.x = getScreenWidth() / 2;
+      triom->center.y = getScreenHeight() / 2;
       make_normal_polygon(triom);
       generate_normals_for_polygon(triom);
       triom->scale = 3;
@@ -325,8 +312,8 @@ int init(SDL_Renderer** ret_rend) {
     gWin = SDL_CreateWindow("SDL, Now with renderererers",
 			    SDL_WINDOWPOS_UNDEFINED,
 			    SDL_WINDOWPOS_UNDEFINED,
-			    SCREEN_WIDTH,
-			    SCREEN_HEIGHT,
+			    getScreenWidth(),
+			    getScreenHeight(),
 			    SDL_WINDOW_SHOWN);
     if (gWin != NULL) {
       *ret_rend = SDL_CreateRenderer(gWin, -1, SDL_RENDERER_ACCELERATED);

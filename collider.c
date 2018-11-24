@@ -55,8 +55,6 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
     change++;
   }
   if (change > 0) {
-    polygon* poly = coll->shape;
-    int size;;
     collider_list_node* cln = coll->collider_node;
     entries_for_collider(map, coll, cln->old_cells);
     remove_collider_from_shm_entries(map, cln, cln->active_cells);
@@ -273,7 +271,7 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   
   double orig_rot = poly->rotation;
   poly->rotation = 0;
-  double min, max, x_len, y_len, area;
+  double min, max, x_len, y_len;
   double rots[3];
   double areas[3];
   int rot_index;
@@ -624,7 +622,6 @@ int number_of_unique_colliders_in_entries(spatial_hash_map* map, vector* entries
   int count = 0;
   spatial_map_cell* cell;
   gen_node* curr ;
-  collider* coll;
   collider_list_node* cln;
   //wondering how to do this, since I need to remember which colliders I find
   //thinking of allocating a linked list onto stack, and doing it that way
@@ -671,7 +668,7 @@ int unique_colliders_in_entries(spatial_hash_map* map, vector* entries, collider
 collider_list_node* make_cln_from_collider(collider* coll) {
   collider_list_node* new = malloc(sizeof(collider_list_node));
   new->collider = coll;
-  int status = DEFAULT;
+  new->status = DEFAULT;
   return new;
 }
 

@@ -4,10 +4,9 @@
 #include "geometry.h"
 #include "collider.h"
 
-//generally don't think these should be static
-//because if I want to change these while program is running, would be ?
-static int SCREEN_WIDTH = 720;
-static int SCREEN_HEIGHT = 480;
+
+int getScreenWidth();
+int getScreenHeight();
 
 //renderer things
 typedef

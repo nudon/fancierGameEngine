@@ -111,5 +111,6 @@ void vector_2_to_virt_pos(vector_2* in, virt_pos* out);
 
 void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result);
 
+void print_vector(vector_2* vec);
 
 #endif
