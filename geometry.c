@@ -244,6 +244,8 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
     }
     
   }
+  make_unit_vector(&mtv_loc, &mtv_loc);
+  vector_2_scale(&mtv_loc, mtv_mag, &mtv_loc);
   *mtv = mtv_loc;
   return ret;  
 }
@@ -377,6 +379,10 @@ int isCloseEnoughToZeroVec(vector_2* vec) {
 }
 
 double get_projected_length(virt_pos* point, vector_2* line) {
+  return get_projected_length_pos(point, line);
+}
+
+double get_projected_length_pos(virt_pos* point, vector_2* line) {
   //float delta = atan2(line->v2, line->v1) - atan2(point->y, point->x);
   double projectedLength = 0;
   

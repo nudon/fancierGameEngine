@@ -41,150 +41,114 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
   
   polygon* p1 = body1->coll->shape;
   polygon* p2 = body2->coll->shape;
-  fizzle* fizz1 = body1->fizz, *fizz2 = body2->fizz;
-  double f1Mass = fizz1->mass;
-  double f2Mass = fizz2->mass;
   vector_2 normal_of_collision;
-  //these simulate elasticity conditions
-  //1 for fully elastic
-  //0 for dead-stop
-  double f1scale = 0;
-  double f2scale = 0;
-  get_normal_of_collision(body1, body2, &normal_of_collision);
+  vector_2 b1_norm = *zero_vec;
+  vector_2 b2_norm = *zero_vec;
+  
   int actual_collision = find_mtv_of_polygons(p1, p2, &normal_of_collision);
-  fprintf(stderr, "normal of collision");
-  print_vector(&normal_of_collision);
+  double mtv_mag = vector_2_magnitude(&normal_of_collision);
   //potentially theres' no actual collision since everything has been coarse grain at this point
   if (actual_collision != 0) {
     //in addition to setting velocities, also need to displace object outside of eachother
-    displace_bodies(map,body1, body2, &normal_of_collision);
-    vector_2 f1p, f1o, f2p, f2o, f1f, f2f;
-
-    decompose_vector(&(fizz1->velocity), &normal_of_collision, &f1p, &f1o);
-    decompose_vector(&(fizz2->velocity), &normal_of_collision, &f2p, &f2o);
-    //originally
-    //double diff = fizz1->mass - fizz2->mass
-    double diff = fizz1->mass / (fizz2->mass + fizz1->mass);
-    vector_2_scale(&f1p, diff, &f1f);
-    vector_2_add(&f1f, &f1o, &f1f);
-    vector_2_scale(&f1f, f1scale, &f1f);
-    diff = -1 * fizz2->mass / (fizz2->mass + fizz1->mass);
-    vector_2_scale(&f2p, diff, &f2f);
-    vector_2_add(&f2f, &f2o, &f2f);
-    vector_2_scale(&f2f, f2scale, &f2f);
-    //fprintf(stderr, "f1 final velocity:");
-    //print_vector(&f1f);
-    //fprintf(stderr, "f2 final velocity:");
-    //print_vector(&f2f);
-    fizz1->velocity = f1f;
-    fizz2->velocity = f2f;
+    get_normals_of_collision(body1, body2, &normal_of_collision, &b1_norm, &b2_norm);
+    displace_bodies(map,body1, body2, mtv_mag, &b1_norm, &b2_norm);
+    impact_bodies(body1, body2, &b1_norm, &b2_norm);
+    /*
+    fprintf(stderr, "\n COLLISION \n");
+    fprintf(stderr, "body 1 normal: ");
+    print_vector(&b1_norm);
+    fprintf(stderr, ", body 2 normal: ");
+    print_vector(&b2_norm);
+    fprintf(stderr, "\nbody 1 impact: ");
+    print_vector(&(body1->fizz->impact));
+    fprintf(stderr, ", body 2 impact: ");
+    print_vector(&(body2->fizz->impact));
+    */
   }
 }
 
-void displace_bodies(spatial_hash_map* map, body* b1, body* b2, vector_2* norm) {
+void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, vector_2* b1tv_unit, vector_2* b2tv_unit) {
+
+  vector_2 b1tv = *b1tv_unit;
+  vector_2 b2tv = *b2tv_unit;
+  
+  virt_pos b1d = *zero_pos;
+  virt_pos b2d = *zero_pos;
+  //potentially weight these based off of mass like in impact bodies
+  double b1Scale = 1;
+  double b2Scale = 1;
+  double b1Mass = getMass(b1);
+  double b2Mass = getMass(b2);
+  b1Scale = b2Mass / (b2Mass + b1Mass);
+  b2Scale = b1Mass / (b2Mass + b1Mass);
+
+  b1Scale *= mtv_mag;
+  b2Scale *= mtv_mag;
+  vector_2_scale(&b1tv, b1Scale, &b1tv);
+  vector_2_scale(&b2tv, b2Scale, &b2tv);  
+
+  
+  vector_2_to_virt_pos(&b1tv, &b1d);
+  vector_2_to_virt_pos(&b2tv, &b2d);
+  //just increasing displacement distance so integer truncation doesn't result in bodies actually colliding
+  b1d.x += (b1d.x > 0) ? 1: -1;
+  b1d.y += (b1d.y > 0) ? 1: -1;
+    
+  b2d.x += (b2d.x > 0) ? 1: -1;
+  b2d.y += (b2d.y > 0) ? 1: -1;
+  
+  update(map, b1->coll, &b1d, 0);
+  update(map, b2->coll, &b2d, 0);
+}
+
+void impact_bodies(body* body1, body* body2, vector_2* b1tv_norm, vector_2* b2tv_norm) {
+  //here we go!
+  impact(body1, body2, b1tv_norm);
+}
+
+
+
+void get_collision_normals(body* b1, body* b2, vector_2* norm, vector_2* b1Disp, vector_2* b2Disp) {
   polygon* p1 = b1->coll->shape;
   polygon* p2 = b2->coll->shape;
-  double f1Mass = b1->fizz->mass;
-  double f2Mass = b2->fizz->mass;
   double p1Cent = get_projected_length(&(p1->center),norm);
   double p2Cent = get_projected_length(&(p2->center),norm);
-  double p1Scale = f2Mass / (f1Mass + f2Mass);
-  double p2Scale = f1Mass / (f1Mass + f2Mass);
-
-  vector_2 p1tv = *norm;
-  vector_2 p2tv = *norm;
-  virt_pos p1d = *zero_pos;
-  virt_pos p2d = *zero_pos;
-  vector_2_scale(&p1tv, p1Scale, &p1tv);
-  vector_2_scale(&p2tv, p2Scale, &p2tv);  
+  
+  vector_2 p1tv;
+  make_unit_vector(norm, &p1tv);
+  vector_2 p2tv = p1tv;
+  
   if (p1Cent < p2Cent) {
     //going from p1 to p2 requires a positive scalar of norm
-    //so displace by the negative
+    //so p1 should move in negative dir along norm
     vector_2_scale(&p1tv, -1, &p1tv);
   }
   else {
-    //reverse case of above, p1 to p2 requires a negative scalar of norm
-    //so displace by a positive amount
-    //no change needed
+    //reverse case of above, p2 to p1 requires a positive scalar of norm
+    //so displace by negative amount
     vector_2_scale(&p2tv, -1, &p2tv);
   }
-  
-  vector_2_to_virt_pos(&p1tv, &p1d);
-  vector_2_to_virt_pos(&p2tv, &p2d);
-
-  p1d.x += (p1d.x > 0) ? 1: -1;
-  p1d.y += (p1d.y > 0) ? 1: -1;
-    
-  p2d.x += (p2d.x > 0) ? 1: -1;
-  p2d.y += (p2d.y > 0) ? 1: -1;
-  //add some displacement to p1 center
-  //no, just call update
-  //only issue is I need a shm pointer
-  update(map, b1->coll, &p1d, 0);
-  update(map, b2->coll, &p2d, 0);
+  *b1Disp = p1tv;
+  *b2Disp = p2tv;
 }
 
-void get_normal_of_collision(body* body1, body* body2, vector_2* result) {
-  //actually hard to obtain normal of collision using Seperation along axis
-  //because projecting onto normal of some side may min/maxes of shapes to overlap
-  //even though they may not intersect along that side.
-  //just returning differences between normals for now
-  virt_pos diff;
-  virt_pos_sub(&(body1->coll->shape->center), &(body2->coll->shape->center), &diff);
-  virt_pos_to_vector_2(&diff, result);
-  return;
-  //old idea, involved grabbing normals of vectors which result in overlaps when projecting polygons onto them
-  //broken for squares, because both sides trigger this, to resulting sum is zero_vector
-  /*
-  vector_2 coll1_avg = *zero_vec, coll2_avg = *zero_vec, avg = *zero_vec;
-  int count = 0;
-  //need to do all below for potentially every normal of both polygons
-  double offset_x, offset_y;
-  double p1_min, p1_max, p2_min, p2_max, max, min;
-  virt_pos relative_point;
-  vector_2 normal_vector;
-  int isDone = 0, ret = 1, index = 0, polygon = 1;
-  polygon* poly = p1;;
-  while(!isDone) {
-    if (polygon == 1) {
-      if (index < p1->sides) {
-	get_actual_normal(p1, index, &normal_vector);
-	index++;
-      }
-      else {
-	polygon = 2;
-	poly = p2;
-	index = 0;
-	if (count != 0) {
-	  vector_2_scale(&avg, 1 / count, &coll1_avg);
-	}
-	avg = *zero_vec;
-	count = 0;
-      }
-    }
-    if (polygon == 2) {
-      if (index < p2->sides) {
-	get_actual_normal(p2, index, &normal_vector);
-	index++;
-	if (index >= p2->sides) {
-	  isDone = 1;
-	}
-      }
-    }
 
-    extreme_projections_of_polygon(p1, &p1->center, &normal_vector, &p1_min, &p1_max);
-    extreme_projections_of_polygon(p2, &p1->center, &normal_vector, &p2_min, &p2_max);
-     if ( p1_max < p2_min || p2_max < p1_min) {
-     vector_2_add(&normal_vector, &avg, &avg);
-       count++;
-       
-       }
-       }
-  if (count != 0) {
-    vector_2_scale(&avg, 1 / count, &coll2_avg);
+void get_normals_of_collision(body* body1, body* body2, vector_2* mtv, vector_2* body1_norm, vector_2* body2_norm) {
+  double l1, l2;
+  l1 = get_projected_length_pos(getCenter(body1), mtv);
+  l2 = get_projected_length_pos(getCenter(body2), mtv);
+  make_unit_vector(mtv, body1_norm);
+  *body2_norm = *body1_norm;
+  //mtv faces in positive direction of some axis
+  //collision normals are both set to be in positive dir
+  //if l1 < l2, want to want to move l1 in negative dir
+  //else move l2 in negative dir
+  if (l1 < l2) {
+    vector_2_scale(body1_norm, -1, body1_norm);
   }
-  //got averages now, do the thing now
-  */
+  else {
+    vector_2_scale(body2_norm, -1, body2_norm);
+  }
 }
 
 
@@ -203,3 +167,108 @@ void freeBody(body* rm) {
   freeCollider(rm->coll);
   free(rm);
 }
+
+
+fizzle* getFizzle(body* aBody) {
+  return aBody->fizz;
+}
+
+double getMass(body* aBody) {
+  return aBody->fizz->mass;
+}
+
+vector_2* getVelocity(body* aBody) {
+  return &(aBody->fizz->velocity);
+}
+
+virt_pos* getCenter(body* aBody) {
+   return &(aBody->coll->shape->center);
+}
+
+
+
+//two equations, based on conservation of mass and momentum
+//holds for elastic colliisons
+/*
+  vf1 + vi1 = vf2 + vi2
+  VVV this was wrong actually VVV
+  m1(vf1 - vi1) = m2(vf2 - vi2)
+  messed up simplification, here is original
+  m1(vi1) + m2(vi2) = m1(vf1) + m2(vf2) - >
+  m1(vf1 - vi1) = -m2(vf2 - fi2)
+  whoops
+  vf1 + vi1 = vf2 + vi2 ->
+  vf1 = vf2 + vi2 - vi1
+
+  m1(vf2 + vi2 - vi1 - vi1) = -m2(vf2 - fi2)
+  m1*vf2 + m1(vi2 - 2vi1) = -m2*vf2 + m2*fi2
+  m1*vf2 + m2*vf2 = +m2*fi2 - m1(vi2 - 2vi1)
+  vf2(m1 + m2) = +m2*fi2 - m1(vi2 - 2vi1)
+  vf2 = (+m2*vi2 - m1(vi2 - 2vi1)) / (m1 + m2)
+ */
+
+void solveForFinals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f) {
+  //solves for final velocities in an elastic colliison
+  *v2f = (m2 * v2i - m1 * (v2i - 2 * v1i)) / (m1 + m2);
+  *v1f = *v2f + v2i - v1i;
+  //*v1f = (m1 * (v2i - 2 * v1i) + m2 * v2i) / (m2 + m1);
+  //*v2f = *v1f + v2i - v1i;
+}
+
+void elasticReduce(double m1, double m2, double* f1f, double* f2f, double els) {
+  //based on elasticity paras, modify velocities a bit
+  //officially sanctioned are else = 0,1. outside or between interval might lead to weirdness
+  //0 represents no elasticity, 1 represents full elasticity
+  double avgP = (m1 * (*f1f) + m2 * (*f2f)) / 2;
+  *f1f = els * (*f1f) + (1 - els) * avgP;
+  *f2f = els * (*f2f) + (1 - els) * avgP;
+}
+
+
+void impact(body* b1, body* b2, vector_2* normal) {
+  //mass
+  double m1 = getMass(b1), m2 = getMass(b2);
+  //store velocities in here
+  vector_2 *b1v = getVelocity(b1) , *b2v = getVelocity(b2);
+  
+  //store normal in here, normalize it
+  make_unit_vector(normal, normal);
+  //store normal-parallell components of original vectors in here
+  double body1i = 0, body2i = 0;
+  body1i = get_projected_length_vec(b1v, normal);
+  body2i = get_projected_length_vec(b2v, normal);
+  
+  //store final velocity components in here
+  double body1f = 0, body2f = 0;
+  //some elasticity param, set to 1
+  double param = 1;
+
+  //solve for final velocities
+  solveForFinals(m1, m2, body1i, body2i, &body1f, &body2f);
+
+  elasticReduce(m1, m2, &body1f, &body2f, param);
+  
+  //multiply unit vector normal by final velocity magnitudes
+  //have final velocity components
+  //for adding back into object, can either find orth comps
+  //and just add the orth comp with the calculated component
+  //or do some weird stuff with finding the difference between final and initial velocities
+  //and adding that difference somewhere
+
+  //doing the weird difference thing
+  double body1d = body1f - body1i;
+  double body2d = body2f - body2i;
+  vector_2 body1add = *zero_vec, body2add = *zero_vec;
+  vector_2_scale(normal, body1d, &body1add);
+  vector_2_scale(normal, body2d, &body2add);
+
+
+  fizzle* fizz1 = getFizzle(b1);
+  fizzle* fizz2 = getFizzle(b2);
+
+  add_impact(fizz1, &body1add);
+  add_impact(fizz2, &body2add);
+  
+  //then add to fizzle impacs, pray and ???
+}
+

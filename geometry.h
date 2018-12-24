@@ -68,6 +68,10 @@ void project_point_onto_line(virt_pos* point, vector_2* line, virt_pos* result);
 
 double get_projected_length(virt_pos* point, vector_2* line);
 
+double get_projected_length_vec(vector_2* vec, vector_2* line);
+
+double get_projected_length_pos(virt_pos* point, vector_2* line);
+
 double distance_from_origin(virt_pos* point);
 
 double distance_between_points(virt_pos* p1, virt_pos* p2);

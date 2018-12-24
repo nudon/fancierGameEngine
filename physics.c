@@ -21,7 +21,7 @@
 //potential for wonky things to happen since I don't have any units
 //clearest standard is to use virt_pos / dT
 //assuming I want to keep this frame rate independant. getting dt, will need some other library
-//also need standard for dT, milliseconds should be find
+//also need standard for dT, milliseconds should be fine
 //for now
 //also, since this is c, overflowing time will fuck me over
 //can probably get by by storing a timespec,
@@ -50,6 +50,8 @@ double timespec_difference(struct timespec* t1, struct timespec* t2) {
 
 struct timespec ts;
 double dT = 0;
+//cap dT at a tenth of a second
+static double DT_LIMIT = 100;
 double time_between_updates() {
   struct timespec tf;
   clock_gettime(CLOCK_REALTIME, &tf);
@@ -63,10 +65,12 @@ void time_update() {
 
 double get_dT() {
   return dT;
+  //return 2.34;
 }
 
 void set_dT(double new) {
-  dT = new;
+  dT = fmin(new,DT_LIMIT);
+  fprintf(stderr, "new dT is %f\n", dT);
 }
 //somewhere in main loop...
 /*
@@ -89,6 +93,7 @@ void init_fizzle(fizzle* fizz) {
   fizz->velocity = *zero_vec;
   fizz->dampening = *zero_vec;
   fizz->net_acceleration = *zero_vec;
+  fizz->impact = *zero_vec;
   fizz->gravity = (vector_2){.v1 = 0, .v2 = 0};
 }
 
@@ -115,6 +120,7 @@ void update_net(fizzle* fizz) {
   vector_2 loc = *zero_vec;
   vector_2_add(&(fizz->gravity), &loc, &loc);
   vector_2_add(&(fizz->dampening), &loc, &loc);
+  vector_2_add(&(fizz->impact), &loc, &loc);
   //vector_2_add(fizz->, &loc, &loc);
   fizz->net_acceleration = loc;
 }
@@ -122,21 +128,21 @@ void update_net(fizzle* fizz) {
 void update_vel(fizzle* fizz) {
   vector_2 loc = fizz->velocity;
   vector_2 net = fizz->net_acceleration;
-  vector_2_scale(&net, get_dT(), &net);
+  vector_2_scale(&net, get_dT() / 10, &net);
   vector_2_add(&loc, &net, &loc);
   fizz->velocity = loc;
 }
 
 void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz) {
-  virt_pos loc_pos;
+  virt_pos loc_pos = *zero_pos;
   vector_2 loc_vec = fizz->velocity;
-  vector_2_scale(&loc_vec, get_dT(), &loc_vec);
+  vector_2_scale(&loc_vec, get_dT() / 10 , &loc_vec);
   vector_2_to_virt_pos(&loc_vec, &loc_pos);
   virt_pos_add(pos, &loc_pos, pos);
 }
 
 void set_fizzle_dampening(fizzle* fizz, int limit) {
-  //have sign of scaling be same as limit - velocity
+  //want to rework dampening actually
   vector_2 vel = fizz->velocity;
   vector_2 damp;
   double vel_mag = vector_2_magnitude(&vel), damp_amount;
@@ -155,6 +161,21 @@ void fizzle_update(fizzle* fizz) {
   set_fizzle_dampening(fizz, 100);
   update_net(fizz);
   update_vel(fizz);
+  set_impact(fizz, zero_vec);
+}
+
+void set_gravity(fizzle* fizz, vector_2* newGrav) {
+  fizz->gravity = *newGrav;
+}
+
+void set_impact(fizzle* fizz, vector_2* newImp) {
+  fizz->impact = *newImp;
+}
+
+void add_impact(fizzle* fizz, vector_2* newAdd) {
+  vector_2 newImp = fizz->impact;
+  vector_2_add(newAdd, &newImp, &newImp);
+  fizz->impact = newImp;
 }
 
 //generally, somehow associating a polygon and fizzle

@@ -59,13 +59,8 @@ void update_bodies(spatial_hash_map* map, gen_list* l) {
   fizzle* fizz;
   virt_pos trans_disp;
   double rot_disp;
-  vector_2 loc;
-  //curr = NULL;
-  
-  while (curr != NULL) {
-    //populate body
-
- 
+  vector_2 loc;  
+  while (curr != NULL) { 
     aBody = (body*)curr->stored;
     fizz = aBody->fizz;
     coll = aBody->coll;
@@ -74,7 +69,6 @@ void update_bodies(spatial_hash_map* map, gen_list* l) {
     rot_disp = 0;
     apply_poltergeist(aBody->polt, map, aBody, &trans_disp, &rot_disp);
     virt_pos_to_vector_2(&trans_disp, &loc);
-    //I messed this up
     add_velocity(fizz, &loc);
     fizzle_update(fizz);
     update_pos_with_curr_vel(&trans_disp, fizz);
@@ -125,25 +119,6 @@ void print_out_extreme_diffs(polygon* poly) {
   printf("\n");
 }
 
-body* make_user_body(spatial_hash_map* map) {
-  polygon* mainPoly = createNormalPolygon(4);
-  collider* coll;
-  fizzle* fizz;
-  body* body;
-  poltergeist* polt;
-  mainPoly->center.x = getScreenWidth() / 4;
-  mainPoly->center.y = getScreenHeight() / 2;
-  mainPoly->scale = 4;
-  coll = make_collider_from_polygon(mainPoly);
-  insert_collider_in_shm(map, coll);
-  fizz = createFizzle();
-  init_fizzle(fizz);
-  body = createBody(fizz, coll);
-  polt = make_poltergeist();
-  give_user_poltergeist(polt);
-  body->polt = polt;
-  return body;
-}
 
 
 int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
@@ -151,12 +126,6 @@ int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
   int quit = 0;
   gen_node* curr;
   body* temp;
-  static body* body = NULL;
-
-  if (body == NULL) {
-    body = make_user_body(map);
-    prependToGen_list(list, createGen_node(body));
-  }
   SDL_SetRenderDrawColor(cam->rend,0xff,0xff,0xff,0xff);
   //SDL_SetRenderDrawColor(cam->rend,0,0,0,0xff);
   SDL_RenderClear(cam->rend);
@@ -213,83 +182,42 @@ int main(int argc, char** args) {
       spatial_hash_map* map = create_shm(width, height, cols, rows);
       gen_list* ttd = createGen_list();
       gen_list* collbbtd = createGen_list();
-      polygon* walls[4];
-      double ms_per_frame = 1000 / FPS_CAP;
+      double ms_per_frame = 1000.0 / FPS_CAP;
       int update_wait;
-      for(int i = 0; i < 4; i++) {
-	walls[i] = createPolygon(4);
-	make_square(walls[i]);
-	if (i % 2 == 0) {
-	  stretch_deform_vert(walls[i], getScreenHeight() / 2);
-	  stretch_deform_horz(walls[i], getScreenWidth() / 8);
-	  walls[i]->center.y = getScreenHeight() / 2;
-	  if (i == 2) {
-	    walls[i]->center.x = 0;
-	  }
-	  else {
-	    walls[i]->center.x = getScreenWidth();
-	  }
-	}
-	else {
-	  
-	  stretch_deform_horz(walls[i], getScreenWidth() / 2);
-	  stretch_deform_vert(walls[i], getScreenHeight() / 8);
-	  walls[i]->center.x = getScreenWidth() / 2;
-	  if (i == 3) {
-	    walls[i]->center.y = 0;
-	  }
-	  else {
-	    walls[i]->center.y = getScreenHeight();
-	  }
-	  
-	}
-	generate_normals_for_polygon(walls[i]);
-      }
-      collider* wallColliders [4];
-      body* body;
-      fizzle* fizz;
-      for (int i = 0; i < 4; i++) {
-	wallColliders[i] = make_collider_from_polygon(walls[i]);
-	insert_collider_in_shm(map, wallColliders[i]);
-	fizz = createFizzle();
-	init_fizzle(fizz);
-	body = createBody(fizz, wallColliders[i]);
-	prependToGen_list(ttd, createGen_node(body));
-	prependToGen_list(collbbtd, createGen_node(wallColliders[i]));
-      }
-      polygon* triom = NULL;
-      collider* bos = NULL;
-      triom = createPolygon(3);
-      triom->center.x = getScreenWidth() / 2;
-      triom->center.y = getScreenHeight() / 2;
-      make_normal_polygon(triom);
-      generate_normals_for_polygon(triom);
-      triom->scale = 3;
-      bos = make_collider_from_polygon(triom);
-      fizz = createFizzle();
-      init_fizzle(fizz);
-      body = createBody(fizz, bos);
-      prependToGen_list(ttd, createGen_node(body));
-      insert_collider_in_shm(map, bos);
-      prependToGen_list(collbbtd, createGen_node(bos));
-      while (!quit) {
+ 
+      makeUserBody(ttd);
+      makeTriangle(ttd);
 
+      gen_node* curr = ttd->start;
+      
+      while(curr != NULL) {
+	collider* coll = ((body*)curr->stored)->coll;
+	insert_collider_in_shm(map, coll);
+	curr = curr->next;
+      }
+      double time;
+      time_update();
+      while (!quit) {
+	set_dT(time_between_updates());
 	time_update();
+	
 	main_test(&mainCam, ttd, map);
        	gen_node* curr = collbbtd->start;
 	while (curr != NULL) {
 	  draw_bbox(&mainCam, (collider*)(curr->stored));
 	  curr = curr->next;
 	}
-	set_dT(time_between_updates());
-	update_wait = ms_per_frame - get_dT();
-	//printf("%d\n", update_wait);
-	if (update_wait > 0) {
-	  SDL_Delay(update_wait);
-	}
+
 	//draw_hash_map(&mainCam, map); 
 	SDL_RenderPresent(mainCam.rend);
 	quit = get_quit();
+	
+	time = time_between_updates();
+	update_wait = ms_per_frame - time;
+	printf("waiting time is %d\n", update_wait);
+	if (update_wait > 0) {
+	  SDL_Delay(update_wait);
+	}
       }
     }
     else {
@@ -372,3 +300,85 @@ void myClose() {
 }
 
 
+void makeWalls(gen_list* list) {
+  polygon* walls[4];
+  for(int i = 0; i < 4; i++) {
+    walls[i] = createPolygon(4);
+    make_square(walls[i]);
+    if (i % 2 == 0) {
+      stretch_deform_vert(walls[i], getScreenHeight() / 2);
+      stretch_deform_horz(walls[i], getScreenWidth() / 8);
+      walls[i]->center.y = getScreenHeight() / 2;
+      if (i == 2) {
+	walls[i]->center.x = 0;
+      }
+      else {
+	walls[i]->center.x = getScreenWidth();
+      }
+    }
+    else {
+      stretch_deform_horz(walls[i], getScreenWidth() / 2);
+      stretch_deform_vert(walls[i], getScreenHeight() / 8);
+      walls[i]->center.x = getScreenWidth() / 2;
+      if (i == 3) {
+	walls[i]->center.y = 0;
+      }
+      else {
+	walls[i]->center.y = getScreenHeight();
+      }
+	  
+    }
+    generate_normals_for_polygon(walls[i]);
+  }
+  collider* wallColliders [4];
+  body* body;
+  fizzle* fizz;
+  for (int i = 0; i < 4; i++) {
+    wallColliders[i] = make_collider_from_polygon(walls[i]);
+    fizz = createFizzle();
+    init_fizzle(fizz);
+    double wallMass = 9000;
+    fizz->mass = wallMass;
+    body = createBody(fizz, wallColliders[i]);
+    prependToGen_list(list, createGen_node(body));
+    //prependToGen_list(collbbtd, createGen_node(wallColliders[i]));
+  }
+}
+
+void makeTriangle(gen_list* list) {
+  polygon* triom = NULL;
+  collider* bos = NULL;
+  body* body;
+  fizzle* fizz;
+  triom = createPolygon(3);
+  triom->center.x = getScreenWidth() / 2;
+  triom->center.y = getScreenHeight() / 2;
+  make_normal_polygon(triom);
+  generate_normals_for_polygon(triom);
+  triom->scale = 3;
+  bos = make_collider_from_polygon(triom);
+  fizz = createFizzle();
+  init_fizzle(fizz);
+  body = createBody(fizz, bos);
+  prependToGen_list(list, createGen_node(body));
+}
+
+void makeUserBody(gen_list* list) {
+  polygon* mainPoly = createNormalPolygon(4);
+  collider* coll;
+  fizzle* fizz;
+  body* body;
+  poltergeist* polt;
+  mainPoly->center.x = getScreenWidth() / 4;
+  mainPoly->center.y = getScreenHeight() / 2;
+  mainPoly->scale = 4;
+  coll = make_collider_from_polygon(mainPoly);
+  fizz = createFizzle();
+  init_fizzle(fizz);
+  //set_gravity(fizz, &((vector_2){.v1 = 0, .v2 = .1}));
+  body = createBody(fizz, coll);
+  polt = make_poltergeist();
+  give_user_poltergeist(polt);
+  body->polt = polt;
+  prependToGen_list(list, createGen_node(body));
+}

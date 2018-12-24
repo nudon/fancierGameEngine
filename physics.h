@@ -25,7 +25,9 @@ struct {
   vector_2 velocity;
   //acceleratoin components
   //vector_2 input; ? relic of force-input days, now vel_input is a thing
-  vector_2 dampening;  
+  vector_2 dampening;
+  //for storing resulting velocities from impact of collision
+  vector_2 impact;
   vector_2 gravity;
   vector_2 net_acceleration;
 } fizzle;
@@ -50,6 +52,8 @@ void update_vel(fizzle* fizz);
 void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz);
 
 void fizzle_update(fizzle* fizz);
+
+void set_gravity(fizzle* fizz, vector_2* newGrav);
 
 //void resolve_collisions();
 
