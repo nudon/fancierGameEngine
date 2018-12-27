@@ -50,6 +50,7 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
   //potentially theres' no actual collision since everything has been coarse grain at this point
   if (actual_collision != 0) {
     //in addition to setting velocities, also need to displace object outside of eachother
+    make_unit_vector(&normal_of_collision, &normal_of_collision);
     get_normals_of_collision(body1, body2, &normal_of_collision, &b1_norm, &b2_norm);
     displace_bodies(map,body1, body2, mtv_mag, &b1_norm, &b2_norm);
     impact_bodies(body1, body2, &b1_norm, &b2_norm);
@@ -90,12 +91,26 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   
   vector_2_to_virt_pos(&b1tv, &b1d);
   vector_2_to_virt_pos(&b2tv, &b2d);
-  //just increasing displacement distance so integer truncation doesn't result in bodies actually colliding
-  b1d.x += (b1d.x > 0) ? 1: -1;
-  b1d.y += (b1d.y > 0) ? 1: -1;
-    
-  b2d.x += (b2d.x > 0) ? 1: -1;
-  b2d.y += (b2d.y > 0) ? 1: -1;
+
+  //with these, wouldn't need the turnaryt statements
+  //however non-infinite masses would always be moved, which is kind of annoying 
+  //vector_2_to_virt_pos_ceil(&b1tv, &b1d);
+  //vector_2_to_virt_pos_ceil(&b2tv, &b2d);
+  
+  if (b1d.x != 0) {
+    b1d.x += (b1d.x > 0) ? 1: -1;
+  }
+  if (b1d.y != 0) {
+    b1d.y += (b1d.y > 0) ? 1: -1;
+  }
+  
+  if (b2d.x != 0) {
+    b2d.x += (b2d.x > 0) ? 1: -1;
+  }
+  
+  if (b2d.y != 0) {
+    b2d.y += (b2d.y > 0) ? 1: -1;
+  }
   
   update(map, b1->coll, &b1d, 0);
   update(map, b2->coll, &b2d, 0);
@@ -114,8 +129,7 @@ void get_collision_normals(body* b1, body* b2, vector_2* norm, vector_2* b1Disp,
   double p1Cent = get_projected_length(&(p1->center),norm);
   double p2Cent = get_projected_length(&(p2->center),norm);
   
-  vector_2 p1tv;
-  make_unit_vector(norm, &p1tv);
+  vector_2 p1tv = *norm;
   vector_2 p2tv = p1tv;
   
   if (p1Cent < p2Cent) {
@@ -133,11 +147,11 @@ void get_collision_normals(body* b1, body* b2, vector_2* norm, vector_2* b1Disp,
 }
 
 
-void get_normals_of_collision(body* body1, body* body2, vector_2* mtv, vector_2* body1_norm, vector_2* body2_norm) {
+void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm) {
   double l1, l2;
-  l1 = get_projected_length_pos(getCenter(body1), mtv);
-  l2 = get_projected_length_pos(getCenter(body2), mtv);
-  make_unit_vector(mtv, body1_norm);
+  l1 = get_projected_length_pos(getCenter(body1), normal);
+  l2 = get_projected_length_pos(getCenter(body2), normal);
+  *body1_norm = *normal;
   *body2_norm = *body1_norm;
   //mtv faces in positive direction of some axis
   //collision normals are both set to be in positive dir
@@ -232,7 +246,7 @@ void impact(body* b1, body* b2, vector_2* normal) {
   vector_2 *b1v = getVelocity(b1) , *b2v = getVelocity(b2);
   
   //store normal in here, normalize it
-  make_unit_vector(normal, normal);
+  //make_unit_vector(normal, normal);
   //store normal-parallell components of original vectors in here
   double body1i = 0, body2i = 0;
   body1i = get_projected_length_vec(b1v, normal);

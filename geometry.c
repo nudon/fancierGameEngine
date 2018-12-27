@@ -76,6 +76,7 @@ void generate_normals_for_polygon(polygon* poly) {
     else {
       vector_2_scale(&temp, -1, &temp);
     }
+    make_unit_vector(&temp, &temp);
     poly->normals[i] = temp;
     
     
@@ -198,7 +199,8 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
 }
 
 int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
-  //returns 1 if true, zero if false
+  //returns 1 if the polygons intersect and mtv is filled with minimum translation vector to solve collisions
+  //returns 0 if no collision
   //basically same thing as do_polygons_intersect
   //though this will find all intersecting sides and supply an mtv
 
@@ -228,23 +230,26 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
 	}
       }
     }
-    //if still worried about double range doing odd things
-    //could pass in difference between p1 and p2 centers, should workn
     extreme_projections_of_polygon(p1, &p1->center, &normal_vector, &p1_min, &p1_max);
     extreme_projections_of_polygon(p2, &p1->center, &normal_vector, &p2_min, &p2_max);
     //fprintf(stderr, "normal is %d, %d\n", normal_vector.v1, normal_vector.v2);
+    //there is overlap of shapes along axis
      if ( p1_max > p2_min && p2_max > p1_min) {
        temp_mag = fabs((fmin(p1_max, p2_max)) - (fmax(p1_min, p2_min)));
        if (temp_mag < mtv_mag || mtv_mag < 0) {
 	 mtv_mag = temp_mag;
 	 mtv_loc = normal_vector;
        }
-       //isDone = 1;
        ret = 1;
-    }
+     }
+     //there is a gap
+     else {
+       isDone = 1;
+       ret = 0;
+     }
+       
     
   }
-  make_unit_vector(&mtv_loc, &mtv_loc);
   vector_2_scale(&mtv_loc, mtv_mag, &mtv_loc);
   *mtv = mtv_loc;
   return ret;  
@@ -312,10 +317,6 @@ double get_projected_length_vec(vector_2* vec, vector_2* line) {
   double projectedLength = 0;
   if (!isZeroVec(line)) {
     float delta = atan2(vec->v2, vec->v1) - atan2(line->v2, line->v1);
-    //possiblyh delta is over 180 or pi, kind of dumb
-    if (delta > M_PI) {
-      delta = delta - M_PI;
-    }
     double hyp = vector_2_magnitude(vec);
     projectedLength = cos(delta) * hyp;
   }
@@ -388,13 +389,6 @@ double get_projected_length_pos(virt_pos* point, vector_2* line) {
   
   if (!isZeroVec(line)) {
     float delta = atan2(point->y, point->x) - atan2(line->v2, line->v1);
-    //possiblyh delta is over 180 or pi, kind of dumb
-    /*
-    if (delta > M_PI) {
-      temp = delta - M_PI;
-      delta = M_PI - delta;
-    }
-    */
     double hyp = distance_from_origin(point);
     projectedLength = cos(delta) * hyp;
   }
@@ -521,6 +515,11 @@ void virt_pos_to_vector_2(virt_pos* in, vector_2* out) {
 void vector_2_to_virt_pos(vector_2* in, virt_pos* out) {
   out->x = round(in->v1);
   out->y = round(in->v2);
+}
+
+void vector_2_to_virt_pos_ceil(vector_2* in, virt_pos* out) {
+  out->x = ceil(in->v1);
+  out->y = ceil(in->v2);
 }
 
 void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result) {

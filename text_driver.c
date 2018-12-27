@@ -176,6 +176,8 @@ int main(int argc, char** args) {
 
       int cols = 20;
       int rows = 14;
+      cols = 1;
+      rows = 1;
 
       int width = getScreenWidth() / cols;
       int height = getScreenHeight() / rows;
@@ -187,7 +189,7 @@ int main(int argc, char** args) {
  
       makeUserBody(ttd);
       makeTriangle(ttd);
-
+       makeWalls(ttd);
       gen_node* curr = ttd->start;
       
       while(curr != NULL) {
@@ -198,21 +200,25 @@ int main(int argc, char** args) {
       double time;
       time_update();
       while (!quit) {
-	set_dT(time_between_updates());
+	set_dT(time_since_update());
 	time_update();
 	
-	main_test(&mainCam, ttd, map);
+	main_test(&mainCam, ttd, map);	update_wait = ms_per_frame - get_dT();	
+	time = time_since_update();
+	printf("main test finished in %f ms.\n", time);
+	if (update_wait > 0) {
+	  SDL_Delay(update_wait);
+	}
        	gen_node* curr = collbbtd->start;
 	while (curr != NULL) {
 	  draw_bbox(&mainCam, (collider*)(curr->stored));
 	  curr = curr->next;
 	}
-
 	//draw_hash_map(&mainCam, map); 
 	SDL_RenderPresent(mainCam.rend);
 	quit = get_quit();
 	
-	time = time_between_updates();
+	time = time_since_update();
 	update_wait = ms_per_frame - time;
 	printf("waiting time is %d\n", update_wait);
 	if (update_wait > 0) {

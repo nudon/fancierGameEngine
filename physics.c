@@ -52,7 +52,7 @@ struct timespec ts;
 double dT = 0;
 //cap dT at a tenth of a second
 static double DT_LIMIT = 100;
-double time_between_updates() {
+double time_since_update() {
   struct timespec tf;
   clock_gettime(CLOCK_REALTIME, &tf);
   double diff = timespec_difference(&tf, &ts);
@@ -120,7 +120,8 @@ void update_net(fizzle* fizz) {
   vector_2 loc = *zero_vec;
   vector_2_add(&(fizz->gravity), &loc, &loc);
   vector_2_add(&(fizz->dampening), &loc, &loc);
-  vector_2_add(&(fizz->impact), &loc, &loc);
+  //nope, currently treating impact like something to add directly to velocity. 
+  //vector_2_add(&(fizz->impact), &loc, &loc);
   //vector_2_add(fizz->, &loc, &loc);
   fizz->net_acceleration = loc;
 }
@@ -128,15 +129,19 @@ void update_net(fizzle* fizz) {
 void update_vel(fizzle* fizz) {
   vector_2 loc = fizz->velocity;
   vector_2 net = fizz->net_acceleration;
-  vector_2_scale(&net, get_dT() / 10, &net);
+  //vector_2_scale(&net, get_dT() / 10, &net);
+  vector_2_scale(&net, get_dT(), &net);
   vector_2_add(&loc, &net, &loc);
+  //add impact result so final velocity is correc
+  vector_2_add(&(fizz->impact), &loc, &loc);
   fizz->velocity = loc;
 }
 
 void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz) {
   virt_pos loc_pos = *zero_pos;
   vector_2 loc_vec = fizz->velocity;
-  vector_2_scale(&loc_vec, get_dT() / 10 , &loc_vec);
+  //vector_2_scale(&loc_vec, get_dT() / 10 , &loc_vec);
+  vector_2_scale(&loc_vec, get_dT(), &loc_vec);
   vector_2_to_virt_pos(&loc_vec, &loc_pos);
   virt_pos_add(pos, &loc_pos, pos);
 }
@@ -158,7 +163,7 @@ void set_fizzle_dampening(fizzle* fizz, int limit) {
 }
 
 void fizzle_update(fizzle* fizz) {
-  set_fizzle_dampening(fizz, 100);
+  //set_fizzle_dampening(fizz, 100);
   update_net(fizz);
   update_vel(fizz);
   set_impact(fizz, zero_vec);

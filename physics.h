@@ -78,7 +78,7 @@ double timeInMS();
 
 double timespec_difference(struct timespec* t1, struct timespec* t2);
 
-double time_between_updates();
+double time_since_update();
 
 void time_update();
 
