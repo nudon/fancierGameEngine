@@ -56,7 +56,7 @@ double time_since_update() {
   struct timespec tf;
   clock_gettime(CLOCK_REALTIME, &tf);
   double diff = timespec_difference(&tf, &ts);
-  return diff;
+  return diff; 
 }
 
 void time_update() {
