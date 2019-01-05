@@ -28,8 +28,6 @@ void impact_bodies(body* body1, body* body2, vector_2* b1tv_norm, vector_2* b2tv
 
 void get_normals_of_collision(body* body1, body* body2, vector_2* mtv, vector_2* body1_norm, vector_2* body2_norm);
 
-void get_normal_of_collision(body* body1, body* body2, vector_2* result);
-
 double getMass(body* aBody);
 
 vector_2* getVelocity(body* aBody);

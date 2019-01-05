@@ -40,6 +40,8 @@ void remove_node(gen_node* node);
 
 gen_list* createGen_list();
 
+void initGen_list(gen_list* new);
+
 gen_node* createGen_node(void* data);
 
 void freeGen_node(gen_node* old);

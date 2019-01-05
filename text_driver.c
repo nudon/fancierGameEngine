@@ -89,11 +89,11 @@ void update_bodies(spatial_hash_map* map, gen_list* l) {
     if (aBody->status != 0) {
       aBody->status = 0;
       //fprintf(stderr, "actually checking for collisions !\n");
-      if (anyCollisions(map, coll)) {
+      //if (anyCollisions(map, coll)) {
 	//fprintf(stderr, "oh no theres a collisionsasdfasf!\n");
-	resolve_collisions(map, aBody);
+      resolve_collisions(map, aBody);
 	//fizz->velocity = *zero_vec;
-      }
+	//}
     }
   curr = curr->next;
   }
@@ -146,10 +146,22 @@ int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
   //draw_hash_map(cam, map);
   SDL_SetRenderDrawColor(cam->rend,0,0,0,0xff);
   curr = list->start;
+  virt_pos vp = {.x = getScreenWidth() / 2, .y = getScreenHeight() / 2};
   while (curr != NULL) {
     temp = curr->stored;
-    draw_polygon_outline(cam, temp->coll->shape);
+    //draw_polygon_outline(cam, temp->coll->shape);
+    double i = 1;
+    int limit = 10;
+    double orig_scale = temp->coll->shape->scale;
+    
+    while (i < limit) {
 
+      draw_parallax_polygon(cam,temp->coll->shape, &vp, (double)i);
+      //temp->coll->shape->scale = (double)orig_scale / i;
+      //draw_polygon_outline(cam, temp->coll->shape);
+      i++;
+    }
+    temp->coll->shape->scale = (double)orig_scale;
     
     curr = curr->next;
   }
@@ -189,7 +201,7 @@ int main(int argc, char** args) {
  
       makeUserBody(ttd);
       makeTriangle(ttd);
-       makeWalls(ttd);
+      makeWalls(ttd);
       gen_node* curr = ttd->start;
       
       while(curr != NULL) {

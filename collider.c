@@ -601,19 +601,6 @@ void add_collider_to_shm_entries(spatial_hash_map* map, collider_list_node* node
 }
 
 
-//nah, still too much work
-//going to try solution of adding a data field to collider node, just an int
-//in here, check if == 0. if true, set to 1, add to colliders
-//done. no need for multiple functions and for loops which overallocate and have to guess/reason how many unique nodes there has to be
-
-//well, still think i need to split it up into 2 functions for avoiding mallocs
-//one, goes through cells, checks for 0, changes to 1, returns number of unique colliders
-
-//using return value, create array of colliders, hand in to second funciton
-//same traversal, checks for 1',s adds to result, changes back to zero
-
-//probably infeasable, but when making compound collider objects, could change field to a pointer, so that collider list nodes of same overall object but different colliders all have a pointer to a shared int.
-
 int DEFAULT = 0;
 int VISITED = 1;
 int COUNTED = 2;
@@ -623,8 +610,6 @@ int number_of_unique_colliders_in_entries(spatial_hash_map* map, vector* entries
   spatial_map_cell* cell;
   gen_node* curr ;
   collider_list_node* cln;
-  //wondering how to do this, since I need to remember which colliders I find
-  //thinking of allocating a linked list onto stack, and doing it that way
   for(int i = 0; i < entries->cur_size; i++) {
     cell = get_entry_in_shm(map, elementAt(entries,i));
     if (cell != NULL) {
@@ -665,10 +650,52 @@ int unique_colliders_in_entries(spatial_hash_map* map, vector* entries, collider
   return count;
 }
 
+int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_list* result) {
+  spatial_map_cell* cell;
+  gen_node* curr;
+  gen_node* collider_cr_node;
+  collider_list_node* cln;
+  for(int i = 0; i < entries->cur_size;i++) {
+    cell = get_entry_in_shm(map, elementAt(entries, i));
+    if (cell != NULL) {
+      curr = cell->colliders_in_cell->start;
+      while (curr != NULL) {
+	cln = (collider_list_node*)(curr->stored);
+	if (cln->status == DEFAULT) {
+	  cln->status = VISITED;
+	  collider_cr_node = cln->cr_node;
+	  if (already_in_a_list(collider_cr_node)) {
+	    //print things
+	    assert(0 && "Have old list references, stop that");
+	  }
+	  prependToGen_list(result, collider_cr_node);
+	}
+	curr = curr->next;
+      }
+    }
+  }
+  return 0;
+}
+
+void clean_collider_list(gen_list* list) {
+  gen_node* curr= list->start;
+  gen_node* collider_cr_node;
+  collider_list_node* cln;
+  while (curr != NULL) {
+    cln = ((collider*)(curr->stored))->collider_node;
+    cln->status = DEFAULT;
+    collider_cr_node = cln->cr_node;
+    collider_cr_node = curr;
+    curr = curr->next;
+    remove_node(collider_cr_node);
+  }
+}
+
 collider_list_node* make_cln_from_collider(collider* coll) {
   collider_list_node* new = malloc(sizeof(collider_list_node));
   new->collider = coll;
   new->status = DEFAULT;
+  new->cr_node = createGen_node(coll);
   return new;
 }
 

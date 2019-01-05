@@ -235,7 +235,10 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
     //fprintf(stderr, "normal is %d, %d\n", normal_vector.v1, normal_vector.v2);
     //there is overlap of shapes along axis
      if ( p1_max > p2_min && p2_max > p1_min) {
-       temp_mag = fabs((fmin(p1_max, p2_max)) - (fmax(p1_min, p2_min)));
+       //check for full embedding of shapes
+       temp_mag = fmin(fabs(p2_max - p1_min), fabs(p1_max - p2_min));
+       //older exp, doesn't give right answer for embeddings
+       //temp_mag = fabs((fmin(p1_max, p2_max)) - (fmax(p1_min, p2_min)));
        if (temp_mag < mtv_mag || mtv_mag < 0) {
 	 mtv_mag = temp_mag;
 	 mtv_loc = normal_vector;

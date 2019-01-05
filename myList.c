@@ -101,9 +101,13 @@ void remove_node(gen_node* node) {
 
 gen_list* createGen_list() {
   gen_list* new = malloc(sizeof(gen_list));
+  initGen_list(new);
+  return new;
+}
+
+void initGen_list(gen_list* new) {
   new->start = NULL;
   new->end = NULL;
-  return new;
 }
 
 gen_node* createGen_node(void* data) {
