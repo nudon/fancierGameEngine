@@ -4,6 +4,7 @@
 #include "collider.h"
 #include "physics.h"
 #include "poltergeist.h"
+#include "compound.h"
 
 typedef struct body_struct {
   fizzle* fizz;
@@ -11,6 +12,7 @@ typedef struct body_struct {
   struct poltergeist_struct* polt;
   //status is kind of a weird flag I've been using
   //so far it's been used as a "this object needs to be updated" flag
+  struct compound_struct* owner;
   int status;
 } body;
 
@@ -27,8 +29,6 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
 void impact_bodies(body* body1, body* body2, vector_2* b1tv_norm, vector_2* b2tv_norm);
 
 void get_normals_of_collision(body* body1, body* body2, vector_2* mtv, vector_2* body1_norm, vector_2* body2_norm);
-
-void get_normal_of_collision(body* body1, body* body2, vector_2* result);
 
 double getMass(body* aBody);
 

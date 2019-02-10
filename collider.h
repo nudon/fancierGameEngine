@@ -36,6 +36,7 @@ struct collider_struct{
   //also collider list node(s) for collider
   struct body_struct* body;
   struct collider_list_node_struct* collider_node;
+  
 };
 
 
@@ -53,7 +54,8 @@ struct collider_list_node_struct{
   
   //gen nodes to put into various shm cells, points to containing collider list node
   gen_node** active_cell_nodes;
-
+  //node to be used in collision resolution, points to collider
+  gen_node* cr_node;
   int status;
 
   //tempted to rename struct something else, like collider references
@@ -118,6 +120,10 @@ void add_collider_to_shm_entries(spatial_hash_map* map, collider_list_node* node
 int number_of_unique_colliders_in_entries(spatial_hash_map* map, vector* entries);
 
 int unique_colliders_in_entries(spatial_hash_map* map, vector* entries, collider** results);
+
+int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_list* result);
+
+void clean_collider_list(gen_list* list);
 
 collider_list_node* make_cln_from_collider(collider* coll);
 
