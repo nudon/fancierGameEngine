@@ -1,43 +1,6 @@
 #include "myVector.h"
 #include "physics.h"
 #include <math.h>
-//first, want a general physics object
-//can add different types of forces
-//thinking of having a net_accel,
-
-//potential for wonky things to happen since I don't have any units
-//clearest standard is to use virt_pos / dT
-//assuming I want to keep this frame rate independant. getting dt, will need some other library
-//also need standard for dT, milliseconds should be find
-//well, some issue with milliseconds
-//having acceleration = 1 causes speed to be about 10
-//need so convert to some longer time unit(or just divide getDt by some constant
-//or just have my time units be in something bigger than a milisecond
-
-
-//first, want a general physics object
-//can add different types of forces
-//thinking of having a net_accel,
-
-//potential for wonky things to happen since I don't have any units
-//clearest standard is to use virt_pos / dT
-//assuming I want to keep this frame rate independant. getting dt, will need some other library
-//also need standard for dT, milliseconds should be fine
-//for now
-//also, since this is c, overflowing time will fuck me over
-//can probably get by by storing a timespec,
-//actually, the timespec should be good
-//unless the tv_sec overloads, but it's probably a long or at least an int, so I should be fine
-//#include <unistd.h>
-//somewhere in main loop...
-/*
-  set_dT(time_between_updates());
-  //do physics with dT
-  //draw_frame
-  time_update();
-
-
-*/
 
 double timeInMS() {
   struct timespec curr;
@@ -73,15 +36,6 @@ void set_dT(double new) {
   dT = fmin(new,DT_LIMIT);
   //fprintf(stderr, "new dT is %f\n", dT);
 }
-//somewhere in main loop...
-/*
-  set_dT(time_between_updates();
-  //do physics with dT
-  //draw_frame
-  time_update();
-
-
-*/
 
 fizzle* createFizzle() {
   fizzle* new = malloc(sizeof(fizzle));
@@ -122,19 +76,14 @@ void update_net(fizzle* fizz) {
   vector_2 loc = *zero_vec;
   vector_2_add(&(fizz->gravity), &loc, &loc);
   vector_2_add(&(fizz->dampening), &loc, &loc);
-  //nope, currently treating impact like something to add directly to velocity. 
-  //vector_2_add(&(fizz->impact), &loc, &loc);
-  //vector_2_add(fizz->, &loc, &loc);
   fizz->net_acceleration = loc;
 }
 
 void update_vel(fizzle* fizz) {
   vector_2 loc = fizz->velocity;
   vector_2 net = fizz->net_acceleration;
-  //vector_2_scale(&net, get_dT() / 10, &net);
   vector_2_scale(&net, get_dT(), &net);
   vector_2_add(&loc, &net, &loc);
-  //add impact result so final velocity is correc
   vector_2_add(&(fizz->impact), &loc, &loc);
   vector_2_add(&(fizz->tether), &loc, &loc);
   fizz->velocity = loc;
@@ -143,14 +92,13 @@ void update_vel(fizzle* fizz) {
 void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz) {
   virt_pos loc_pos = *zero_pos;
   vector_2 loc_vec = fizz->velocity;
-  //vector_2_scale(&loc_vec, get_dT() / 10 , &loc_vec);
   vector_2_scale(&loc_vec, get_dT(), &loc_vec);
   vector_2_to_virt_pos(&loc_vec, &loc_pos);
   virt_pos_add(pos, &loc_pos, pos);
 }
 
 void set_fizzle_dampening(fizzle* fizz, int limit) {
-  //want to rework dampening actually
+  //want to rework dampening at some point
   vector_2 vel = fizz->velocity;
   vector_2 damp;
   double vel_mag = vector_2_magnitude(&vel), damp_amount;
@@ -182,13 +130,6 @@ void set_impact(fizzle* fizz, vector_2* newImp) {
 }
 
 void add_impact(fizzle* fizz, vector_2* newAdd) {
-  //why did I do this
-  /*
-  vector_2 newImp = fizz->impact;
-  vector_2_add(newAdd, &newImp, &newImp);
-  fizz->impact = newImp;
-  */
-  
   vector_2_add(newAdd, &(fizz->impact), &(fizz->impact));
 }
 
@@ -200,30 +141,11 @@ void add_tether(fizzle* fizz, vector_2* addTF) {
   vector_2_add(addTF, &(fizz->tether), &(fizz->tether));
 }
 
-//generally, somehow associating a polygon and fizzle
-/*
-  update_net(fizz);
-  update_vel(fizz);
-  virt_pos old, new; //INIT TO ZEROS
-  old = poly->center;
-  new = poly->center;
-  update_pos_with_curr_vel(&new, fizz);
-  if (safe_update(fuck I need more things
-  keept track of old and new positionss before this
-  just mindlessly update polygon here
-
-  update_net(fizz);
-  update_vel(fizz);
-  update_pos_with_curr_vel(poly->center, fizz);
-*/
-
-//so, if I don't care about collisions, then this is fine
-//issue is colliding. generally I'll need more information about collision then the fact that one happens
-//generally I will probably be find with a normal vector, but potentially other things as well
-//probably better to actually resolve things like that between fizzles, though I'd still probably need a normal force for some things
-
-//created body file to server this purpose
-
+//so, tethers, they define a push/pull between 2 objects
+//standard for tether type or tt
+//-1 defines sort of a barrier, pushes objects away if they are closer than td
+//0, defines an ideal spring situation, pushes/pulls objects
+//1 defines a standard rope, pulls objects together if they are farther than td
 tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,double w2,double ts,double tk, double td,int tt) {
   tether* new = malloc(sizeof(tether));
   double mag = w1 + w2;
