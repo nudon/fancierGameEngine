@@ -1,27 +1,14 @@
 
 #include "body.h"
+#include <math.h>
+
+void impact(body* b1, body* b2, vector_2* normal);
 
 
 void resolve_collisions(spatial_hash_map* map, body* main_body) {
   collider* main_coll = main_body->coll;
   
   vector* occupied = main_coll->collider_node->active_cells;
-  body* curr;
-  //older collision management
-  /*
-  int size = number_of_unique_colliders_in_entries(map, occupied);
-  collider* collisions[size];
-  unique_colliders_in_entries(map, occupied, collisions);
-
-  for (int i = 0; i < size; i++) {
-    curr = collisions[i]->body;
-    if (curr != main_body) {
-      resolve_collision(map, main_body, collisions[i]->body);
-    }
-  }
-  */
-
-  //newer collision management
   gen_list list;
   initGen_list(&list);
   store_unique_colliders_in_list(map, occupied, &list);
@@ -53,7 +40,8 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
     get_normals_of_collision(body1, body2, &normal_of_collision, &b1_norm, &b2_norm);
     displace_bodies(map,body1, body2, mtv_mag, &b1_norm, &b2_norm);
     //in addition to setting velocities, also need to displace object outside of eachother
-    impact_bodies(body1, body2, &b1_norm, &b2_norm);
+    //impact_bodies(body1, body2, &b1_norm, &b2_norm);
+    impact(body1, body2, &b1_norm);
   }
 }
 
@@ -68,8 +56,23 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   double b2Scale = 1;
   double b1Mass = getMass(b1);
   double b2Mass = getMass(b2);
-  b1Scale = b2Mass / (b2Mass + b1Mass);
-  b2Scale = b1Mass / (b2Mass + b1Mass);
+
+  if (isinf(b1Mass) && isinf(b2Mass)) {
+    b1Scale = 0;
+    b2Scale = 0;
+  }
+  else if (isinf(b1Mass) || isinf(b2Mass)) {
+    b1Scale = 0;
+    b2Scale = 1;
+    if (isinf(b2Mass)) {
+      b1Scale = 1;
+      b2Scale = 0;
+    }
+  }
+  else {
+    b1Scale = b2Mass / (b2Mass + b1Mass);
+    b2Scale = b1Mass / (b2Mass + b1Mass);
+  }
 
   b1Scale *= mtv_mag;
   b2Scale *= mtv_mag;
@@ -185,8 +188,33 @@ virt_pos* getCenter(body* aBody) {
 
 void solveForFinals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f) {
   //solves for final velocities in an elastic colliison
-  *v2f = (m2 * v2i - m1 * (v2i - 2 * v1i)) / (m1 + m2);
-  *v1f = *v2f + v2i - v1i;
+  //apparently c double arithmatic leaves things to be desired for infinity
+  //outline for goal behavior
+  /*
+    if both inf, vf = vi
+    if one is inf, sdfgsdfg
+    just negate velocity? idk
+    if neither is inf, do maths
+   */
+  if (isinf(m1) && isinf(m2)) {
+    //just stop
+    *v1f = v1i;
+    *v2f = v2i;    
+  }
+  else if (isinf(m1) || isinf(m2)) {
+    double m1scale = 1;
+    double m2scale = -1;
+    if (isinf(m2)) {
+      m1scale = -1;
+      m2scale = 1;
+    }
+    *v1f = v1i * m1scale;
+    *v2f = v2i * m2scale;    
+  }
+  else {
+    *v2f = (m2 * v2i - m1 * (v2i - 2 * v1i)) / (m1 + m2);
+    *v1f = *v2f + v2i - v1i;
+  }
 }
 
 void elasticReduce(double m1, double m2, double* f1f, double* f2f, double els) {
@@ -201,6 +229,7 @@ void elasticReduce(double m1, double m2, double* f1f, double* f2f, double els) {
 
 void impact(body* b1, body* b2, vector_2* normal) {
   double m1 = getMass(b1), m2 = getMass(b2);
+    
   vector_2 *b1v = getVelocity(b1) , *b2v = getVelocity(b2);
   
   double body1i = 0, body2i = 0;
@@ -210,15 +239,16 @@ void impact(body* b1, body* b2, vector_2* normal) {
   double body1f = 0, body2f = 0;
   
   //some elasticity param, set to 1
-  double param = 1;
+
 
   //solve for final velocities
   solveForFinals(m1, m2, body1i, body2i, &body1f, &body2f);
-
-  elasticReduce(m1, m2, &body1f, &body2f, param);
+  //double param = 1;
+  //elasticReduce(m1, m2, &body1f, &body2f, param);
   
   double body1d = body1f - body1i;
   double body2d = body2f - body2i;
+
   vector_2 body1add = *zero_vec, body2add = *zero_vec;
   vector_2_scale(normal, body1d, &body1add);
   vector_2_scale(normal, body2d, &body2add);

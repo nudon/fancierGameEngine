@@ -10,6 +10,7 @@
 #include "body.h"
 #include "game_state.h"
 #include "input.h"
+#include "parallax.h"
 
 
 
@@ -24,6 +25,13 @@ static int loadMedia();
 //static void gameLoop();
 
 void setBGColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
+void makeWalls(gen_list* list);
+
+body* makeTriangle(gen_list* list);
+
+body* makeUserBody(gen_list* list);
+
 
 
 
@@ -151,18 +159,13 @@ int main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
     temp = curr->stored;
     //draw_polygon_outline(cam, temp->coll->shape);
     double i = 1;
-    int limit = 10;
-    double orig_scale = temp->coll->shape->scale;
-    
-    while (i < limit) {
-
+    int limit = 1;
+    while (i <= limit) {
       draw_parallax_polygon(cam,temp->coll->shape, &vp, (double)i);
       //temp->coll->shape->scale = (double)orig_scale / i;
       //draw_polygon_outline(cam, temp->coll->shape);
       i++;
     }
-    temp->coll->shape->scale = (double)orig_scale;
-    
     curr = curr->next;
   }
 
@@ -199,8 +202,19 @@ int main(int argc, char** args) {
       double ms_per_frame = 1000.0 / FPS_CAP;
       int update_wait;
  
-      makeUserBody(ttd);
-      makeTriangle(ttd);
+      body* b1 = makeUserBody(ttd);
+      body* b2 = makeTriangle(ttd);
+      tether* teeth = NULL;
+      teeth = create_tether(&(b1->coll->shape->center),
+			    &(b2->coll->shape->center),
+			    b1->fizz,
+			    b2->fizz,
+			    1,
+			    1,
+			    .04,
+			    0.0,
+			    1000,
+			    0);
       makeWalls(ttd);
       gen_node* curr = ttd->start;
       
@@ -214,10 +228,10 @@ int main(int argc, char** args) {
       while (!quit) {
 	set_dT(time_since_update());
 	time_update();
-	
+	apply_tether(teeth);
 	main_test(&mainCam, ttd, map);	update_wait = ms_per_frame - get_dT();	
 	time = time_since_update();
-	printf("main test finished in %f ms.\n", time);
+	//printf("main test finished in %f ms.\n", time);
 	if (update_wait > 0) {
 	  SDL_Delay(update_wait);
 	}
@@ -232,7 +246,7 @@ int main(int argc, char** args) {
 	
 	time = time_since_update();
 	update_wait = ms_per_frame - time;
-	printf("waiting time is %d\n", update_wait);
+	//printf("waiting time is %d\n", update_wait);
 	if (update_wait > 0) {
 	  SDL_Delay(update_wait);
 	}
@@ -351,11 +365,13 @@ void makeWalls(gen_list* list) {
   collider* wallColliders [4];
   body* body;
   fizzle* fizz;
+  double wallMass = 9000;
+  wallMass = INFINITY;
   for (int i = 0; i < 4; i++) {
     wallColliders[i] = make_collider_from_polygon(walls[i]);
     fizz = createFizzle();
     init_fizzle(fizz);
-    double wallMass = 9000;
+
     fizz->mass = wallMass;
     body = createBody(fizz, wallColliders[i]);
     prependToGen_list(list, createGen_node(body));
@@ -363,7 +379,7 @@ void makeWalls(gen_list* list) {
   }
 }
 
-void makeTriangle(gen_list* list) {
+body* makeTriangle(gen_list* list) {
   polygon* triom = NULL;
   collider* bos = NULL;
   body* body;
@@ -379,9 +395,10 @@ void makeTriangle(gen_list* list) {
   init_fizzle(fizz);
   body = createBody(fizz, bos);
   prependToGen_list(list, createGen_node(body));
+  return body;
 }
 
-void makeUserBody(gen_list* list) {
+body* makeUserBody(gen_list* list) {
   polygon* mainPoly = createNormalPolygon(4);
   collider* coll;
   fizzle* fizz;
@@ -399,4 +416,5 @@ void makeUserBody(gen_list* list) {
   give_user_poltergeist(polt);
   body->polt = polt;
   prependToGen_list(list, createGen_node(body));
+  return body;
 }

@@ -12,6 +12,8 @@ static void myDrawFunRect(int x1 , int y1, int x2, int y2, int layers);
 
 static camera* gamgam;
 
+pixel_pos* zero_pix = &((pixel_pos){.x = 0, .y = 0});
+
 void setCam(camera* cam) {
   gamgam = cam;
 }
@@ -69,7 +71,6 @@ void draw_hash_map(camera* cam, spatial_hash_map* map) {
   int map_height = rows * map->cell_dim.height;
   int map_width = cols * map->cell_dim.width;
   virt_pos vs, vf;
-  pixel_pos ps, pf;
   //draw grid outline of cell
   //draw horizontal lines
   for (int row_i = 1; row_i  <= rows; row_i++) {
@@ -78,9 +79,7 @@ void draw_hash_map(camera* cam, spatial_hash_map* map) {
     vs.y = y;
     vf.x = map_width;
     vf.y = y;
-    virt_to_pixel(&vs, &ps);
-    virt_to_pixel(&vf, &pf);
-    draw_line(cam, &ps, &pf);
+    draw_line(cam, &vs, &vf);
     //SDL_RenderDrawLine( x, 0, x, map_height;
   }
   //draw vertical lines
@@ -90,10 +89,7 @@ void draw_hash_map(camera* cam, spatial_hash_map* map) {
     vs.y = 0;
     vf.x = x;
     vf.y = map_height;
-
-    virt_to_pixel(&vs, &ps);
-    virt_to_pixel(&vf, &pf);
-    draw_line(cam, &ps, &pf);
+    draw_line(cam, &vs, &vf);
     //SDL_RenderDrawLine(0 , y, map_width, y);
   }
   //shade occupied cells
@@ -120,9 +116,7 @@ void drawWallIndication(camera* cam, SDL_Rect* rect) {
   SDL_SetRenderDrawColor(cam->rend, 255, 0, 0, 0);
   int xOff, yOff;
   int numLines = 3;
-  virt_pos vs, vf;
-  pixel_pos  ps, pf;
-  
+  virt_pos vs, vf;  
   for (int p = 0; p <= numLines; p++) {
     //also, potentiall hte dest rect is not square, so no singular offset
 
@@ -133,18 +127,14 @@ void drawWallIndication(camera* cam, SDL_Rect* rect) {
     vs.y = rect->y + rect->h - yOff;
     vf.x = rect->x + xOff;
     vf.y = rect->y + rect->h;
-    virt_to_pixel(&vs, &ps);
-    virt_to_pixel(&vf, &pf);
-    draw_line(cam, &ps, &pf);
+    draw_line(cam, &vs, &vf);
 
     //there were two loops in the orig draw indicator for ???
     vs.x = rect->x + xOff;
     vs.y = rect->y;
     vf.x = rect->x + rect->w;
     vf.y = rect->y + rect->h - yOff;
-    virt_to_pixel(&vs, &ps);
-    virt_to_pixel(&vf, &pf);
-    draw_line(cam, &ps, &pf);
+    draw_line(cam, &vs, &vf);
 
   }
   //for (int p = 0; p <= numLines; p++) {
@@ -169,8 +159,11 @@ void draw_virt_pos(camera* cam, virt_pos* virt) {
   myDrawCirc(pix.x, pix.y, 9);
 }
 
-void draw_line(camera* cam, pixel_pos* start, pixel_pos* end) {
+void draw_line(camera* cam, virt_pos* start, virt_pos* end) {
   pixel_pos o = *(cam->corner);
+  pixel_pos t1 = *zero_pix, t2 = *zero_pix;
+  virt_to_pixel(start, &t1);
+  virt_to_pixel(end, &t2);
   SDL_RenderDrawLine(cam->rend,
 		     start->x - o.x, start->y - o.y,
 		     end->x - o.x, end->y - o.y);
@@ -185,11 +178,11 @@ void draw_polygon_outline(camera* cam, polygon* poly) {
   }
   //convert to pixel_pos
   //then call some more camera draw primitives which works out where or if to draw object
-  pixel_pos ts, tf;
+  virt_pos p1 = *zero_pos, p2 = *zero_pos;
   for (int i = 0; i < size; i++) {
-    virt_to_pixel(&(points[i]), &ts);
-    virt_to_pixel(&(points[(i + 1) % size]), &tf);
-    draw_line(cam, &ts, &tf);
+    p1 = points[i];
+    p2 = points[(i + 1) % size];
+    draw_line(cam, &p1, &p2);
   }
 }
 

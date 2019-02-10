@@ -1,5 +1,6 @@
 #include "myVector.h"
 #include "physics.h"
+#include <math.h>
 //first, want a general physics object
 //can add different types of forces
 //thinking of having a net_accel,
@@ -70,7 +71,7 @@ double get_dT() {
 
 void set_dT(double new) {
   dT = fmin(new,DT_LIMIT);
-  fprintf(stderr, "new dT is %f\n", dT);
+  //fprintf(stderr, "new dT is %f\n", dT);
 }
 //somewhere in main loop...
 /*
@@ -94,6 +95,7 @@ void init_fizzle(fizzle* fizz) {
   fizz->dampening = *zero_vec;
   fizz->net_acceleration = *zero_vec;
   fizz->impact = *zero_vec;
+  fizz->tether = *zero_vec;
   fizz->gravity = (vector_2){.v1 = 0, .v2 = 0};
 }
 
@@ -134,6 +136,7 @@ void update_vel(fizzle* fizz) {
   vector_2_add(&loc, &net, &loc);
   //add impact result so final velocity is correc
   vector_2_add(&(fizz->impact), &loc, &loc);
+  vector_2_add(&(fizz->tether), &loc, &loc);
   fizz->velocity = loc;
 }
 
@@ -163,10 +166,11 @@ void set_fizzle_dampening(fizzle* fizz, int limit) {
 }
 
 void fizzle_update(fizzle* fizz) {
-  //set_fizzle_dampening(fizz, 100);
+  set_fizzle_dampening(fizz, 100);
   update_net(fizz);
   update_vel(fizz);
   set_impact(fizz, zero_vec);
+  set_tether(fizz, zero_vec);
 }
 
 void set_gravity(fizzle* fizz, vector_2* newGrav) {
@@ -178,9 +182,22 @@ void set_impact(fizzle* fizz, vector_2* newImp) {
 }
 
 void add_impact(fizzle* fizz, vector_2* newAdd) {
+  //why did I do this
+  /*
   vector_2 newImp = fizz->impact;
   vector_2_add(newAdd, &newImp, &newImp);
   fizz->impact = newImp;
+  */
+  
+  vector_2_add(newAdd, &(fizz->impact), &(fizz->impact));
+}
+
+void set_tether(fizzle* fizz, vector_2* newTF) {
+  fizz->tether = *newTF;
+}
+
+void add_tether(fizzle* fizz, vector_2* addTF) {
+  vector_2_add(addTF, &(fizz->tether), &(fizz->tether));
 }
 
 //generally, somehow associating a polygon and fizzle
@@ -207,4 +224,88 @@ void add_impact(fizzle* fizz, vector_2* newAdd) {
 
 //created body file to server this purpose
 
+tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,double w2,double ts,double tk, double td,int tt) {
+  tether* new = malloc(sizeof(tether));
+  double mag = w1 + w2;
+  *new = (tether){.point_1 = p1,
+		  .point_2 = p2,
+		  .fizz_1 = f1,
+		  .fizz_2 = f2,
+		  .weight_1 = w1 / mag,
+		  .weight_2 = w2 / mag,
+		  .tether_strength = ts,
+		  .tether_k = tk,
+		  .tether_distance = td,
+		  .tether_type = tt};
+  return new;
+}
 
+void free_tether(tether* rm) {
+  free(rm);
+}
+
+void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
+  double d  = distance_between_points(teth->point_1, teth->point_2);
+  double len = teth->tether_distance;
+  double diff = 0;
+  double mag = 0;
+  double t1_mag = 0;
+  double t2_mag = 0;
+  vector_2 t1_to_t2;
+  vector_2 t2_to_t1;
+  
+  switch (teth->tether_type) {
+  case -1:
+    if (d < len) {
+      //push away
+      diff = d - len;
+    }
+    break;
+  case 0:
+    if (d != len) {
+      //pull/push as needed
+      diff = d - len;
+      
+    }
+    break;
+  case 1:
+    if (d > len) {
+      //pull towards
+      diff = d - len;
+    }
+    break;
+  default:
+    //tether probably never initialized or corrupted
+    //suprised if it didn't crash when accessing points
+    break;
+  }
+  if (diff != 0) {
+    vector_2 temp_1, temp_2;
+    virt_pos_to_vector_2(teth->point_1, &temp_1);
+    virt_pos_to_vector_2(teth->point_2, &temp_2);
+    vector_2_sub(&temp_1, &temp_2, &t2_to_t1);
+    vector_2_sub(&temp_2, &temp_1, &t1_to_t2);
+    make_unit_vector(&t1_to_t2, &t1_to_t2);
+    make_unit_vector(&t2_to_t1, &t2_to_t1);
+        
+    mag = diff * teth->tether_k + teth->tether_strength;
+    fprintf(stderr, "mag is %f\n", mag);
+    t1_mag = mag * teth->weight_1;
+    t2_mag = mag - t1_mag;
+    vector_2_scale(&t2_to_t1, t1_mag, t2);
+    vector_2_scale(&t1_to_t2, t2_mag, t1);
+    fprintf(stderr, "t1 mag is %f, t2 mag is %f\n", t1_mag, t2_mag);
+  }
+}
+
+
+void apply_tether(tether* teth) {
+  vector_2 t1 = *zero_vec;
+  vector_2 t2 = *zero_vec;
+  fizzle* f1 = teth->fizz_1;
+  fizzle* f2 = teth->fizz_2;
+  get_tether_force(teth, &t1, &t2);
+  //add t1 to f1->tether, t2 to f2->tether
+  add_tether(f1, &t1);
+  add_tether(f2, &t2);  
+}

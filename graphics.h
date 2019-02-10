@@ -23,6 +23,8 @@ struct {
   pixel_pos* corner;
 } camera;
 
+extern pixel_pos* zero_pix;
+
 void setCam(camera* cam);
 
 camera* getCam();
@@ -34,8 +36,7 @@ void draw_hash_map(camera* cam, spatial_hash_map* map);
 
 void drawWallIndication(camera* cam, SDL_Rect* rect);
 
-
-void draw_line(camera* cam, pixel_pos* start, pixel_pos* end);
+void draw_line(camera* cam, virt_pos* start, virt_pos* end);
 
 void draw_polygon_outline(camera* cam, polygon* poly);
 

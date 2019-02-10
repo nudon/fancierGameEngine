@@ -337,7 +337,7 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
   boundBox->center= collider->shape->center;
   
   vector_2 bb_axis_x, bb_axis_y, vec_x, vec_y, vec_pos;
-  double bbx_pos, bbx_end, bby_pos, bby_end,  proj_y_dist, proj_x_dist, mag_x, mag_y;
+  double bbx_pos, bbx_end, bby_pos, bby_end, mag_x, mag_y;
   virt_pos c1, c2, c3, bb_origin, pos, prev_pos, y_pos, prev_side_1, prev_side_2;
   matrix_index prev_index, temp_ind, a;
   matrix_index cells[4];
@@ -364,6 +364,7 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
 
     #ifdef SMARTY
     //code for supposedly setting vectors so that neither components are greater than a cell dimension
+    double proj_y_dist, proj_x_dist;
     virt_pos bb_axis_x_disp;
     virt_pos bb_axis_y_disp;
 
