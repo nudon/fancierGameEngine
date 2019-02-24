@@ -15,7 +15,7 @@ poltergeist* make_poltergeist() {
   return new;
 }
 
-void user_poltergeist(spatial_hash_map* map,  struct body_struct* body, virt_pos* t_disp, double* r_disp) {
+void user_poltergeist(spatial_hash_map* map,  struct body_struct* body, vector_2* t_disp, double* r_disp) {
   polygon* poly = body->coll->shape;
   get_input_for_polygon(poly, t_disp, r_disp);
 }
@@ -33,7 +33,7 @@ void give_user_poltergeist(poltergeist* polt) {
 }
 
 
-void apply_poltergeist(poltergeist* polt, spatial_hash_map* map,  struct body_struct* body, virt_pos* t_disp, double* r_disp) {
+void apply_poltergeist(poltergeist* polt, spatial_hash_map* map,  struct body_struct* body, vector_2* t_disp, double* r_disp) {
   if (polt != NULL) {
     polt->posession( map, body, t_disp, r_disp);
   }

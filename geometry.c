@@ -23,10 +23,10 @@ polygon* createPolygon(int sides) {
   new->sides = sides;
   new->scale = 1;
   new->rotation = 0;
-  new->center = (virt_pos){.x = 0, .y = 0};
-  init_point(&(new->center));
+  new->center = malloc(sizeof(virt_pos));
   new->corners = malloc(sizeof(virt_pos) * sides);
   new->normals = malloc(sizeof(vector_2) * sides);
+  init_point(new->center);
   for (int i = 0; i < sides; i++) {
     init_point(&(new->corners[i]));
     init_vector(&(new->normals[i]));
@@ -42,17 +42,10 @@ polygon* createNormalPolygon(int sides) {
 }
 
 void generate_normals_for_polygon(polygon* poly) {
-  //this needs a bit more work
-  //just blindly rotating by 90 degrees could point normals inwards
-  //have to make normal point away from center
-  //can do this by comparing point on side, point displaced by normal vector, and center of polygon
   int sides = poly->sides;
   virt_pos p1, p2, cent, midp, disp;
   double  cent_l, midp_l, disp_l;
   vector_2 temp;
-  cent = poly->center;
-  //corner points are stored relative to center
-  //just making center zero should work
   cent = *zero_pos;
   for (int i = 0; i < sides; i++) {
     p1 = poly->corners[i];
@@ -69,17 +62,12 @@ void generate_normals_for_polygon(polygon* poly) {
     midp_l = get_projected_length(&midp, &temp);
     disp_l = get_projected_length(&disp, &temp);
 
-    if ( (cent_l <= midp_l && midp_l <= disp_l) ||
-	 (disp_l <= midp_l && midp_l <= cent_l)) {
-
-    }
-    else {
+    if (!((cent_l <= midp_l && midp_l <= disp_l) ||
+	  (disp_l <= midp_l && midp_l <= cent_l))) {
       vector_2_scale(&temp, -1, &temp);
     }
     make_unit_vector(&temp, &temp);
     poly->normals[i] = temp;
-    
-    
   }
 }
 
@@ -143,7 +131,7 @@ void get_actual_point(polygon* poly, int i, virt_pos* result) {
   virt_pos_rotate(result, poly->rotation, result);
   //scale result by poly's scale
 
-  virt_pos_add(result, &(poly->center), result);
+  virt_pos_add(result, poly->center, result);
 }
 
 void get_actual_normal(polygon* poly, int i, vector_2* result) {
@@ -154,13 +142,6 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
 
  int do_polygons_intersect(polygon* p1, polygon* p2) {
    //returns 1 if true, zero if false
-  //was going to consider doing this so that the origin is the center of p1.
-  //worried about odd things happenening when both polygons are far away, due to shenanigans of dealing with angle between objects and float/double precision
-  //easy for p1, since it's corners should already be relative to center
-  //p1, corners will be offset by difference between p2 and p1's absolute centers.
-  //intending for normals to just point in same direction as surface, no need to change that with new origin
-  
-  //need to do all below for potentially every normal of both polygons
   double p1_min, p1_max, p2_min, p2_max;
   vector_2 normal_vector;
   int isDone = 0, ret = 1, index = 0, polygon = 1;;
@@ -183,12 +164,9 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
 	  isDone = 1;
 	}
       }
-    }
-    //if still worried about double range doing odd things
-    //could pass in difference between p1 and p2 centers, should workn
-    
-    extreme_projections_of_polygon(p1, &p1->center, &normal_vector, &p1_min, &p1_max);
-    extreme_projections_of_polygon(p2, &p1->center, &normal_vector, &p2_min, &p2_max);
+    }    
+    extreme_projections_of_polygon(p1, p1->center, &normal_vector, &p1_min, &p1_max);
+    extreme_projections_of_polygon(p2, p1->center, &normal_vector, &p2_min, &p2_max);
      if ( p1_max < p2_min || p2_max < p1_min) {
       isDone = 1;
       ret = 0;
@@ -230,9 +208,8 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
 	}
       }
     }
-    extreme_projections_of_polygon(p1, &p1->center, &normal_vector, &p1_min, &p1_max);
-    extreme_projections_of_polygon(p2, &p1->center, &normal_vector, &p2_min, &p2_max);
-    //fprintf(stderr, "normal is %d, %d\n", normal_vector.v1, normal_vector.v2);
+    extreme_projections_of_polygon(p1, p1->center, &normal_vector, &p1_min, &p1_max);
+    extreme_projections_of_polygon(p2, p1->center, &normal_vector, &p2_min, &p2_max);
     //there is overlap of shapes along axis
      if ( p1_max > p2_min && p2_max > p1_min) {
        //check for full embedding of shapes
@@ -426,15 +403,22 @@ double distance_between_points(virt_pos* p1, virt_pos* p2) {
 
 void make_unit_vector(vector_2* op, vector_2* result) {  
   double mag;
-  if ( !is_a_unit_vector(op)) {
+  if (!is_a_unit_vector(op)) {
     mag = vector_2_magnitude(op);
-    result->v1 = op->v1 / mag;
-    result->v2 = op->v2 / mag;
+    if (mag != 0) {
+      result->v1 = op->v1 / mag;
+      result->v2 = op->v2 / mag;
+      assert(is_a_unit_vector(result) == 1);
+    }
+    else {
+      return;
+      fprintf(stderr, "attempting to make a zero vector a unit vector\n");
+    }
   }
   else {
     *result = *op;
   }
-  assert(is_a_unit_vector(result) == 1);
+
 }
 
 
@@ -533,4 +517,8 @@ void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result) {
 
 void print_vector(vector_2* vec) {
   fprintf(stderr, "vector is %f, %f\n", vec->v1, vec->v2);
+}
+
+void print_point(virt_pos* pos) {
+  fprintf(stderr, "point is x:%d, y:%d\n", pos->x, pos->y);
 }

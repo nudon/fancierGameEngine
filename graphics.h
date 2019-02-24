@@ -3,6 +3,7 @@
 #include <SDL2/SDL_image.h>
 #include "geometry.h"
 #include "collider.h"
+#include "compound.h"
 
 
 int getScreenWidth();
@@ -40,7 +41,11 @@ void draw_line(camera* cam, virt_pos* start, virt_pos* end);
 
 void draw_polygon_outline(camera* cam, polygon* poly);
 
+void draw_compound_outline(camera* cam, compound* comp);
+
 void draw_bbox(camera* cam, collider* coll);
+
+void draw_compound_bbox(camera* cam, compound* comp);
 
 void draw_virt_pos(camera* cam, virt_pos* virt);
 #endif

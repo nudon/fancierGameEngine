@@ -16,7 +16,8 @@ void resolve_collisions(spatial_hash_map* map, body* main_body) {
   body* currBody;
   while(currNode != NULL) {
     currBody =((collider*)currNode->stored)->body;
-    if (currBody != main_body) {
+    if (currBody != main_body && currBody->owner != main_body->owner) {
+      //fprintf(stderr, "detecting  a collision!\n");
       resolve_collision(map, main_body, currBody);
     }
     currNode = currNode->next;
@@ -40,8 +41,36 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
     get_normals_of_collision(body1, body2, &normal_of_collision, &b1_norm, &b2_norm);
     displace_bodies(map,body1, body2, mtv_mag, &b1_norm, &b2_norm);
     //in addition to setting velocities, also need to displace object outside of eachother
-    //impact_bodies(body1, body2, &b1_norm, &b2_norm);
-    impact(body1, body2, &b1_norm);
+    impact_bodies(body1, body2, &b1_norm, &b2_norm);
+    //impact(body1, body2, &b1_norm);
+  }
+}
+
+//returns an inverted mass contribution
+//out of sum of both masses, fill m1 with mass contribution of m2, and vice versa
+//used quite a bit when I want heavy objects to react less when interacting with lighter objects
+void inv_mass_contribution(double m1, double m2, double* m1c, double* m2c) {
+  mass_contribution(m1, m2, m2c, m1c);
+}
+
+void mass_contribution(double m1, double m2, double* m1c, double* m2c) {
+  double sum;
+  if (isinf(m1) && isinf(m2)) {
+    *m1c = 0;
+    *m2c = 0;
+  }
+  else if (isinf(m1) || isinf(m2)) {
+    *m1c = 1;
+    *m2c = 0;
+    if (isinf(m2)) {
+    *m1c = 0;
+    *m2c = 1;
+    }
+  }
+  else {
+    sum = m1 + m2;
+    *m1c = m1 / sum;
+    *m2c = m2 / sum;
   }
 }
 
@@ -57,22 +86,7 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   double b1Mass = getMass(b1);
   double b2Mass = getMass(b2);
 
-  if (isinf(b1Mass) && isinf(b2Mass)) {
-    b1Scale = 0;
-    b2Scale = 0;
-  }
-  else if (isinf(b1Mass) || isinf(b2Mass)) {
-    b1Scale = 0;
-    b2Scale = 1;
-    if (isinf(b2Mass)) {
-      b1Scale = 1;
-      b2Scale = 0;
-    }
-  }
-  else {
-    b1Scale = b2Mass / (b2Mass + b1Mass);
-    b2Scale = b1Mass / (b2Mass + b1Mass);
-  }
+  inv_mass_contribution(b1Mass, b2Mass, &b1Scale, &b2Scale);
 
   b1Scale *= mtv_mag;
   b2Scale *= mtv_mag;
@@ -137,13 +151,14 @@ body* createBody(fizzle* fizz, struct collider_struct* coll) {
   new->coll = coll;
   new->polt = NULL;
   coll->body = new;
+  new->owner = NULL;
   
   return new;
 }
 
-void freeBody(body* rm) {
-  freeFizzle(rm->fizz);
-  freeCollider(rm->coll);
+void free_body(body* rm) {
+  free_fizzle(rm->fizz);
+  free_collider(rm->coll);
   free(rm);
 }
 
@@ -161,7 +176,7 @@ vector_2* getVelocity(body* aBody) {
 }
 
 virt_pos* getCenter(body* aBody) {
-   return &(aBody->coll->shape->center);
+   return aBody->coll->shape->center;
 }
 
 

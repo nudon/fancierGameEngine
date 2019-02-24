@@ -2,10 +2,10 @@
 
 #include "input.h"
 #include "game_state.h"
-int get_input_for_polygon(polygon* poly, virt_pos* trans_disp, double* rot_disp) {
+int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
-  int mov_delta = 1;
+  double mov_delta = .4;
   double rot_delta = .3;
   double scale_delta = 1;
   //virt_pos trans_disp = (virt_pos){.x = 0, .y = 0};
@@ -18,16 +18,16 @@ int get_input_for_polygon(polygon* poly, virt_pos* trans_disp, double* rot_disp)
       if (!(SDL_GetModState() & KMOD_CTRL)) {
 	switch(e.key.keysym.sym) {
 	case SDLK_UP:
-	  trans_disp->y -= mov_delta;
+	  trans_disp->v2 -= mov_delta;
 	  break;
 	case SDLK_DOWN:
-	  trans_disp->y += mov_delta;
+	  trans_disp->v2 += mov_delta;
 	  break;
 	case SDLK_RIGHT:
-	  trans_disp->x += mov_delta;
+	  trans_disp->v1 += mov_delta;
 	  break;
 	case SDLK_LEFT:
-	  trans_disp->x -= mov_delta;
+	  trans_disp->v1 -= mov_delta;
 	  break;
 	default:
 

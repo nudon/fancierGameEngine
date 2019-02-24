@@ -53,7 +53,7 @@ void init_fizzle(fizzle* fizz) {
   fizz->gravity = (vector_2){.v1 = 0, .v2 = 0};
 }
 
-void freeFizzle(fizzle* rm) {
+void free_fizzle(fizzle* rm) {
   free(rm);
 }
 
@@ -114,7 +114,7 @@ void set_fizzle_dampening(fizzle* fizz, int limit) {
 }
 
 void fizzle_update(fizzle* fizz) {
-  set_fizzle_dampening(fizz, 100);
+  set_fizzle_dampening(fizz, 1000);
   update_net(fizz);
   update_vel(fizz);
   set_impact(fizz, zero_vec);
@@ -146,6 +146,13 @@ void add_tether(fizzle* fizz, vector_2* addTF) {
 //-1 defines sort of a barrier, pushes objects away if they are closer than td
 //0, defines an ideal spring situation, pushes/pulls objects
 //1 defines a standard rope, pulls objects together if they are farther than td
+
+tether* default_tether = &((tether){.point_1 = NULL, .point_2 = NULL, .fizz_1 = NULL, .fizz_2 = NULL, .weight_1 = .5, .weight_2 = .5, .tether_strength = 0, .tether_k = .001, .tether_distance = 30, .tether_type = 1});
+
+tether* create_tether_blank(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2) {
+  return create_tether(p1, p2, f1, f2, -1, -1,	-1, -1, -1, -10);
+  
+}
 tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,double w2,double ts,double tk, double td,int tt) {
   tether* new = malloc(sizeof(tether));
   double mag = w1 + w2;
@@ -162,6 +169,15 @@ tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,
   return new;
 }
 
+void copy_tether_params(tether* from, tether* to) {
+  to->weight_1 = from->weight_1;
+  to->weight_2 = from->weight_2;
+  to->tether_strength = from->tether_strength;
+  to->tether_k = from->tether_k;
+  to->tether_distance = from->tether_distance;
+  to->tether_type = from->tether_type;
+}
+
 void free_tether(tether* rm) {
   free(rm);
 }
@@ -171,11 +187,12 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
   double len = teth->tether_distance;
   double diff = 0;
   double mag = 0;
+  double sign = 1;
   double t1_mag = 0;
   double t2_mag = 0;
   vector_2 t1_to_t2;
   vector_2 t2_to_t1;
-  
+  int print = 0;
   switch (teth->tether_type) {
   case -1:
     if (d < len) {
@@ -201,7 +218,18 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
     //suprised if it didn't crash when accessing points
     break;
   }
+  if (print) {
+  /*
+    print_point(teth->point_1);
+    print_point(teth->point_2);
+  */
+    fprintf(stderr, "d is %f, len is %f\n", d, len);
+  }
   if (diff != 0) {
+    if (diff < 0) {
+      sign = -1;
+    }
+
     vector_2 temp_1, temp_2;
     virt_pos_to_vector_2(teth->point_1, &temp_1);
     virt_pos_to_vector_2(teth->point_2, &temp_2);
@@ -210,13 +238,19 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
     make_unit_vector(&t1_to_t2, &t1_to_t2);
     make_unit_vector(&t2_to_t1, &t2_to_t1);
         
-    mag = diff * teth->tether_k + teth->tether_strength;
-    fprintf(stderr, "mag is %f\n", mag);
+    mag = diff * teth->tether_k + sign * teth->tether_strength;
+
     t1_mag = mag * teth->weight_1;
     t2_mag = mag - t1_mag;
     vector_2_scale(&t2_to_t1, t1_mag, t2);
     vector_2_scale(&t1_to_t2, t2_mag, t1);
-    fprintf(stderr, "t1 mag is %f, t2 mag is %f\n", t1_mag, t2_mag);
+    if (print) {
+      fprintf(stderr, "new teth loop\n");
+      fprintf(stderr, "k is %f\n", teth->tether_k);
+      fprintf(stderr, "diff is %f\n", diff);
+      fprintf(stderr, "mag is %f\n", mag);
+      fprintf(stderr, "t1 mag is %f, t2 mag is %f\n", t1_mag, t2_mag);
+    }
   }
 }
 

@@ -5,7 +5,6 @@
 #include "myMatrix.h"
 #include "myVector.h"
 #include "collider.h"
-
 #include "graphics.h"
 
 //comparer stuff
@@ -47,7 +46,7 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
   polygon* poly = coll->shape;
   int change = 0;
   if (!isZeroPos(displace)) {
-    virt_pos_add(&(poly->center), displace, &(poly->center));
+    virt_pos_add(poly->center, displace, poly->center);
     change++;
   }
   if (rot != 0.0) {
@@ -70,12 +69,12 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
 //doesn't carry out updates if it resulted in collision
 //moves each object indiivdually and reverts if bad
 int safe_move(spatial_hash_map* map, collider* coll, virt_pos* displace) {
-  virt_pos old_pos = coll->shape->center;
+  virt_pos old_pos = *(coll->shape->center);
   polygon* poly = coll->shape;
-  virt_pos_add(&(poly->center), displace, &(poly->center));
+  virt_pos_add(poly->center, displace, poly->center);
   int safe = safe_update(map, coll);
   if ( !safe) {
-    poly->center = old_pos;
+    *(poly->center) = old_pos;
   }
   else {
     update_refs(coll);
@@ -172,7 +171,7 @@ collider* make_collider_from_polygon(polygon* poly) {
   return new;
 }
 
-void freeCollider(collider* rm) {
+void free_collider(collider* rm) {
   collider_list_node* cln = rm->collider_node;
   int size = cln->max_ref_amount;
   for (int i = 0; i < size; i++) {
@@ -182,8 +181,23 @@ void freeCollider(collider* rm) {
   fprintf(stderr, "Haven't free matrix indexes yet\n");
   free(cln);
   freePolygon(rm->shape);
+  //Collider should have center* reassigned to bbox
+  if (rm->shape->center != rm->bbox->center) {
+    fprintf(stderr, "Some collider didn't get it's center reassigned\nYou will be leaking memory\n");
+  }
+  rm->bbox->center = NULL;
   freePolygon(rm->bbox);
   free(rm);
+}
+
+void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
+  collider* coll;
+  gen_node* curr = comp->bp->start;
+  while(curr != NULL) {
+    coll = ((body*)curr->stored)->coll;
+    insert_collider_in_shm(map, coll);
+    curr = curr->next;
+  }
 }
 
 void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
@@ -191,47 +205,30 @@ void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
   collider_list_node* node;
   if (collider->collider_node == NULL ) {
     node = make_cln_from_collider(collider);
-    collider->collider_node = node;
   }
   else {
     fprintf(stderr, "warning, inserting a collider into spatial hash map when it's already in another\n");
     node = collider->collider_node;
   }
+  set_cln_vectors(collider, node, &(map->cell_dim));
+ 
+  //generate active cells for collider
+  entries_for_collider(map, collider, node->active_cells);
 
+  //add entries
+  add_collider_to_shm_entries(map, node, node->active_cells);
+  //done with insertion?
+}
 
-  
-  polygon* bbox = collider->bbox;
+void set_cln_vectors(collider* coll, collider_list_node* node, box* cell_dim) {
+  polygon* bbox = coll->bbox;
   double cellW, cellH, boxW, boxH;
-  cellW = map->cell_dim.width;
-  cellH = map->cell_dim.height;
+  cellW = cell_dim->width;
+  cellH = cell_dim->height;
   //potentially need to factor in scale in here, though I don't think i use scale in construction bounding boxes
   boxW = distance_between_points(&(bbox->corners[0]),&(bbox->corners[1]));
   boxH = distance_between_points(&(bbox->corners[1]),&(bbox->corners[2])); 
-  //need to calculate bounding box of collider.
-  //was thinking of just doing a naive iteration
-  //take polygon, project along 2 orth axis, get difference between min/max projections, get area of box
-  //then change rotation so that area decreases. keep changing that way until area stops decreaseing
-  //or if I want to lazy, don't even optimize, just take box you calculate.
-  int area_span;
-  int perimeter_span;
-  //size is off, consider box w/ respective dim 1.1 bigger than cell width
-  //could span 9 boxes, but the bellow calc would give like 4
-  //area_span = ceil((boxW * boxH) / (cellW * cellH));
-  //perimeter_span  = ceil((boxW + boxH) / (cellW + cellH));
-  //instead, ? on area
-  //for perim, have  s = (box_dim / 2) /cell_dim
-  //some odd exact breakdowns, but span(box_dim) = ceil(s) * 4
-  //idea is maximally spanning things are centered along cell dim,
-  //so extra side lengths grow out on both sides
-  //so take dim / 2, find ceil of that, * 2 to grab whole side, * 2 for other size
-  //do same for other dim, perimiter span should be product of other spans
-  area_span = ceil((boxW * boxH) / (cellW * cellH));
-  perimeter_span = (ceil((boxW / 2) / cellW) + ceil(boxH / 2) / cellH) * 4;
-  int size = area_span + perimeter_span;
-  if (size < 4) {
-    size = 4;
-  }
-  
+  int size = calc_max_cell_span(boxW, boxH, cellW, cellH);
   node->max_ref_amount = size;
   node->active_cells = newVectorOfSize(size);
   node->old_cells = newVectorOfSize(size);
@@ -244,31 +241,26 @@ void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
     setElementAt(node->active_cells,i, createMatrixIndex());
     setElementAt(node->old_cells,i, createMatrixIndex());
   }
-  
-  //generate active cells for collider
-  entries_for_collider(map, collider, node->active_cells);
+}
 
-  //add entries
-  add_collider_to_shm_entries(map, node, node->active_cells);
-  //done with insertion?
+int calc_max_cell_span(double boxW, double boxH, double cellW, double cellH) {
+  //idea is maximally spanning things are centered in a cell,
+  //so extra side lengths grow out on both sides
+  //so take box-dim / 2, divide by cell-dim, take ciel, gives # of cells spanned by half of dim
+  //do same along other dim, multiply, have cells spanned by quarter of box
+  //multiply by 4 to find cells spanned by entire thing
+  //in actuality, there's a bit of a kink since in  the max_spanning setup
+  //the box dim only has to be greater than half the cell dim to clear the first cell
+  //after that though the box dim has to grow by full cell dim amount to clear later cells
+  //I could either work some weird math to account for that, or just add 1
+  int size = ceil(boxW / 2 / cellW + 1) * ceil(boxH / 2 / cellH + 1) * 4;
+  if (size < 4) {
+    size = 4;
+  }
+  return size;
 }
 
 void find_bb_for_polygon(polygon* poly, polygon* result) {
-  //another option, need to somehow tie center of polygon with center of bound box
-  //could either set centre point to same as poly
-  //if so, would have to change how I'm defining bb_corners, as those assume bb_center is geometric center of bbox, which if it's shared with some polygon, it might not be
-  //for finding corners of box relative to corner, could probably easily find these from calling extreme_projections_of_polygon on center of poly/result. the min/max points should give components of corner positions
-
-  //alternative is to simultanteously update both poly and it's bound box. that's annoying
-
-  //actually issue is slightly more annoying because center is not a pointer
-  //might just copy select polygon values when needing to do stuff with bound box
-
-  //was also thinking, if stacking rotation between boundbox and poly is an issue, could make rotation in poly point to rot in poly
-  //would take points at end of this and rotate by the optimal rotation
-
-  //currently, only dealing with bounding box in entries for collider. so it wouldn't be too unwieldy to just manually copy center and rotations
-  
   double orig_rot = poly->rotation;
   poly->rotation = 0;
   double min, max, x_len, y_len;
@@ -284,9 +276,9 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
     rots[2] = (rots[1] + rots[0] )/ 2;
     for (int i = 0; i < 3; i++) {
       poly->rotation = rots[i];
-      extreme_projections_of_polygon(poly, &(poly->center), &x_axis, &min, &max);
+      extreme_projections_of_polygon(poly, poly->center, &x_axis, &min, &max);
       x_len = fabs(max - min);
-      extreme_projections_of_polygon(poly, &(poly->center), &y_axis, &min, &max);
+      extreme_projections_of_polygon(poly, poly->center, &y_axis, &min, &max);
       y_len = fabs(max - min);
       areas[i] = y_len * x_len;
     }
@@ -301,18 +293,21 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   }
   //now, create polygon
   //make square, set rotation to rots[2]
-  //then set it to the now lost xlen and ylen projections
+  //then set it to the  xlen and ylen projections
   //manually set points to (vir_pos){.x = +- x_len / 2, .y = +- y_len / 2};
   double xmin, xmax, ymin, ymax;
   if (result->sides == 4) {
     result->rotation = rots[rot_index];
-    extreme_projections_of_polygon(poly, &(poly->center), &x_axis, &xmin, &xmax);
-    extreme_projections_of_polygon(poly, &(poly->center), &y_axis, &ymin, &ymax);
+    extreme_projections_of_polygon(poly, poly->center, &x_axis, &xmin, &xmax);
+    extreme_projections_of_polygon(poly, poly->center, &y_axis, &ymin, &ymax);
     result->corners[0] = (virt_pos){.x = xmin, .y = ymin};
     result->corners[1] = (virt_pos){.x = xmax, .y = ymin};
     result->corners[2] = (virt_pos){.x = xmax, .y = ymax};
     result->corners[3] = (virt_pos){.x = xmin, .y = ymax};
     generate_normals_for_polygon(result);
+    //then, need to free results center, and point it to poly's center
+    free(result->center);
+    result->center = poly->center;
   }
   else {
     //dummy
@@ -325,7 +320,7 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
 //for finding cells that are spanned by collider
 void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result) {
   //think this is done, improvements are some minor adjustemnts to cut back on the number of vector_scale operations I do
-  //also because _ don't have rotation or center as pointers I have to manually set/update boundboxes values a bit
+  //also because don't have rotation as pointers I have to manually set/update boundboxes values a bit
   int cellW = map->cell_dim.width;
   int cellH = map->cell_dim.height;
   int collW;
@@ -334,7 +329,6 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
   polygon* boundBox = collider->bbox;
   double orig_rot = boundBox->rotation;
   boundBox->rotation += collider->shape->rotation;
-  boundBox->center= collider->shape->center;
   
   vector_2 bb_axis_x, bb_axis_y, vec_x, vec_y, vec_pos;
   double bbx_pos, bbx_end, bby_pos, bby_end, mag_x, mag_y;
@@ -517,8 +511,6 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
 	bby_pos++;
       }
     }
-    //again, can't use null. use vectors
-    //result[count] = NULL;
   }
   else {
     //errorr
@@ -665,10 +657,12 @@ int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_l
 	if (cln->status == DEFAULT) {
 	  cln->status = VISITED;
 	  collider_cr_node = cln->cr_node;
+	  /*
 	  if (already_in_a_list(collider_cr_node)) {
 	    //print things
 	    assert(0 && "Have old list references, stop that");
 	  }
+	  */
 	  prependToGen_list(result, collider_cr_node);
 	}
 	curr = curr->next;
@@ -685,7 +679,6 @@ void clean_collider_list(gen_list* list) {
   while (curr != NULL) {
     cln = ((collider*)(curr->stored))->collider_node;
     cln->status = DEFAULT;
-    collider_cr_node = cln->cr_node;
     collider_cr_node = curr;
     curr = curr->next;
     remove_node(collider_cr_node);
@@ -697,54 +690,10 @@ collider_list_node* make_cln_from_collider(collider* coll) {
   new->collider = coll;
   new->status = DEFAULT;
   new->cr_node = createGen_node(coll);
+  coll->collider_node = new;
   return new;
 }
 
-//new idea, hand in a  collider list node, use pointer comparison on collider(maybe something else eventually once I start making objects w/ multiple colliders) in node, only add
-
-/*
-int number_of_stupid_cellss(spatial_hash_map* map, vector* entries) {
-  int count = 0;
-  int sum = 0;
-  spatial_map_cell* cell;
-  //wondering how to do this, since I need to remember which colliders I find
-  //thinking of allocating a linked list onto stack, and doing it that way
-  for(int i = 0; i < entries->cur_size; i++) {
-    cell = get_entry_in_shm(map, elementAt(entries,i));
-    sum += number_of_colliders_in_cell(cell);
-    count++;
-  }
-  collider* colliders[sum - count + 2];
-  count = 0;
-  for(int i = 0; i < entries->cur_size; i++) {
-    cell = get_entry_in_shm(map, elementAt(entries,i));
-    //travers list in cell, grab collider list nodes, do unique insert on array
-    gen_node* curr = cell->colliders_in_cell->start;
-    collider* coll;
-    while(curr != NULL) {
-      coll = ((collider_list_node*)(curr->stored))->collider;
-      if (collider_unique_insert_array(coll, colliders) == 1) {
-	count++;
-      }
-    }
-  }
-  return count;
-}
-
-int number_of_colliders_in_cell(spatial_map_cell* cell) {
-  //this won't work if there are double entries for colliders in cell
-  //which would fuck up a lot of other things as well
-  //could print out result and use as a basic test against double adding
-  int count = 0;
-  gen_node* curr = cell->colliders_in_cell->start;
-  while(curr != NULL) {
-    count++;
-    curr = curr->next;
-  }
-  return count;
-}
-*/
-//either  a smcell or mylist, idk....
 spatial_map_cell* get_entry_in_shm(spatial_hash_map* map, matrix_index* index) {
   void* data = getDataAtIndex(map->hash_map, index->x_index, index->y_index);
   return (spatial_map_cell*)data;
@@ -799,181 +748,9 @@ void free_shm_cell(spatial_map_cell* rm) {
 }
 
 
-
-//all of the above was for the rough early-exclusion collision detection
-//for for fine grained stuff. Planning on using Seperation along axis
-
-//first, need to redesign game shapes to be arbitrary polygons
-
-
-//assuming I have some array of collider list nodes of potentially intersecting things
-//results can be colliders in multi that collide with mono. 
-int check_for_collisions(collider* mono, collider** multi, collider** results) {
-  //unsure what to do here
-  int i = 0, count = 0;
-  collider* check = multi[i];
-  while(check != NULL) {
-    if (mono != check) {
-      if (do_polygons_intersect(mono->shape, check->shape)) {
-	results[count] = check;
-	count++;
-      }
-    }
-  }
-  results[count] = NULL;
-  return count;
-}
-
-
 matrix_index* createMatrixIndex() {
   matrix_index* new = malloc(sizeof(new));
   new->x_index = 0;
   new->y_index = 0;
   return new;
 }
-
-
-//soritng library stuff maybe
-/*
-int matrix_index_compare_wrapper(void* m, void* b) {
-  return matrix_index_compare((matrix_index*)m,(matrix_index*)b);
-}
-
-
-int matrix_index_compare(matrix_index* m1, matrix_index* m2) {
-  int result;
-  if (m1->y_index < m2->y_index) {
-    result = -1;
-  }
-  else if (m1->y_index > m2->y_index) {
-    result = 1;
-  }
-  else {
-    if (m1->x_index < m2->x_index) {
-      result = 1;
-    }
-    else if (m1->x_index < m2->x_index) {
-      result = 1;
-    }
-    else {
-      result = 0;
-    }
-  }
-  return result;
-}
-
-comparer matrix_comp = {.compare= matrix_index_compare_wrapper};
-int matrix_index_unique_insert(gen_list* list, gen_node* data) {
-  return unique_insert(list, data, &matrix_index_comp);
-}
-
-int unique_insert(gen_list* list, gen_node* data, comparer* comp) {
-  //assumes list has been sorted
-  //returns 1 on success, -1 if duplicate data in list
-  int insert = 0;
-  int prev_compare = 0, compare = 0;;
-  gen_node* curr = list->start;
-  if (curr == NULL) {
-    prependToGen_list(list, data);
-    insert = 1;
-  }
-  else {
-    compare = comp->compare(data->stored, curr->stored);
-    if ( compare < 0) {
-      prependToGen_list(list, data);
-      insert = 1;
-    }
-    else if (compare == 0) {
-      insert = -1;
-    }
-    prev_compare = compare;
-    curr = curr->next;
-    while(!insert) {
-      if (curr == NULL) {
-	//end of list
-	appendToGen_list(list, data);
-	insert = 1;
-      }
-      else {
-	compare = comp->compare(data->stored, curr->stored);
-	if (prev_compare > 0 && compare < 0) {
-	  curr->prev->next = data;
-	  data->prev = curr->prev;
-	  curr->prev = data;
-	  data->next = curr;
-	  insert = 1;
-	}
-	else if (compare == 0) {
-	  insert = -1;
-	}
-	prev_compare = compare;
-      }
-    }
-  }
-}
-
-int matrix_index_unique_insert_array(matrix_index* insert, matrix_index* array) {
-  int done = 0;
-  int size = 0;
-  int ret;
-  while(!done) {
-    //this won't work, why I wanted to use vectores
-    if (array[size] == NULL) {
-      done = 1;
-    }
-    else {
-      size++;
-    }
-  }
-  matrix_index* array2[size];
-  for (int i = 0; i <= size; i++) {
-    array2[i] = &(array[i]);
-  }
-  ret = unique_insert_array(insert, array2, size, &matrix_comp);
-  if (ret == 1) {
-    for (int i = 0; i <= size; i++) {
-      array[i] = *(array2[i]);
-    }
-    array[size + 1] = NULL;
-  }
-  
-}
-
-int unique_insert_array(void* insert, void** array, int fei, comparer* comp) {
-  //assumes array given is already sorted
-  //also assumes that array is an array of pointers
-
-  //idea, do a binary search through array, until start and end are adjacent indexes with start < insert and insert < end
-  int start, end, search, inserted, insert_index;
-  void* item_at_search;
-  start = 0;
-  end = fei;
-  inserted = 0;
-  while(!inserted) {
-    //need some case for if insert is already in array, in which case don't do anything
-    search = (start + end) / 2;
-    item_at_search = array[search];
-    if ((end - start) <= 1) {
-      insert_index = end;
-      inserted = 1;
-    }
-    else if (comp->compare(item_at_search, insert) < 0 ) {
-      start = search;
-    }
-    else if (comp->compare(item_at_search, insert) > 0) {
-	end = search;
-    }
-    else {
-      //already in array,
-      inserted = -1;
-    }
-  }
-  if (inserted == 1) {
-    for (int i = fei; i > insert_index; i--) {
-      array[i] = array[i - 1];
-    }
-    array[inserted] = insert;
-  }
-}
- */
-

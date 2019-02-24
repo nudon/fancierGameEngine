@@ -1,12 +1,16 @@
 #ifndef FILE_COLLIDER_SEEN
 #define FILE_COLLIDER_SEEN
 
+struct collider_list_node_struct;
+struct collider_struct;
+struct spatial_hash_map_struct;
+
 #include "myList.h"
 #include "myVector.h"
 #include "myMatrix.h"
 #include "geometry.h"
 #include "physics.h"
-#include "physics.h"
+#include "compound.h"
 
 
 typedef
@@ -22,7 +26,7 @@ struct {
 } matrix_index;
 
 
-struct collider_struct{
+typedef struct collider_struct{
   //position of center of object
   //virt_pos position;
   //width+height pair would suffice
@@ -36,11 +40,10 @@ struct collider_struct{
   //also collider list node(s) for collider
   struct body_struct* body;
   struct collider_list_node_struct* collider_node;
-  
-};
+} collider;
 
 
-struct collider_list_node_struct{
+typedef struct collider_list_node_struct{
   struct collider_struct* collider;
   //reference stuff
   int max_ref_amount;
@@ -57,12 +60,11 @@ struct collider_list_node_struct{
   //node to be used in collision resolution, points to collider
   gen_node* cr_node;
   int status;
-
   //tempted to rename struct something else, like collider references
-};
+} collider_list_node;
 
-typedef struct collider_struct collider;
-typedef struct collider_list_node_struct collider_list_node;
+//typedef struct collider_struct collider;
+//typedef struct collider_list_node_struct collider_list_node;
 
 
 //probably doesn't need to be a struct
@@ -75,8 +77,9 @@ struct {
 } spatial_map_cell;
 
 
+
 typedef
-struct {
+struct spatial_hash_map_struct{
   //could also be a box struct?
   box cell_dim;
   box matrix_dim;
@@ -99,9 +102,11 @@ int safe_update(spatial_hash_map* map, collider* coll);
 
 void insert_collider_in_shm(spatial_hash_map* map, collider* collider);
 
-collider* make_collider_from_polygon(polygon* poly);
+void insert_compound_in_shm(spatial_hash_map* map, struct compound_struct* comp);
 
-void freeCollider(collider* rm);
+void set_cln_vectors(collider* coll, collider_list_node* node, box* cell_dim);
+
+int calc_max_cell_span(double boxW, double boxH, double cellW, double cellH);
 
 void find_bb_for_polygon(polygon* poly, polygon* result);
 
@@ -132,6 +137,9 @@ spatial_map_cell* get_entry_in_shm(spatial_hash_map* map, matrix_index* index);
 void shm_hash(spatial_hash_map* map, virt_pos* pos, matrix_index* result);
 
 
+collider* make_collider_from_polygon(polygon* poly);
+
+void free_collider(collider* rm);
 
 spatial_hash_map* create_shm(int width, int height, int cols, int rows);
 
@@ -144,32 +152,7 @@ void free_shm_cell_wrapper(void* rm);
 void free_shm_cell(spatial_map_cell* rm);
 
 
-
-int check_for_collisions(collider* mono, collider** multi, collider** results);
-
 matrix_index* createMatrixIndex();
 
-//thinking this should go in a very minimalist comparer library
-/*
-typedef
-struct {
-  int (*compare)(void* t1, void*t2);
-}comparer;
-*/
-//odd things that shouldbe in a sorting library
-
-/*
-int matrix_index_compare(matrix_index* m1, matrix_index* m2);
-
-int matrix_index_unique_insert(gen_list* list, gen_node* data);
-
-int unique_insert(gen_list* list, gen_node* data, comparer* comp);
-
-int matrix_index_unique_insert_array(matrix_index* insert, matrix_index* array);
-
-int collider_unique_insert_array(collider* insert, collider** array);
-
-int unique_insert_array(void* insert, void** array, int fei);
-*/
 
 #endif

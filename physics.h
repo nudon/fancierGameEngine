@@ -1,6 +1,9 @@
 #ifndef FILE_PHYSICS_NOTSEEN
 #define FILE_PHYSICS_NOTSEEN
 
+struct fizzle_struct;
+struct tether_struct;
+
 #include "myVector.h"
 #include "collider.h"
 
@@ -17,7 +20,7 @@
 
 
 typedef
-struct {
+struct fizzle_struct {
   //was also thinking about having things like friction,
   //and having elascticity for collisions
   //also adding rotation velocity and accell, though not as importatn
@@ -33,7 +36,7 @@ struct {
   vector_2 net_acceleration;
 } fizzle;
 
-typedef struct {
+typedef struct tether_struct{
   virt_pos* point_1;
   virt_pos* point_2;
   fizzle* fizz_1;
@@ -52,14 +55,20 @@ typedef struct {
   int tether_type;
 } tether;
 
+extern tether* default_tether;
+
 
 fizzle* createFizzle();
 
 void init_fizzle(fizzle* fizz);
 
-void freeFizzle(fizzle* rm);
+void free_fizzle(fizzle* rm);
+
+tether* create_tether_blank(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2);
 
 tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,double w2,double ts,double tk, double td,int tt);
+
+void copy_tether_params(tether* from, tether* to);
 
 void free_tether(tether* rm);
 
@@ -119,5 +128,7 @@ void time_update();
 double get_dT();
 
 void set_dT(double new);
+
+void apply_tether(tether* teth);
 
 #endif
