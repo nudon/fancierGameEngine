@@ -14,6 +14,8 @@ typedef struct compound_struct {
 
 compound* create_compound();
 
+gen_list* get_bodies(compound* comp);
+
 void add_body_to_compound(compound* comp, struct body_struct* body);
 
 void tether_join_compound(compound* comp, struct tether_struct* teth, gen_list* append);

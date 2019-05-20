@@ -45,12 +45,15 @@ comparer matrix_index_comp = {.compare= matrix_index_compare_wrapper};
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot) {
   polygon* poly = coll->shape;
   int change = 0;
+  //doing this to constnatly display shm hashes
+  change = 0;
   if (!isZeroPos(displace)) {
     virt_pos_add(poly->center, displace, poly->center);
     change++;
   }
   if (rot != 0.0) {
-    poly->rotation += rot;
+    set_rotation(poly, get_rotation(poly) + rot);
+    //poly->rotation += rot;
     change++;
   }
   if (change > 0) {
@@ -65,36 +68,6 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
 }
 
 
-//safe variants of above functions
-//doesn't carry out updates if it resulted in collision
-//moves each object indiivdually and reverts if bad
-int safe_move(spatial_hash_map* map, collider* coll, virt_pos* displace) {
-  virt_pos old_pos = *(coll->shape->center);
-  polygon* poly = coll->shape;
-  virt_pos_add(poly->center, displace, poly->center);
-  int safe = safe_update(map, coll);
-  if ( !safe) {
-    *(poly->center) = old_pos;
-  }
-  else {
-    update_refs(coll);
-  }
-  return safe;
-}
-
-int safe_rotate(spatial_hash_map* map, collider* coll, double displace) {
-  double old_rot = coll->shape->rotation;
-  polygon* poly = coll->shape;
-  poly->rotation += displace;
-  int safe = safe_update(map, coll);
-  if (!safe) {
-    poly->rotation = old_rot;
-  }
-  else {
-    update_refs(coll);
-  }
-  return safe;
-}
 
 void update_refs(collider* coll) {
     vector* temp;
@@ -102,62 +75,6 @@ void update_refs(collider* coll) {
     temp = cln->active_cells;
     cln->active_cells = cln->old_cells;
     cln->old_cells = temp;
-}
-
-int safe_update(spatial_hash_map* map, collider* coll){
-  //returns 1 if update is safe, 0 if not
-  polygon* poly = coll->shape;
-  int size, ret = 1;
-  collider_list_node* cln = coll->collider_node;
-  entries_for_collider(map, coll, cln->old_cells);
-  remove_collider_from_shm_entries(map, cln, cln->active_cells);
-  
-  add_collider_to_shm_entries(map, cln, cln->old_cells);
-  size = number_of_unique_colliders_in_entries(map, cln->old_cells);
-  collider* entries[size];
-  size = unique_colliders_in_entries(map, cln->old_cells, entries);
-  collider* curr;
-  for (int i = 0; i < size; i++) {
-    curr = entries[i];
-    //just need to check if curr is the same as coll
-    if (curr != coll) {
-      if (do_polygons_intersect(poly, curr->shape)) {
-	//break, revert movement
-	ret = 0;
-	break;
-      }
-    }
-  }
-  if (ret == 0) {
-    remove_collider_from_shm_entries(map, cln, cln->old_cells);
-    
-    add_collider_to_shm_entries(map, cln, cln->active_cells);
-  }
-  return ret;
-}
-
-int anyCollisions(spatial_hash_map* map, collider* coll) {
-  //returns 1 if there are collisions, 0 if none
-  polygon* poly = coll->shape;
-  int size, ret = 0;
-  collider_list_node* cln = coll->collider_node;
-  vector* currCells = cln->active_cells;
-  entries_for_collider(map, coll, currCells);
-  size = number_of_unique_colliders_in_entries(map, currCells);
-  collider* entries[size];
-  size = unique_colliders_in_entries(map, currCells, entries);
-  collider* curr;
-  //fprintf(stderr, "There are %d colliders to check against for collisions!\n", size);
-  for (int i = 0; i < size; i++) {
-    curr = entries[i];
-    if (curr != coll) {
-      if (do_polygons_intersect(poly, curr->shape)) {
-	ret = 1;
-	break;
-      }
-    }
-  }
-  return ret;
 }
 
 
@@ -170,6 +87,8 @@ collider* make_collider_from_polygon(polygon* poly) {
   find_bb_for_polygon(poly, new->bbox);
   return new;
 }
+
+polygon* get_polygon(collider* coll) { return coll->shape; }
 
 void free_collider(collider* rm) {
   collider_list_node* cln = rm->collider_node;
@@ -226,8 +145,12 @@ void set_cln_vectors(collider* coll, collider_list_node* node, box* cell_dim) {
   cellW = cell_dim->width;
   cellH = cell_dim->height;
   //potentially need to factor in scale in here, though I don't think i use scale in construction bounding boxes
-  boxW = distance_between_points(&(bbox->corners[0]),&(bbox->corners[1]));
-  boxH = distance_between_points(&(bbox->corners[1]),&(bbox->corners[2])); 
+  virt_pos c0 = *zero_pos, c1 = *zero_pos, c2 = *zero_pos;
+  get_actual_point(bbox, 0, &c0);
+  get_actual_point(bbox, 1, &c1);
+  get_actual_point(bbox, 2, &c2);
+  boxW = distance_between_points(&c0,&c1);
+  boxH = distance_between_points(&c1,&c2); 
   int size = calc_max_cell_span(boxW, boxH, cellW, cellH);
   node->max_ref_amount = size;
   node->active_cells = newVectorOfSize(size);
@@ -261,8 +184,8 @@ int calc_max_cell_span(double boxW, double boxH, double cellW, double cellH) {
 }
 
 void find_bb_for_polygon(polygon* poly, polygon* result) {
-  double orig_rot = poly->rotation;
-  poly->rotation = 0;
+  double orig_rot = get_rotation(poly);
+  set_rotation(poly, 0);
   double min, max, x_len, y_len;
   double rots[3];
   double areas[3];
@@ -275,7 +198,7 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   while(rots[1] - rots[0] > rot_threshold) {
     rots[2] = (rots[1] + rots[0] )/ 2;
     for (int i = 0; i < 3; i++) {
-      poly->rotation = rots[i];
+      set_rotation(poly, rots[i]);
       extreme_projections_of_polygon(poly, poly->center, &x_axis, &min, &max);
       x_len = fabs(max - min);
       extreme_projections_of_polygon(poly, poly->center, &y_axis, &min, &max);
@@ -297,257 +220,153 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   //manually set points to (vir_pos){.x = +- x_len / 2, .y = +- y_len / 2};
   double xmin, xmax, ymin, ymax;
   if (result->sides == 4) {
-    result->rotation = rots[rot_index];
+    set_rotation(result,rots[rot_index]);
     extreme_projections_of_polygon(poly, poly->center, &x_axis, &xmin, &xmax);
     extreme_projections_of_polygon(poly, poly->center, &y_axis, &ymin, &ymax);
-    result->corners[0] = (virt_pos){.x = xmin, .y = ymin};
-    result->corners[1] = (virt_pos){.x = xmax, .y = ymin};
-    result->corners[2] = (virt_pos){.x = xmax, .y = ymax};
-    result->corners[3] = (virt_pos){.x = xmin, .y = ymax};
+    set_base_point(result, 0, &(virt_pos){.x = xmin, .y = ymin});
+    set_base_point(result, 1, &(virt_pos){.x = xmax, .y = ymin});
+    set_base_point(result, 2, &(virt_pos){.x = xmax, .y = ymax});
+    set_base_point(result, 3, &(virt_pos){.x = xmin, .y = ymax});
     generate_normals_for_polygon(result);
     //then, need to free results center, and point it to poly's center
     free(result->center);
     result->center = poly->center;
   }
   else {
-    //dummy
     fprintf(stderr, "handed in a not 4 sided thing to find_bound_box\n");
   }
-  poly->rotation = orig_rot;
+  set_rotation(poly, orig_rot);
 
 }
 
-//for finding cells that are spanned by collider
+
+/*
+  take bounding box, traverse all 4 sides, add/fill in hashed indicies
+  then, simply fill the interior
+  
+  filling outline of bbox
+  multiple ways of doing this
+  easist would actually be just taking shm hashes of curr and dest from each corner
+  and just kind of incrementing/decrementing indeses by one until complete
+  take corners of current cell, represent in coordinate space with curr pos as origin
+  check which quadrant line from cur to dest goes through by signs of x/y
+  compare slope of line to slope of point in quadrant. can tell which cell you end up in next
+  */
+
+
 void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result) {
-  //think this is done, improvements are some minor adjustemnts to cut back on the number of vector_scale operations I do
-  //also because don't have rotation as pointers I have to manually set/update boundboxes values a bit
   int cellW = map->cell_dim.width;
   int cellH = map->cell_dim.height;
-  int collW;
-  int collH;
-
-  polygon* boundBox = collider->bbox;
-  double orig_rot = boundBox->rotation;
-  boundBox->rotation += collider->shape->rotation;
-  
-  vector_2 bb_axis_x, bb_axis_y, vec_x, vec_y, vec_pos;
-  double bbx_pos, bbx_end, bby_pos, bby_end, mag_x, mag_y;
-  virt_pos c1, c2, c3, bb_origin, pos, prev_pos, y_pos, prev_side_1, prev_side_2;
-  matrix_index prev_index, temp_ind, a;
-  matrix_index cells[4];
   int cell_index = 0;
-  int x_count = 0, y_count;
+  int start_corner = 0;
+  int curr_corner = 0;
+  int dest_corner;
+  polygon* bb = collider->bbox;
+  double orig_rot = get_rotation(bb);
+  set_rotation(bb, get_rotation(bb) + get_rotation(collider->shape));
+  virt_pos  curr_pos, dest_pos, temp;
+  vector_2 dir, unit;
+  matrix_index curr_ind, dest_ind;
 
+  int x_corner_off, y_corner_off;
+  vector_2 x_unit, y_unit, disp;
+  int x_ind_off, y_ind_off;
+  double small_amount = 0.001;
   result->cur_size = 0;
-  if (boundBox->sides == 4) {
-    //start, translate points, figure out axis of bounding box
-    //make unit vectors out of them, scale by the cell dimensions
-    get_actual_point(boundBox, 0, &c1);
-    get_actual_point(boundBox,1, &c2);
-    get_actual_point(boundBox, 2, &c3);
+  do {
+    dest_corner = (curr_corner + 1) % bb->sides;
+    get_actual_point(bb, curr_corner, &curr_pos);
+    get_actual_point(bb, dest_corner, &dest_pos);
+    vector_between_points(&curr_pos, &dest_pos, &dir);
+    make_unit_vector(&dir, &unit);
 
-    collW = distance_between_points(&c1, &c2);
-    collH = distance_between_points(&c2, &c3);
-    
-    vector_between_points(&c1, &c2, &bb_axis_x);
-    vector_between_points(&c2, &c3, &bb_axis_y);
-    
-    make_unit_vector(&bb_axis_x, &bb_axis_x);
-    make_unit_vector(&bb_axis_y, &bb_axis_y);
-
-
-    #ifdef SMARTY
-    //code for supposedly setting vectors so that neither components are greater than a cell dimension
-    double proj_y_dist, proj_x_dist;
-    virt_pos bb_axis_x_disp;
-    virt_pos bb_axis_y_disp;
-
-    vector_2_to_virt_pos(&bb_axis_x, &bb_axis_x_disp);
-    vector_2_to_virt_pos(&bb_axis_y, &bb_axis_y_disp);
-    
-    vector_2 axis_x = (vector_2){.v1 = 1, .v2 = 0};
-    vector_2 axis_y = (vector_2){.v1 = 0, .v2 = 0};
-    
-    
-    proj_x_dist = get_projected_length(&bb_axis_x_disp, &axis_x) / cellW;
-    proj_y_dist = get_projected_length(&bb_axis_x_disp, &axis_y) / cellH;
-    float max = fmax(fabs(proj_x_dist), fabs(proj_y_dist));
-    if (max > 1) {
-      max = 1 - (max - 1);
+    x_ind_off = 1;
+    y_ind_off = 1;
+    if (dir.v1 < 0) {
+      x_ind_off = -1;
     }
-    vector_2_scale(&bb_axis_x, 1/max, &bb_axis_x);
-    mag_x = vector_2_magnitude(&bb_axis_x);
-
-    vector_2_to_virt_pos(&bb_axis_x, &bb_axis_x_disp);
-    vector_2_to_virt_pos(&bb_axis_y, &bb_axis_y_disp);
-    
-    proj_x_dist = get_projected_length(&bb_axis_y_disp, &axis_x) / cellW;
-    proj_y_dist = get_projected_length(&bb_axis_y_disp, &axis_y) / cellH;
-    max = fmax(fabs(proj_x_dist), fabs(proj_y_dist));
-    if (max > 1) {
-      max = 1 - (max - 1);
+    if (dir.v2 < 0) {
+      y_ind_off = -1;
     }
-    vector_2_scale(&bb_axis_y, 1/max, &bb_axis_y);
-    mag_y = vector_2_magnitude(&bb_axis_y);
-
-    proj_x_dist = get_projected_length(&bb_axis_x_disp, &axis_x) / cellW;
-    proj_y_dist = get_projected_length(&bb_axis_x_disp, &axis_y) / cellH;
-    max = fmax(fabs(proj_x_dist), fabs(proj_y_dist));
+    x_unit = unit;
+    y_unit = unit;
+    vector_2_scale(&x_unit, fabs(1.0 / x_unit.v1), &x_unit);
+    vector_2_scale(&y_unit, fabs(1.0 / y_unit.v2), &y_unit);
     
-
-    proj_x_dist = get_projected_length(&bb_axis_y_disp, &axis_x) / cellW;
-    proj_y_dist = get_projected_length(&bb_axis_y_disp, &axis_y) / cellH;
-    max = fmax(fabs(proj_x_dist), fabs(proj_y_dist));
-    #else
-    //code for turning entire traversal along a square grid w/ smallest dim among cell and collider
-    mag_x = fmin(cellW, cellH);
-    mag_x = fmin(mag_x, collW);
-    mag_x = fmin(mag_x, collH);
-    mag_y = mag_x;
-    vector_2_scale(&bb_axis_x, mag_x, &bb_axis_x);
-    vector_2_scale(&bb_axis_y, mag_y, &bb_axis_y);
-    #endif
-    //    scaleX = fmin(scaleX, collW);
-
-
-    /*proj_x_dist = get_projected_length(&pointX, &bb_axis_y);
-    proj_y_dist = get_projected_length(&pointY, &bb_axis_y);
-    scaleY = fmax(proj_x_dist, proj_y_dist);
-    scaleY = fmin(scaleY, collH);
     
-    vector_2_scale(&bb_axis_x, scaleX, &bb_axis_x);
-    vector_2_scale(&bb_axis_y, scaleY, &bb_axis_y);
-    */
-
-    bb_origin = c1;
-    bby_pos = 0;
-    y_count = 0;
-    bby_end = (double)collH / mag_y;
-    bbx_end = (double)collW / mag_x;
+    shm_hash(map, &curr_pos, &curr_ind);
+    shm_hash(map, &dest_pos, &dest_ind);
     
-    while(bby_pos <= bby_end) {
-      bbx_pos = 0;
-      vector_2_scale(&bb_axis_y, bby_pos, &vec_y);
-      vector_2_to_virt_pos(&vec_y, &y_pos);
-      virt_pos_add(&y_pos, &bb_origin, &y_pos);
-
-      if (y_count != 0) {
-	//deals with skipped nodes across the y vector
-	matrix_index curr_ind, prev_ind;
-	shm_hash(map, &y_pos, &curr_ind);
-	shm_hash(map, &prev_side_1, &prev_ind);
-	if (!adjacent_indexes(&curr_ind, &prev_ind)) {
-	 if (find_skipped_cell(&prev_side_1, &y_pos, map, &temp_ind) == 1) {
-	    cells[cell_index++] = temp_ind; 
-	 }
-	}
+    while(matrix_index_difference(&curr_ind, &dest_ind) > 0) {
+      //just calculating offest of corner relative to curr position
+      x_corner_off = (curr_ind.x_index + 1) * cellW - curr_pos.x;
+      if (x_ind_off < 0) {
+	x_corner_off = cellW - x_corner_off + 1;
       }
+      y_corner_off = (curr_ind.y_index + 1) * cellH - curr_pos.y;
+      if (y_ind_off < 0) {
+	y_corner_off = cellH - y_corner_off + 1;
+      }
+      //checks for edge cases then compares slopes
+      if (x_corner_off == 0) { //directly on edge, move in y dir I guess?
+	vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
+      }
+      else if (dir.v1 == 0) { //moving purely up, move in y dir
+	vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
+      }
+
+      else if (x_corner_off > 0 && fabs((float)y_corner_off / x_corner_off) < fabs((float)dir.v2 / dir.v1)) {
+	vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
+      }
+      else {
+	vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
+      }
+      vector_2_to_virt_pos(&disp, &temp);
+      virt_pos_add(&curr_pos, &temp, &curr_pos);
+      shm_hash(map, &curr_pos, &curr_ind);
       
-      while(bbx_pos <= bbx_end) {
-	//optimize here, instead of doing scaling, could just add bbx to vec_x
-	vector_2_scale(&bb_axis_x, bbx_pos, &vec_x);
-	vector_2_add(&vec_x, &vec_y, &vec_pos);
-	//translate vec_pos to correct corner of bb
-	vector_2_to_virt_pos(&vec_pos, &pos);
-	virt_pos_add(&pos, &bb_origin, &pos);
-	
-	shm_hash(map, &pos, &a);
-	cells[cell_index++] = a;
-	if (x_count != 0 && (!adjacent_indexes(&a,  &prev_index))) {
-	  if (find_skipped_cell(&prev_pos, &pos, map, &temp_ind) == 1) {
-	    cells[cell_index++] = temp_ind;
-	  }
-	}
-	if (bbx_pos == bbx_end) {
-	  if (y_count != 0) {
-	    matrix_index curr_ind, prev_ind;
-	    shm_hash(map, &pos, &curr_ind);
-	    shm_hash(map, &prev_side_2, &prev_ind);
-	    if (!adjacent_indexes(&curr_ind, &prev_ind)) {
-	      if (find_skipped_cell(&prev_side_2, &pos, map, &temp_ind) == 1) {
-		cells[cell_index++] = temp_ind; 
-	      }
-	    }
-	  }
-	  prev_side_2 = pos;
-	}
-	//issue of indexes in cells are already within result, call unique insert
-	for(int i = 0; i < cell_index; i++) {
-	  if (!already_in_vector(result, &cells[i], &matrix_index_comp)) {
-	    //actuall wont work
-	    //will grow space for more pointers to be stored in vector
-	    //but not actually allocating space for additional matrix index structures
-	    grfom(result);
-	    *(matrix_index*)(result->elements[result->cur_size]) = cells[i];
-	    result->cur_size++;
-	    //check for size constraints, otherwise ehh,
-	  }
-	}
-	//after all thats done
-	x_count++;
-	cell_index = 0;
-	prev_index = a;
-	prev_pos = pos;
-	if (bbx_pos + 1 < bbx_end) {
-	  bbx_pos += 1;
-	}
-	else if (bbx_pos < bbx_end) {
-	  bbx_pos = bbx_end;
-	}
-	else {
-	  bbx_pos++;
-	}
-      }
-      x_count = 0;
-      y_count++;
-      prev_side_1 = y_pos;
-      if (bby_pos + 1 < bby_end) {
-	bby_pos++;
-      }
-      else if (bby_pos < bby_end) {
-	bby_pos = bby_end;
-      }
-      else {
-	bby_pos++;
+      if (!already_in_vector(result, &curr_ind, &matrix_index_comp)) {
+	*(matrix_index*)(result->elements[result->cur_size]) = curr_ind;
+	result->cur_size++;
       }
     }
+    curr_corner = (curr_corner + 1) % bb->sides; ;
+  } while(curr_corner != start_corner);
+  //that filled the outline, fill interior by taking average of corners
+  int x_avg = 0, y_avg = 0;
+  virt_pos avg = *zero_pos;
+  for (int i = 0; i < bb->sides; i++) {
+    get_actual_point(bb, i, &curr_pos);
+    virt_pos_add(&curr_pos, &avg, &avg);
   }
-  else {
-    //errorr
-  }
-  boundBox->rotation = orig_rot;
-}
-
-int find_skipped_cell (virt_pos* point1, virt_pos* point2, spatial_hash_map* map,  matrix_index* result) {
-  int MIDPOINT_LOOPS = 5, ret = 0;
-  virt_pos a = *point1, b = *point2, midp;
-  matrix_index a_ind, b_ind, midp_ind;
-  shm_hash(map, &a, &a_ind);
-  shm_hash(map, &b, &b_ind);
-  if (matrix_index_difference(&a_ind,&b_ind) == 2) {
-    for (int i = 1; i < MIDPOINT_LOOPS; i++) {
-      //for getting midpoint, need previouse vector/point thing
-      virt_pos_midpoint(&a, &b, &midp);
-      shm_hash(map, &midp, &midp_ind);
-      if (matrix_index_compare(&a_ind,&midp_ind) == 0) {
-	a = midp;
-      }
-      else if (matrix_index_compare(&b_ind,&midp_ind) == 0) {
-	b = midp;
-      }
-      else {
-	//found missing cell, add?
-	*result = midp_ind;
-	ret = 1;
-	break;
-      }
-    }
-  }
-  //else indexes are either adjacent/same, or there is more than 1 skipped cell
-  return ret;
+  avg.x /= bb->sides;
+  avg.y /= bb->sides;
+  shm_hash(map, &avg, &curr_ind);
+  //start a recursive fill, handing in map, ind, and vector of results I guess?
+  recursive_fill(map, curr_ind, result);
+  set_rotation(bb, orig_rot);
 }
 
 
+void recursive_fill(spatial_hash_map* map, matrix_index ind, vector* result) {
+  if (!already_in_vector(result, &ind, &matrix_index_comp)) {
+    *(matrix_index*)(result->elements[result->cur_size]) = ind;
+    result->cur_size++;
+    //+x
+    ind.x_index += 1;
+    recursive_fill(map, ind, result);
+    //-x
+    ind.x_index -= 2;
+    recursive_fill(map, ind, result);
+    ind.x_index += 1;
+    //+y
+    ind.y_index += 1;
+    recursive_fill(map, ind, result);
+    //-y
+    ind.y_index -= 2;
+    recursive_fill(map, ind, result);
+  }
+}
 
 int matrix_index_difference(matrix_index* m, matrix_index* b) {
   return abs(m->x_index - b->x_index) + abs(m->y_index - b->y_index);
@@ -700,8 +519,8 @@ spatial_map_cell* get_entry_in_shm(spatial_hash_map* map, matrix_index* index) {
 }
 void shm_hash(spatial_hash_map* map, virt_pos* pos, matrix_index* result) {
   draw_virt_pos(getCam(), pos);
-  int x_index = pos->x / map->cell_dim.width;
-  int y_index = pos->y / map->cell_dim.height;
+  int x_index = (int)floor((double)pos->x / map->cell_dim.width);
+  int y_index = (int)floor((double)pos->y / map->cell_dim.height);
   result->x_index = x_index;
   result->y_index = y_index;
 }

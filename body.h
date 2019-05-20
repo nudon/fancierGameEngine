@@ -18,6 +18,10 @@ typedef struct body_struct {
   int status;
 } body;
 
+struct fizzle_struct* get_fizzle(body* body);
+
+struct collider_struct * get_collider(body* body);
+
 body* createBody(struct fizzle_struct* fizz, struct collider_struct* coll);
 
 void free_body(body* rm);
@@ -27,8 +31,6 @@ void resolve_collisions(struct spatial_hash_map_struct* map, body* main_body);
 void resolve_collision(struct spatial_hash_map_struct* map, body* body1, body* body2);
 
 void displace_bodies(struct spatial_hash_map_struct* map, body* b1, body* b2, double mtv_mag, vector_2* b1tv_unit, vector_2* b2tv_unit);
-
-void impact_bodies(body* body1, body* body2, vector_2* b1tv_norm, vector_2* b2tv_norm);
 
 void get_normals_of_collision(body* body1, body* body2, vector_2* mtv, vector_2* body1_norm, vector_2* body2_norm);
 

@@ -34,21 +34,19 @@ typedef struct collider_struct{
   //probably polygon, to resure functions. 
   polygon* shape;
   polygon* bbox;
-  box shape_dim;
-  //?
   //maybe a type+union combo for owner of collider
   //also collider list node(s) for collider
   struct body_struct* body;
   struct collider_list_node_struct* collider_node;
 } collider;
 
+polygon* get_polygon(collider* coll);
+
 
 typedef struct collider_list_node_struct{
   struct collider_struct* collider;
   //reference stuff
   int max_ref_amount;
-  //matrix_index* active_cells;
-  //matrix_index* old_cells;
   vector* active_cells;
   vector* old_cells;
   //also, because I'm storing within the map cells a list
@@ -56,6 +54,7 @@ typedef struct collider_list_node_struct{
   //because I still don't want a movement system that is intensive on mallocs/frees
   
   //gen nodes to put into various shm cells, points to containing collider list node
+  //contains max_ref_amount gen_nodes
   gen_node** active_cell_nodes;
   //node to be used in collision resolution, points to collider
   gen_node* cr_node;
@@ -88,17 +87,7 @@ struct spatial_hash_map_struct{
 
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot);
 
-int anyCollisions(spatial_hash_map* map, collider* coll);
-  
-
-int safe_move(spatial_hash_map* map, collider* coll, virt_pos* displace);
-
-int safe_rotate(spatial_hash_map* map, collider* coll, double displace);
-
 void update_refs(collider* coll);
-
-int safe_update(spatial_hash_map* map, collider* coll);
-
 
 void insert_collider_in_shm(spatial_hash_map* map, collider* collider);
 
@@ -110,9 +99,13 @@ int calc_max_cell_span(double boxW, double boxH, double cellW, double cellH);
 
 void find_bb_for_polygon(polygon* poly, polygon* result);
 
+//void new_ent(spatial_hash_map * map, collider* collider, vector* result);
+
+void recursive_fill(spatial_hash_map* map, matrix_index ind, vector* result);
+
 void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result);
 
-int find_skipped_cell (virt_pos* point1, virt_pos* point2, spatial_hash_map* map,  matrix_index* result);
+//int find_skipped_cell (virt_pos* point1, virt_pos* point2, spatial_hash_map* map,  matrix_index* result);
 
 int matrix_index_difference(matrix_index* m, matrix_index* b);
 

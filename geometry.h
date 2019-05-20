@@ -17,17 +17,17 @@ struct {
 typedef
 struct {
   int sides;
-  //want corners to be relative to center of polygon, otherwise updates of position are intensive
-  //by same token, rotation as well.
-  //considering a scale as well
   double scale;
   double rotation;
   virt_pos* center;
-  //also corners being vectors make more sence, since they are positions relative to center 
+  //base corners, which contain relative shape of object but no rotation/scale
+  virt_pos* base_corners;
+  //rotated corners, to store rotated posistions of corners to cut back calculations
   virt_pos* corners;
   //normals, haven't considered much about them
   //having them be unit vectors would be nice
   //otherwise some way of determining which normal corresponds to which side or pair of corners
+  vector_2* base_normals; 
   vector_2* normals; 
 } polygon;
 
@@ -52,7 +52,15 @@ void stretch_deform_horz(polygon* poly, double amount);
 
 void freePolygon(polygon* poly);
 
+void set_rotation(polygon* poly, double new);
+
+double get_rotation(polygon* poly);
+
 void get_actual_point(polygon* poly, int i, virt_pos* result);
+
+void get_base_point(polygon* poly, int i, virt_pos* result);
+
+void set_base_point(polygon* poly, int i, virt_pos* set);
 
 void get_actual_normal(polygon* poly, int i, vector_2* result);
 

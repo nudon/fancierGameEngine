@@ -41,8 +41,7 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
     get_normals_of_collision(body1, body2, &normal_of_collision, &b1_norm, &b2_norm);
     displace_bodies(map,body1, body2, mtv_mag, &b1_norm, &b2_norm);
     //in addition to setting velocities, also need to displace object outside of eachother
-    impact_bodies(body1, body2, &b1_norm, &b2_norm);
-    //impact(body1, body2, &b1_norm);
+    impact(body1, body2, &b1_norm);
   }
 }
 
@@ -117,14 +116,6 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   update(map, b2->coll, &b2d, 0);
 }
 
-void impact_bodies(body* body1, body* body2, vector_2* b1tv_norm, vector_2* b2tv_norm) {
-  //here we go!
-  impact(body1, body2, b1tv_norm);
-}
-
-
-
-
 
 void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm) {
   double l1, l2;
@@ -144,6 +135,10 @@ void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector
   }
 }
 
+
+struct fizzle_struct* get_fizzle(body* body) { return body->fizz; }
+
+struct collider_struct * get_collider(body* body) { return body->coll; }
 
 body* createBody(fizzle* fizz, struct collider_struct* coll) {
   body* new = malloc(sizeof(body));
@@ -234,7 +229,7 @@ void solveForFinals(double m1, double m2, double v1i, double v2i, double* v1f, d
 
 void elasticReduce(double m1, double m2, double* f1f, double* f2f, double els) {
   //based on elasticity paras, modify velocities a bit
-  //officially sanctioned are else = 0,1. outside or between interval might lead to weirdness
+  //intented to be between 0-1, going outside would do weird things
   //0 represents no elasticity, 1 represents full elasticity
   double avgP = (m1 * (*f1f) + m2 * (*f2f)) / 2;
   *f1f = els * (*f1f) + (1 - els) * avgP;
@@ -253,11 +248,8 @@ void impact(body* b1, body* b2, vector_2* normal) {
   
   double body1f = 0, body2f = 0;
   
-  //some elasticity param, set to 1
-
-
-  //solve for final velocities
   solveForFinals(m1, m2, body1i, body2i, &body1f, &body2f);
+  
   //double param = 1;
   //elasticReduce(m1, m2, &body1f, &body2f, param);
   

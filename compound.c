@@ -12,6 +12,8 @@ compound* create_compound() {
   return new;
 }
 
+gen_list* get_bodies(compound* comp) { return comp->bp; }
+
 void add_body_to_compound(compound* comp, body* body) {
   //probably do some check to make sure body isn't already linked to a compound
   if (body->owner != NULL) {

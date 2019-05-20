@@ -12,29 +12,35 @@
 #include "input.h"
 #include "parallax.h"
 #include "events.h"
+#include "plane.h"
 
+#include "map_io.h"
 
 polygon* make_event_poly(polygon* shape);
 
 static int init(SDL_Renderer** ret);
-
 static void myClose();
-
 static int loadMedia();
-
-//static int startDebug();
-
-//static void gameLoop();
 
 void setBGColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
 compound* makeWalls();
-
 compound* makeTriangle();
-
 compound* makeUserBody();
-
 compound* makeCentipede(int seg);
+
+
+void update_tethers(gen_list* tetherList);
+void update_plane(plane* plane);
+void update_bodies(spatial_hash_map* map, gen_list* compound_list);
+void main_test(camera* cam, plane* plane);
+
+//Globals
+//Globals
+static SDL_Window* gWin = NULL;
+
+static int FPS_CAP = 60;
+
 
 
 gen_list* global_tethers = NULL;
@@ -47,6 +53,10 @@ void update_tethers(gen_list* tetherList) {
     apply_tether(teth);
     curr = curr->next;
   }
+}
+
+void update_plane(plane* plane) {
+  update_bodies(plane->map, plane->compounds_in_plane);
 }
 
 void update_bodies(spatial_hash_map* map, gen_list* compound_list) {
@@ -100,36 +110,17 @@ void update_bodies(spatial_hash_map* map, gen_list* compound_list) {
   }
 }
 
-//Globals
-static SDL_Window* gWin = NULL;
 
-static int FPS_CAP = 60;
-
-
-void print_out_extreme_diffs(polygon* poly) {
-  double min, max;
-  vector_2 norm;
-  virt_pos* center = poly->center;
-  //centa = NULL;
-  for(int i = 0; i < poly->sides; i++) {
-    get_actual_normal(poly, i, &norm);
-    extreme_projections_of_polygon(poly, center, &norm, &min, &max);
-    printf("{ min: %f, max: %f diff: %f }",min, max, fabs(max - min));
-  }
-  printf("\n");
-}
-
-
-
-void main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
+void main_test(camera* cam, plane* plane) {
   gen_node* curr_compound;
   compound* temp;
   SDL_SetRenderDrawColor(cam->rend,0xff,0xff,0xff,0xff);
   SDL_RenderClear(cam->rend);
   update_tethers(global_tethers);
-  update_bodies( map, list);
+  update_plane(plane);
+  //update_bodies( map, list);
   SDL_SetRenderDrawColor(cam->rend,0,0,0,0xff);
-  curr_compound = list->start;
+  curr_compound = plane->compounds_in_plane->start;
   while (curr_compound != NULL) {
     temp = (compound*)curr_compound->stored;
     draw_compound_outline(cam, temp);
@@ -138,24 +129,21 @@ void main_test(camera* cam, gen_list* list, spatial_hash_map* map) {
 }
 
 int main(int argc, char** args) {
-  //  quit = 0;
   SDL_Renderer* rend = NULL;
   pixel_pos corner = (pixel_pos){.x = 0, .y = 0};
   int quit = 0;
   if (init(&rend) == 0) {
     if (loadMedia() == 0) {
-      //put in init camera
       camera mainCam;
       mainCam.rend = rend;
       mainCam.dest = NULL;
       mainCam.corner = &corner;
       setCam(&mainCam);
 
-      //put in create shm
       int cols = 20;
       int rows = 14;
-      cols = 10;
-      rows = 7;
+      //cols = 10;
+      //rows = 7;
       //cols = 1;
       //rows = 1;
 
@@ -163,34 +151,21 @@ int main(int argc, char** args) {
       int height = getScreenHeight() / rows;
       spatial_hash_map* map = create_shm(width, height, cols, rows);
 
-      //own thing
       global_tethers = createGen_list();
-      //put in fill shm, return compound list
-      gen_list* compound_list = createGen_list();
+      //gen_list* compound_list = createGen_list();
+      plane* plane = create_plane(map);
       
  
       //compound* user = makeUserBody();
-      compound* user = makeCentipede(15);
-      gen_list* eventList = createGen_list();
-      polygon* mainUserShape  = ((body*)user->bp->start->stored)->coll->shape;
-      polygon* user_circ = make_event_poly(mainUserShape);
-      struct event_struct* event = make_event(&(map->cell_dim),user_circ, mainUserShape->center);
-      gen_node* eventNode = createGen_node(event);
-      //appendToGen_list(eventList, eventNode);
-      
+      compound* user = makeCentipede(3);
       compound* triangle = makeTriangle();
       compound* walls = makeWalls();
-      appendToGen_list(compound_list, createGen_node(user));
-      //appendToGen_list(compound_list, createGen_node(triangle));
-      //appendToGen_list(compound_list, createGen_node(walls));
-      
-      gen_node* curr = compound_list->start;
-      compound* temp;
-      while(curr != NULL) {
-	temp = ((compound*)curr->stored);
-	insert_compound_in_shm(map, temp);
-	curr = curr->next;
-      }
+      add_compound_to_plane(plane, user);
+      add_compound_to_plane(plane, triangle);
+      add_compound_to_plane(plane, walls);
+
+      //test_plane_parse(plane);
+      //exit(44);
       
       double ms_per_frame = 1000.0 / FPS_CAP;
       int update_wait;      
@@ -199,19 +174,17 @@ int main(int argc, char** args) {
       while (!quit) {
 	set_dT(time_since_update());
 	time_update();
-	//apply_tether(teeth);
-	check_events(map, eventList);
-	main_test(&mainCam, compound_list, map);
+	//check_events(map, eventList);
+	main_test(&mainCam, plane);
 	update_wait = ms_per_frame - get_dT();	
 	if (update_wait > 0) {
 	  SDL_Delay(update_wait);
 	}
-	//draw_hash_map(&mainCam, map); 
+	draw_hash_map(&mainCam, map); 
 	SDL_RenderPresent(mainCam.rend);
 	
 	time = time_since_update();
 	update_wait = ms_per_frame - time;
-	//printf("waiting time is %d\n", update_wait);
 	if (update_wait > 0) {
 	  SDL_Delay(update_wait);
 	}
@@ -349,20 +322,18 @@ compound* makeWalls() {
 
 compound* makeTriangle() {
   compound* triangleComp = create_compound();
-  polygon* triom = NULL;
-  collider* bos = NULL;
+  polygon* tri = NULL;
+  collider* coll = NULL;
   body* body;
   fizzle* fizz;
-  triom = createPolygon(3);
-  triom->center->x = getScreenWidth() / 2;
-  triom->center->y = getScreenHeight() / 2;
-  make_normal_polygon(triom);
-  generate_normals_for_polygon(triom);
-  triom->scale = 3;
-  bos = make_collider_from_polygon(triom);
+  tri = createNormalPolygon(3);
+  tri->center->x = getScreenWidth() / 2;
+  tri->center->y = getScreenHeight() / 2;
+  tri->scale = 3;
+  coll = make_collider_from_polygon(tri);
   fizz = createFizzle();
   init_fizzle(fizz);
-  body = createBody(fizz, bos);
+  body = createBody(fizz, coll);
   //prependToGen_list(list, createGen_node(body));
   add_body_to_compound(triangleComp, body);
   return triangleComp;
@@ -377,7 +348,7 @@ compound* makeUserBody() {
   poltergeist* polt;
   mainPoly->center->x = getScreenWidth() / 4;
   mainPoly->center->y = getScreenHeight() / 2;
-  mainPoly->scale = 4;
+  mainPoly->scale = 10;
   coll = make_collider_from_polygon(mainPoly);
   fizz = createFizzle();
   init_fizzle(fizz);
@@ -393,7 +364,7 @@ compound* makeUserBody() {
 
 compound* makeCentipede(int segments) {
   compound* centComp = create_compound();
-  polygon* poly = createNormalPolygon(8);
+  polygon* poly;
   collider* coll;
   fizzle* fizz;
   body* body;
@@ -402,7 +373,7 @@ compound* makeCentipede(int segments) {
     poly = createNormalPolygon(8);
     poly->center->x = getScreenWidth() / 4;
     poly->center->y = getScreenHeight() / 2;
-    poly->scale = 1;
+    poly->scale = 2;
     coll = make_collider_from_polygon(poly);
     fizz = createFizzle();
     init_fizzle(fizz);

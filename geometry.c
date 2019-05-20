@@ -25,11 +25,15 @@ polygon* createPolygon(int sides) {
   new->rotation = 0;
   new->center = malloc(sizeof(virt_pos));
   new->corners = malloc(sizeof(virt_pos) * sides);
+  new->base_corners = malloc(sizeof(virt_pos) * sides);
   new->normals = malloc(sizeof(vector_2) * sides);
+  new->base_normals = malloc(sizeof(vector_2) * sides);
   init_point(new->center);
   for (int i = 0; i < sides; i++) {
     init_point(&(new->corners[i]));
+    init_point(&(new->base_corners[i]));
     init_vector(&(new->normals[i]));
+    init_vector(&(new->base_normals[i]));
   }
   return new;
 }
@@ -48,8 +52,8 @@ void generate_normals_for_polygon(polygon* poly) {
   vector_2 temp;
   cent = *zero_pos;
   for (int i = 0; i < sides; i++) {
-    p1 = poly->corners[i];
-    p2 = poly->corners[(i + 1) % sides];
+    get_base_point(poly, i, &p1);
+    get_base_point(poly, (i + 1) % sides , &p2);
     vector_between_points(&p1, &p2, &temp);
     vector_2_rotate(&temp, M_PI / 2, &temp);
 
@@ -67,8 +71,10 @@ void generate_normals_for_polygon(polygon* poly) {
       vector_2_scale(&temp, -1, &temp);
     }
     make_unit_vector(&temp, &temp);
-    poly->normals[i] = temp;
+    poly->base_normals[i] = temp;
   }
+  //initializes rotated and normal corners for poly
+  set_rotation(poly, get_rotation(poly));
 }
 
 //had idea for a general normal polygon generator
@@ -78,40 +84,48 @@ void make_normal_polygon(polygon* poly) {
   int sides = poly->sides;
   double rot_delta = M_PI * 2 / sides;
   virt_pos first = (virt_pos){.x = 10, .y = 0};
+  virt_pos temp = *zero_pos;
   if (sides > 2) {
-    poly->corners[0] = first;
+    set_base_point(poly, 0, &first);
     for (int i = 1; i < sides; i++) {
-      virt_pos_rotate(&first, rot_delta * i, &(poly->corners[i]));
+      virt_pos_rotate(&first, rot_delta * i, &temp);
+      set_base_point(poly, i, &temp);
     }
     if (sides % 2 == 0) {
-      poly->rotation = rot_delta / 2;
+      set_rotation(poly, rot_delta / 2);
     }
   }
   else {
-    printf("you are dumb, have fun finding this error");
+    printf("you can't make a polygon with < 3 sides");
   }
 }
 
 void make_square(polygon* poly) {
   if (poly->sides == 4) {
-    poly->corners[0] = (virt_pos){.x = -1, .y = -1};
-    poly->corners[1] = (virt_pos){.x = 1, .y = -1};
-    poly->corners[2] = (virt_pos){.x = 1, .y = 1};
-    poly->corners[3] = (virt_pos){.x = -1, .y = 1};
+    set_base_point(poly, 0, &(virt_pos){.x = -1, .y = -1});
+    set_base_point(poly, 1, &(virt_pos){.x = 1, .y = -1});
+    set_base_point(poly, 2, &(virt_pos){.x = 1, .y = 1});
+    set_base_point(poly, 3, &(virt_pos){.x = -1, .y = 1});
   }
 }
 
 void stretch_deform_vert(polygon* poly, double amount) {
   int sides = poly->sides;
+  virt_pos temp = *zero_pos;
   for (int i = 0; i < sides; i++) {
-    poly->corners[i].y *= amount;
+    get_base_point(poly, i, &temp);
+    temp.y *= amount;
+    set_base_point(poly, i, &temp);
   }
 }
 
 void stretch_deform_horz(polygon* poly, double amount) {
   int sides = poly->sides;
+  virt_pos temp = *zero_pos;
   for (int i = 0; i < sides; i++) {
-    poly->corners[i].x *= amount;
+    get_base_point(poly, i, &temp);
+    temp.x *= amount;
+    set_base_point(poly, i, &temp);
   }
 }
 
@@ -120,23 +134,61 @@ void stretch_deform_horz(polygon* poly, double amount) {
 
 
 void freePolygon(polygon* poly) {
+  free(poly->base_corners);
   free(poly->corners);
+  free(poly->base_normals);
   free(poly->normals);
   free(poly);
 }
 
 void get_actual_point(polygon* poly, int i, virt_pos* result) {
-  result->x = poly->corners[i].x * poly->scale;
-  result->y = poly->corners[i].y * poly->scale;
-  virt_pos_rotate(result, poly->rotation, result);
-  //scale result by poly's scale
+  virt_pos_add(&(poly->corners[i]), poly->center, result);
+}
 
-  virt_pos_add(result, poly->center, result);
+void get_base_point(polygon* poly, int i, virt_pos* result) {
+  result->x = poly->base_corners[i].x;
+  result->y = poly->base_corners[i].y;
+}
+
+void set_base_point(polygon* poly, int i, virt_pos* set) {
+  poly->base_corners[i].x = set->x;
+  poly->base_corners[i].y = set->y;
 }
 
 void get_actual_normal(polygon* poly, int i, vector_2* result) {
   *result = poly->normals[i];
-  vector_2_rotate(result, poly->rotation, result);
+}
+
+void set_rotation(polygon* poly, double new) {
+  double ang = new;
+  double r = 0;
+  if (ang > 2 * M_PI || ang < 0) {
+    r = (ang / (2 * M_PI));
+    if (ang > 2 * M_PI) {
+      ang = 2 * M_PI * (r - (int)r);
+    }
+    else {
+      r *= -1;
+      ang = 2 * M_PI * (1 - (r - (int)r));
+    }
+  }
+  poly->rotation = ang;
+  //also need to recalculate normals and corners
+  virt_pos temp = *zero_pos;
+  for (int i = 0; i < poly->sides; i++) {
+    temp = poly->base_corners[i];
+    temp.x = temp.x * poly->scale;
+    temp.y = temp.y * poly->scale;
+    virt_pos_rotate(&temp, ang, &temp);
+    poly->corners[i] = temp;
+
+    vector_2_rotate(&(poly->base_normals[i]), ang, &(poly->normals[i]));
+  }
+  
+}
+
+double get_rotation(polygon* poly) {
+  return poly->rotation;
 }
 
 
@@ -212,10 +264,7 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
     extreme_projections_of_polygon(p2, p1->center, &normal_vector, &p2_min, &p2_max);
     //there is overlap of shapes along axis
      if ( p1_max > p2_min && p2_max > p1_min) {
-       //check for full embedding of shapes
        temp_mag = fmin(fabs(p2_max - p1_min), fabs(p1_max - p2_min));
-       //older exp, doesn't give right answer for embeddings
-       //temp_mag = fabs((fmin(p1_max, p2_max)) - (fmax(p1_min, p2_min)));
        if (temp_mag < mtv_mag || mtv_mag < 0) {
 	 mtv_mag = temp_mag;
 	 mtv_loc = normal_vector;
@@ -251,8 +300,6 @@ void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2
   offset.y = -origin.y;
   for (int i = 0; i < check->sides; i++) {
     get_actual_point(check,i, &relative_point);
-    //relative_point.x = check->corners[i].x;
-    //relative_point.y = check->corners[i].y;
     relative_point.x += offset.x;
     relative_point.y += offset.y;
     
@@ -293,7 +340,6 @@ int is_virt_pos_in_dir_of_normal(vector_2* norm, virt_pos* det, virt_pos* point)
 }
 
 double get_projected_length_vec(vector_2* vec, vector_2* line) {
-  //float delta = atan2(line->v2, line->v1) - atan2(point->y, point->x);
   double projectedLength = 0;
   if (!isZeroVec(line)) {
     float delta = atan2(vec->v2, vec->v1) - atan2(line->v2, line->v1);
@@ -304,7 +350,6 @@ double get_projected_length_vec(vector_2* vec, vector_2* line) {
 }
 
 void get_parallell_comp(vector_2* vec, vector_2* line, vector_2* result) {
-  //project_point_onto_line(point, line, result); , no, bad points
   double mag = get_projected_length_vec(vec, line);
   vector_2 unit;
   make_unit_vector(line, &unit);
@@ -315,12 +360,6 @@ void get_parallell_comp(vector_2* vec, vector_2* line, vector_2* result) {
 void get_orthogonal_comp(vector_2* vec, vector_2* line, vector_2* result) {
   //could either rotate line and project onto that, but then component might be negative if I'm done
   //or, get parallell component, then subtract out of point
-  /*
-  virt_pos loc;
-  project_point_onto_line(point, line, &loc);
-  vector_2_subtract(point, &loc, result);
-
-  */
   vector_2 parallell;
   get_parallell_comp(vec, line, &parallell);
   vector_2_sub(vec, &parallell, result);
@@ -332,8 +371,6 @@ void decompose_vector(vector_2* vec, vector_2* line, vector_2* p, vector_2* o) {
 }
 
 void  project_point_onto_line(virt_pos* point, vector_2* line, virt_pos* result) {
-  //imagined for 2d, 3d need not apply
-  //also, technichally for sat all I  need is the projectedLenght
   double projectedLength = get_projected_length(point, line);
   vector_2 unit;
   make_unit_vector(line, &unit);
@@ -364,7 +401,6 @@ double get_projected_length(virt_pos* point, vector_2* line) {
 }
 
 double get_projected_length_pos(virt_pos* point, vector_2* line) {
-  //float delta = atan2(line->v2, line->v1) - atan2(point->y, point->x);
   double projectedLength = 0;
   
   if (!isZeroVec(line)) {

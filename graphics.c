@@ -197,12 +197,14 @@ void draw_compound_outline(camera* cam, compound* comp){
 }
 
 void draw_bbox(camera* cam, collider* coll) {
-  double orig_rot = coll->bbox->rotation;
-  coll->bbox->rotation += coll->shape->rotation;
+  double orig_rot = get_rotation(coll->bbox);
+  set_rotation(coll->bbox, get_rotation(coll->bbox) + get_rotation(coll->shape));
+  //coll->bbox->rotation += coll->shape->rotation;
   coll->bbox->center = coll->shape->center;
   SDL_SetRenderDrawColor(cam->rend, 255, 0, 0, 0);
   draw_polygon_outline(cam, coll->bbox);
-  coll->bbox->rotation = orig_rot;
+  set_rotation(coll->bbox, orig_rot);
+  //coll->bbox->rotation = orig_rot;
 }
 
 void draw_compound_bbox(camera* cam, compound* comp) {
