@@ -18,7 +18,10 @@ vector* newVectorOfSize(int size) {
   return new;
 }
 
-//need variants of these that actually look at contents of void*'s
+void free_vector(vector* vec) {
+  free(vec->elements);
+  free(vec);
+}
 
 
 int unique_add(vector* vec, void* new, comparer* comp) {

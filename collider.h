@@ -27,11 +27,7 @@ struct {
 
 
 typedef struct collider_struct{
-  //position of center of object
-  //virt_pos position;
-  //width+height pair would suffice
-  //box struct?
-  //probably polygon, to resure functions. 
+  box bb_dim;
   polygon* shape;
   polygon* bbox;
   //maybe a type+union combo for owner of collider
@@ -86,39 +82,35 @@ struct spatial_hash_map_struct{
 } spatial_hash_map;
 
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot);
-
 void update_refs(collider* coll);
 
 void insert_collider_in_shm(spatial_hash_map* map, collider* collider);
-
 void insert_compound_in_shm(spatial_hash_map* map, struct compound_struct* comp);
+void remove_compound_from_shm(spatial_hash_map* map, compound* comp);
 
 void set_cln_vectors(collider* coll, collider_list_node* node, box* cell_dim);
 
 int calc_max_cell_span(double boxW, double boxH, double cellW, double cellH);
-
 void find_bb_for_polygon(polygon* poly, polygon* result);
+void fill_bb_dim(polygon* bbox, box* bb_dim);
+int get_bb_width (collider* coll);
+int get_bb_height (collider* coll);
 
 //void new_ent(spatial_hash_map * map, collider* collider, vector* result);
 
 void recursive_fill(spatial_hash_map* map, matrix_index ind, vector* result);
-
 void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result);
 
-//int find_skipped_cell (virt_pos* point1, virt_pos* point2, spatial_hash_map* map,  matrix_index* result);
 
 int matrix_index_difference(matrix_index* m, matrix_index* b);
-
 int adjacent_indexes(matrix_index* m, matrix_index* b);
 
 void remove_collider_from_shm_entries(spatial_hash_map* map, collider_list_node* node, vector* entries_to_clear);
-
 void add_collider_to_shm_entries(spatial_hash_map* map, collider_list_node* node, vector* entries_to_add);
 
 int number_of_unique_colliders_in_entries(spatial_hash_map* map, vector* entries);
-
 int unique_colliders_in_entries(spatial_hash_map* map, vector* entries, collider** results);
-
+//results are collider*
 int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_list* result);
 
 void clean_collider_list(gen_list* list);
@@ -131,21 +123,18 @@ void shm_hash(spatial_hash_map* map, virt_pos* pos, matrix_index* result);
 
 
 collider* make_collider_from_polygon(polygon* poly);
-
 void free_collider(collider* rm);
 
 spatial_hash_map* create_shm(int width, int height, int cols, int rows);
-
 void free_shm(spatial_hash_map* rm);
 
 spatial_map_cell* create_shm_cell();
-
-void free_shm_cell_wrapper(void* rm);
-
-void free_shm_cell(spatial_map_cell* rm);
-
+void free_shm_cell(void* rmv);
 
 matrix_index* createMatrixIndex();
+void free_matrix_index(matrix_index* rm);
 
+box get_cell_shape(spatial_hash_map* shm);
+box get_dim_shape(spatial_hash_map* shm);
 
 #endif

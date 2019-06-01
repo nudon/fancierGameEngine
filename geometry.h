@@ -36,97 +36,76 @@ extern vector_2* zero_vec;
 extern virt_pos* zero_pos;
 
 polygon* createPolygon(int sides);
-
 polygon* createNormalPolygon(int sides);
+void freePolygon(polygon* poly);
 
 void generate_normals_for_polygon(polygon* poly);
 
 void make_normal_polygon(polygon* poly);
-
 void make_square(polygon* poly);
 
 void stretch_deform_vert(polygon* poly, double amount);
-
 void stretch_deform_horz(polygon* poly, double amount);
 
 
-void freePolygon(polygon* poly);
+
+
+virt_pos get_center(polygon* poly);
+void set_center(polygon* poly, virt_pos* val);
 
 void set_rotation(polygon* poly, double new);
-
 double get_rotation(polygon* poly);
 
 void get_actual_point(polygon* poly, int i, virt_pos* result);
-
 void get_base_point(polygon* poly, int i, virt_pos* result);
 
 void set_base_point(polygon* poly, int i, virt_pos* set);
-
 void get_actual_normal(polygon* poly, int i, vector_2* result);
 
 int do_polygons_intersect(polygon* p1, polygon* p2);
-
 int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv);
-
 void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2* line, double* min_result, double* max_result);
 
 void decompose_vector(vector_2* vec, vector_2* line, vector_2* p, vector_2* o);
-
 void project_point_onto_line(virt_pos* point, vector_2* line, virt_pos* result);
-
 double get_projected_length(virt_pos* point, vector_2* line);
-
 double get_projected_length_vec(vector_2* vec, vector_2* line);
-
 double get_projected_length_pos(virt_pos* point, vector_2* line);
 
 double distance_from_origin(virt_pos* point);
-
 double distance_between_points(virt_pos* p1, virt_pos* p2);
 
 int is_a_unit_vector(vector_2* vec);
-
 int isZeroPos(virt_pos* pos);
-
 int isZeroVec(vector_2* vec);
-
 int isCloseEnoughToZeroVec(vector_2* vec);
 
 void make_unit_vector(vector_2* op, vector_2* result);
 
-
 void vector_2_add(vector_2* x, vector_2* y, vector_2* result);
-
 void vector_2_sub(vector_2* x, vector_2* y, vector_2* result);
-
 void vector_2_mul(vector_2* x, vector_2* y, vector_2* result);
-
 void vector_2_div(vector_2* x, vector_2* y, vector_2* result);
-
 void vector_2_scale(vector_2* v, double c, vector_2* result);
-
 double vector_2_magnitude(vector_2* v);
- 
 void vector_2_rotate(vector_2* vec, double radians, vector_2* result);
 
 void virt_pos_add(virt_pos* p1, virt_pos* p2, virt_pos* result);
-
 void virt_pos_sub(virt_pos* p1, virt_pos* p2, virt_pos* result);
-
 void virt_pos_midpoint(virt_pos* p1, virt_pos* p2, virt_pos* result);
-
 void virt_pos_rotate(virt_pos* pos, double radians, virt_pos* result);
- 
+
 void virt_pos_to_vector_2(virt_pos* in, vector_2* out);
-
 void vector_2_to_virt_pos(vector_2* in, virt_pos* out);
-
 void vector_2_to_virt_pos_ceil(vector_2* in, virt_pos* out);
 
 void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result);
 
 void print_vector(vector_2* vec);
-
 void print_point(virt_pos* pos);
+
+void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha);
+void exponential_decay(double old, double cur, double* new, double alpha);
+
 
 #endif

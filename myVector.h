@@ -22,6 +22,8 @@ vector* newVector();
 
 vector* newVectorOfSize(int size);
 
+void free_vector(vector* vec);
+
 int unique_add(vector* vec, void* new,comparer* comp);
 
 

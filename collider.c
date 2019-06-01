@@ -7,6 +7,10 @@
 #include "collider.h"
 #include "graphics.h"
 
+int DEFAULT = 0;
+int VISITED = 1;
+int COUNTED = 2;
+
 //comparer stuff
 int matrix_index_compare(matrix_index* m1, matrix_index* m2) {
   int result;
@@ -77,7 +81,17 @@ void update_refs(collider* coll) {
     cln->old_cells = temp;
 }
 
-
+void fill_bb_dim(polygon* bbox, box* bb_dim) {
+  if (bbox->sides != 4) {
+    fprintf(stderr, "Trying to get bb_dim of a non-rectangle\n");
+  }
+  virt_pos c0 = *zero_pos, c1 = *zero_pos, c2 = *zero_pos;
+  get_actual_point(bbox, 0, &c0);
+  get_actual_point(bbox, 1, &c1);
+  get_actual_point(bbox, 2, &c2);
+  bb_dim->width = distance_between_points(&c0,&c1);
+  bb_dim->height = distance_between_points(&c1,&c2);
+}
 
 collider* make_collider_from_polygon(polygon* poly) {
   collider* new = malloc(sizeof(collider));
@@ -85,6 +99,7 @@ collider* make_collider_from_polygon(polygon* poly) {
   new->shape = poly;
   new->bbox = createPolygon(4);
   find_bb_for_polygon(poly, new->bbox);
+  fill_bb_dim(new->bbox, &(new->bb_dim));
   return new;
 }
 
@@ -109,14 +124,52 @@ void free_collider(collider* rm) {
   free(rm);
 }
 
+void free_cln(collider_list_node* cln) {
+  int size = cln->max_ref_amount;
+  //clean & free list nodes
+  for (int i = 0; i < size; i++) {
+    remove_node(cln->active_cell_nodes[i]);
+    freeGen_node(cln->active_cell_nodes[i]);
+  }
+  //free collider node
+  remove_node(cln->cr_node);
+  freeGen_node(cln->cr_node);
+  
+  //then free vectors
+  matrix_index* m = NULL;
+  for (int i = 0; i < cln->active_cells->max_size; i++) {
+    m = elementAt(cln->active_cells, i);
+    free_matrix_index(m);
+    m = elementAt(cln->old_cells, i);
+    free_matrix_index(m);
+  }    
+  free_vector(cln->active_cells);
+  free_vector(cln->old_cells);
+  free(cln);
+}
+
 void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
   collider* coll;
-  gen_node* curr = comp->bp->start;
+  gen_node* curr = get_bodies(comp)->start;
   while(curr != NULL) {
     coll = ((body*)curr->stored)->coll;
     insert_collider_in_shm(map, coll);
     curr = curr->next;
   }
+}
+
+void remove_compound_from_shm(spatial_hash_map* map, compound* comp) {
+  gen_node* curr_body = get_bodies(comp)->start;
+  collider* coll = NULL;
+  collider_list_node* cln = NULL;
+  while(curr_body != NULL) {
+    coll = get_collider((body*)curr_body->stored);
+    cln = coll->collider_node;
+    remove_collider_from_shm_entries(map, cln, cln->active_cells);
+    free_cln(cln);
+    coll->collider_node = NULL;
+    curr_body = curr_body->next;
+  }  
 }
 
 void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
@@ -140,23 +193,17 @@ void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
 }
 
 void set_cln_vectors(collider* coll, collider_list_node* node, box* cell_dim) {
-  polygon* bbox = coll->bbox;
   double cellW, cellH, boxW, boxH;
   cellW = cell_dim->width;
   cellH = cell_dim->height;
-  //potentially need to factor in scale in here, though I don't think i use scale in construction bounding boxes
-  virt_pos c0 = *zero_pos, c1 = *zero_pos, c2 = *zero_pos;
-  get_actual_point(bbox, 0, &c0);
-  get_actual_point(bbox, 1, &c1);
-  get_actual_point(bbox, 2, &c2);
-  boxW = distance_between_points(&c0,&c1);
-  boxH = distance_between_points(&c1,&c2); 
+  boxW = get_bb_width(coll);
+  boxH = get_bb_height(coll);
   int size = calc_max_cell_span(boxW, boxH, cellW, cellH);
   node->max_ref_amount = size;
   node->active_cells = newVectorOfSize(size);
   node->old_cells = newVectorOfSize(size);
   node->active_cell_nodes = calloc(size + 1, sizeof(gen_node));
-  node->status = 0;
+  node->status = DEFAULT;
 
 
   for(int i = 0; i < size; i++) {
@@ -194,7 +241,7 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   rots[0] = 0;
   rots[1] = M_PI / 4;
   
-  double rot_threshold = M_PI / 16;
+  double rot_threshold = M_PI / 256;
   while(rots[1] - rots[0] > rot_threshold) {
     rots[2] = (rots[1] + rots[0] )/ 2;
     for (int i = 0; i < 3; i++) {
@@ -253,11 +300,18 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   compare slope of line to slope of point in quadrant. can tell which cell you end up in next
   */
 
+int get_bb_width (collider* coll) {
+  return coll->bb_dim.width;
+}
+
+int get_bb_height (collider* coll) {
+  return coll->bb_dim.height;
+}
+
 
 void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result) {
   int cellW = map->cell_dim.width;
   int cellH = map->cell_dim.height;
-  int cell_index = 0;
   int start_corner = 0;
   int curr_corner = 0;
   int dest_corner;
@@ -296,6 +350,11 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
     
     shm_hash(map, &curr_pos, &curr_ind);
     shm_hash(map, &dest_pos, &dest_ind);
+
+    if (!already_in_vector(result, &curr_ind, &matrix_index_comp)) {
+      *(matrix_index*)(result->elements[result->cur_size]) = curr_ind;
+      result->cur_size++;
+    }
     
     while(matrix_index_difference(&curr_ind, &dest_ind) > 0) {
       //just calculating offest of corner relative to curr position
@@ -330,10 +389,9 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
 	result->cur_size++;
       }
     }
-    curr_corner = (curr_corner + 1) % bb->sides; ;
+    curr_corner = (curr_corner + 1) % bb->sides;
   } while(curr_corner != start_corner);
   //that filled the outline, fill interior by taking average of corners
-  int x_avg = 0, y_avg = 0;
   virt_pos avg = *zero_pos;
   for (int i = 0; i < bb->sides; i++) {
     get_actual_point(bb, i, &curr_pos);
@@ -412,56 +470,6 @@ void add_collider_to_shm_entries(spatial_hash_map* map, collider_list_node* node
   }
 }
 
-
-int DEFAULT = 0;
-int VISITED = 1;
-int COUNTED = 2;
-
-int number_of_unique_colliders_in_entries(spatial_hash_map* map, vector* entries) {
-  int count = 0;
-  spatial_map_cell* cell;
-  gen_node* curr ;
-  collider_list_node* cln;
-  for(int i = 0; i < entries->cur_size; i++) {
-    cell = get_entry_in_shm(map, elementAt(entries,i));
-    if (cell != NULL) {
-      curr = cell->colliders_in_cell->start;
-      while(curr != NULL) {
-	cln = (collider_list_node*)(curr->stored);
-	if (cln->status == DEFAULT) {
-	  cln->status = VISITED;
-	  count++;
-	}
-	curr = curr->next;
-      }
-    }
-  }
-  return count;
-}
-
-int unique_colliders_in_entries(spatial_hash_map* map, vector* entries, collider** results) {
-  int count = 0;
-  spatial_map_cell* cell;
-  gen_node* curr ;
-  collider_list_node* cln;
-  for(int i = 0; i < entries->cur_size; i++) {
-    cell = get_entry_in_shm(map, elementAt(entries,i));
-    if (cell != NULL) {
-      curr = cell->colliders_in_cell->start;
-      while(curr != NULL) {
-	cln = (collider_list_node*)(curr->stored);
-	if (cln->status == VISITED) {
-	  cln->status = DEFAULT;
-	  results[count] = cln->collider;
-	  count++;
-	}
-	curr = curr->next;
-      }
-    }
-  }
-  return count;
-}
-
 int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_list* result) {
   spatial_map_cell* cell;
   gen_node* curr;
@@ -518,7 +526,7 @@ spatial_map_cell* get_entry_in_shm(spatial_hash_map* map, matrix_index* index) {
   return (spatial_map_cell*)data;
 }
 void shm_hash(spatial_hash_map* map, virt_pos* pos, matrix_index* result) {
-  draw_virt_pos(getCam(), pos);
+  //draw_virt_pos(getCam(), pos);
   int x_index = (int)floor((double)pos->x / map->cell_dim.width);
   int y_index = (int)floor((double)pos->y / map->cell_dim.height);
   result->x_index = x_index;
@@ -539,7 +547,7 @@ spatial_hash_map* create_shm(int width, int height, int cols, int rows) {
       setDataAtIndex(new->hash_map, col_i, row_i, create_shm_cell());
     }
   }
-  new->hash_map->free_data_function = free_shm_cell_wrapper;
+  new->hash_map->free_data_function = free_shm_cell;
   return new;
   
 }
@@ -555,13 +563,11 @@ spatial_map_cell* create_shm_cell() {
   return new;
 }
 
-void free_shm_cell_wrapper(void* rm) {
-  free_shm_cell((spatial_map_cell*)rm);
-}
-
-void free_shm_cell(spatial_map_cell* rm) {
+void free_shm_cell(void* rmv) {
+  
   //can free colliders within freeNpc or other freeObject functions
   //this just needs to clean up the gen_list for now.
+  spatial_map_cell* rm = (spatial_map_cell*)rmv;
   freeGen_list(rm->colliders_in_cell);
   free(rm);
 }
@@ -572,4 +578,16 @@ matrix_index* createMatrixIndex() {
   new->x_index = 0;
   new->y_index = 0;
   return new;
+}
+
+ void free_matrix_index(matrix_index* rm) {
+   free(rm);
+}
+
+box get_cell_shape(spatial_hash_map* shm) {
+  return shm->cell_dim;
+}
+
+box get_dim_shape(spatial_hash_map* shm) {
+  return shm->matrix_dim;
 }

@@ -7,20 +7,22 @@ struct body_struct;
 #include "physics.h"
 #include "poltergeist.h"
 #include "compound.h"
+#include "picture.h"
 
 typedef struct body_struct {
   struct fizzle_struct* fizz;
   struct collider_struct* coll;
-  struct poltergeist_struct* polt;
-  //status is kind of a weird flag I've been using
-  //so far it's been used as a "this object needs to be updated" flag
+  poltergeist* polt;
   struct compound_struct* owner;
+  picture* pic;
   int status;
 } body;
 
 struct fizzle_struct* get_fizzle(body* body);
 
 struct collider_struct * get_collider(body* body);
+
+struct compound_struct* get_owner(body* body);
 
 body* createBody(struct fizzle_struct* fizz, struct collider_struct* coll);
 
@@ -45,5 +47,9 @@ double getMass(body* aBody);
 vector_2* getVelocity(body* aBody);
 
 virt_pos* getCenter(body* aBody);
+
+picture* get_picture(body* aBody);
+
+void set_picture(body* aBody, picture* new);
 
 #endif

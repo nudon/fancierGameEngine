@@ -2,8 +2,8 @@
 #define FILE_GAME_STATE_SEEN
 
 
-void set_quit(int new);
+void setQuit(int new);
 
-int get_quit();
+int getQuit();
 
 #endif

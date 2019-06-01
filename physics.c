@@ -28,7 +28,8 @@ void time_update() {
 }
 
 double get_dT() {
-  return dT;
+  //returning in units of seconds instead of miliseconds
+  return dT / 1000;
   //return 2.34;
 }
 
@@ -51,20 +52,17 @@ void init_fizzle(fizzle* fizz) {
   fizz->impact = *zero_vec;
   fizz->tether = *zero_vec;
   fizz->gravity = (vector_2){.v1 = 0, .v2 = 0};
+  fizz->rot_acceleration = 0;
+  fizz->rot_velocity = 0;
 }
 
 void free_fizzle(fizzle* rm) {
   free(rm);
 }
 
-
-/*
-void add_acceleration(fizzle* fizz, vector_2* delta) {
-  vector_2* result = &(fizz->input);
-  vector_2_add(delta, result, result); 
+void add_rotational_velocity(fizzle* fizz, double delta) {
+  fizz->rot_velocity += delta;
 }
-*/
-
 
 void add_velocity(fizzle* fizz, vector_2* delta) {
   vector_2* result = &(fizz->velocity);
@@ -87,6 +85,7 @@ void update_vel(fizzle* fizz) {
   vector_2_add(&(fizz->impact), &loc, &loc);
   vector_2_add(&(fizz->tether), &loc, &loc);
   fizz->velocity = loc;
+  fizz->rot_velocity += fizz->rot_acceleration * get_dT();
 }
 
 void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz) {
@@ -95,6 +94,10 @@ void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz) {
   vector_2_scale(&loc_vec, get_dT(), &loc_vec);
   vector_2_to_virt_pos(&loc_vec, &loc_pos);
   virt_pos_add(pos, &loc_pos, pos);
+}
+
+void update_rot_with_current_vel(double* rot, fizzle* fizz) {
+  *rot += fizz->rot_velocity * get_dT();
 }
 
 void set_fizzle_dampening(fizzle* fizz, int limit) {
@@ -114,11 +117,12 @@ void set_fizzle_dampening(fizzle* fizz, int limit) {
 }
 
 void fizzle_update(fizzle* fizz) {
-  set_fizzle_dampening(fizz, 1000);
+  set_fizzle_dampening(fizz, 100);
   update_net(fizz);
   update_vel(fizz);
   set_impact(fizz, zero_vec);
   set_tether(fizz, zero_vec);
+  fizz->rot_acceleration = 0;
 }
 
 void set_gravity(fizzle* fizz, vector_2* newGrav) {

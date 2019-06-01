@@ -25,15 +25,17 @@ struct fizzle_struct {
   //and having elascticity for collisions
   //also adding rotation velocity and accell, though not as importatn
   double mass;
+  //velocity components
   vector_2 velocity;
-  //acceleratoin components
-  //vector_2 input; ? relic of force-input days, now vel_input is a thing
-  vector_2 dampening;
-  //for storing resulting velocities from impact of collision
   vector_2 impact;
-  vector_2 gravity;
   vector_2 tether;
+  //acceleratoin components
+  vector_2 dampening;
+  vector_2 gravity;
   vector_2 net_acceleration;
+  //rotational components
+  double rot_acceleration;
+  double rot_velocity;
 } fizzle;
 
 typedef struct tether_struct{
@@ -72,7 +74,7 @@ void copy_tether_params(tether* from, tether* to);
 
 void free_tether(tether* rm);
 
-//void add_acceleration(fizzle* fizz, vector_2* delta);
+void add_rotational_velocity(fizzle* fizz, double delta);
 
 void add_velocity(fizzle* fizz, vector_2* delta);
 
@@ -83,6 +85,8 @@ void update_net(fizzle* fizz);
 void update_vel(fizzle* fizz);
 
 void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz);
+
+void update_rot_with_current_vel(double* rot, fizzle* fizz);
 
 void fizzle_update(fizzle* fizz);
 

@@ -159,6 +159,15 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
   *result = poly->normals[i];
 }
 
+virt_pos get_center(polygon* poly) {
+  return *(poly->center);
+}
+
+void set_center(polygon* poly, virt_pos* val) {
+  poly->center->x = val->x;
+  poly->center->y = val->y;
+}
+
 void set_rotation(polygon* poly, double new) {
   double ang = new;
   double r = 0;
@@ -287,7 +296,7 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
 //including an optional neworigin as a vague stress releif options
 //having fears that floating point arithmatic getting imprecice at higher values could mess up things
 void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2* line, double* min_result, double* max_result) {
-  double min, max, temp;
+  double min = 0, max = 0, temp = 0;
   virt_pos relative_point, origin, offset;
   if (new_origin == NULL) {
     origin.x = 0;
@@ -557,4 +566,14 @@ void print_vector(vector_2* vec) {
 
 void print_point(virt_pos* pos) {
   fprintf(stderr, "point is x:%d, y:%d\n", pos->x, pos->y);
+}
+
+
+void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha) {
+  exponential_decay(old->v1, cur->v1, &(new->v1), alpha);
+  exponential_decay(old->v2, cur->v2, &(new->v2), alpha);
+}
+
+void exponential_decay(double old, double cur, double* new, double alpha) {
+  *new = alpha * cur + (1 - alpha) * old;
 }

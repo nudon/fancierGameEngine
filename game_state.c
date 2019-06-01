@@ -2,10 +2,10 @@
 
 int quit = 0;
 
-void set_quit(int new) {
+void setQuit(int new) {
   quit = new;
 }
 
-int get_quit () {
+int getQuit () {
   return quit;
 }

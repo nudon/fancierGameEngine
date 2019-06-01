@@ -120,7 +120,6 @@ gen_node* createGen_node(void* data) {
 }
 
 void freeGen_node(gen_node* old) {
-  free(old->stored);
   free(old);
 }
 

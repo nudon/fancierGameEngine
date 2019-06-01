@@ -5,7 +5,7 @@
 int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
-  double mov_delta = .4;
+  double mov_delta = 100;
   double rot_delta = .3;
   double scale_delta = 1;
   //virt_pos trans_disp = (virt_pos){.x = 0, .y = 0};
@@ -60,6 +60,6 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
     }
   }
   //printf("Input: trans is (%d, %d) and rot is %f\n", trans_disp->x, trans_disp->y, *rot_disp);
-  set_quit(quit);
+  setQuit(quit);
   return quit;
 }

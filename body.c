@@ -29,7 +29,7 @@ void resolve_collisions(spatial_hash_map* map, body* main_body) {
 void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
   polygon* p1 = body1->coll->shape;
   polygon* p2 = body2->coll->shape;
-  vector_2 normal_of_collision;
+  vector_2 normal_of_collision = *zero_vec;
   vector_2 b1_norm = *zero_vec;
   vector_2 b2_norm = *zero_vec;
   
@@ -140,6 +140,8 @@ struct fizzle_struct* get_fizzle(body* body) { return body->fizz; }
 
 struct collider_struct * get_collider(body* body) { return body->coll; }
 
+struct compound_struct* get_owner(body* body) { return body->owner; }
+
 body* createBody(fizzle* fizz, struct collider_struct* coll) {
   body* new = malloc(sizeof(body));
   new->fizz = fizz;
@@ -147,7 +149,8 @@ body* createBody(fizzle* fizz, struct collider_struct* coll) {
   new->polt = NULL;
   coll->body = new;
   new->owner = NULL;
-  
+  new->pic = make_picture("./media/rad.png");
+  new->status = 0;
   return new;
 }
 
@@ -172,6 +175,17 @@ vector_2* getVelocity(body* aBody) {
 
 virt_pos* getCenter(body* aBody) {
    return aBody->coll->shape->center;
+}
+
+picture* get_picture(body* aBody) {
+  return aBody->pic;
+}
+
+void set_picture(body* aBody, picture* new) {
+  if (get_picture(aBody) != NULL) {
+    free_picture(get_picture(aBody));
+  }
+  aBody->pic = new;
 }
 
 
