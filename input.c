@@ -6,6 +6,7 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
   int quit = 0;
   SDL_Event e;
   double mov_delta = 100;
+  double jump_scale = 4;
   double rot_delta = .3;
   double scale_delta = 1;
   //virt_pos trans_disp = (virt_pos){.x = 0, .y = 0};
@@ -18,7 +19,7 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
       if (!(SDL_GetModState() & KMOD_CTRL)) {
 	switch(e.key.keysym.sym) {
 	case SDLK_UP:
-	  trans_disp->v2 -= mov_delta;
+	  trans_disp->v2 -= mov_delta * jump_scale;
 	  break;
 	case SDLK_DOWN:
 	  trans_disp->v2 += mov_delta;
@@ -59,7 +60,6 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
       }
     }
   }
-  //printf("Input: trans is (%d, %d) and rot is %f\n", trans_disp->x, trans_disp->y, *rot_disp);
   setQuit(quit);
   return quit;
 }

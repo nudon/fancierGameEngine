@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "poltergeist.h"
+#include "graphics.h"
 #include "input.h"
 #include "geometry.h"
 #include "util.h"
@@ -92,8 +93,13 @@ void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) 
 }
 
 
-void user_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) {
-  polygon* poly = body->coll->shape;
+void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
+  static int cam_init = 0;
+  if (!cam_init) {
+    set_camera_center(getCam(), getCenter(user_body));
+    cam_init = 1;
+  }
+  polygon* poly = user_body->coll->shape;
   get_input_for_polygon(poly, t_disp, r_disp);
 }
 //given a compound and dir, move all bodies in that dir
@@ -101,20 +107,38 @@ void user_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp
 //also seems like having a decaying average of a direction would be nice
 //would add the soft behavior of things gradually aquiring new directions
 //also might want to have some limited speed modes by modifying magnitude of direction. could either add hard-coded tiers/thresholds or take a log of magnitude for nice but sometimes funny stuff
+
 void standard_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) {
   //move roughly in direcion of compounds dir
-
-  vector_2 dir = get_dir(get_owner(body));
-  /*
-  double mag = vector_2_magnitude(&dir);
-  vector_2 unit = *zero_vec;
-  make_unit_vector(&dir, &unit);
-  vector_2_scale(&unit, mag, &dir);
-  */
-  vector_2_add(t_disp, &dir, t_disp);
-
+  
+  vector_2 dir = get_curr_dir(get_gi(get_owner(body)));
+  //might also take scales from gi
+  double t_scale = 1.5;
+  double r_scale = 0.004;
+  double mag = log(vector_2_magnitude(&dir));
+  if (mag > 0) {
+    vector_2_scale(&dir, t_scale * mag , &dir);
+    vector_2_add(t_disp, &dir, t_disp);
+    r_scale *= mag;
+  }
   //also reorient so body is "facing" dir
   double dir_theta = atan2(dir.v2, dir.v1);
+  if (dir_theta < 0) {
+    dir_theta += 2 * M_PI;
+  }
   double diff = dir_theta - get_rotation(get_polygon(get_collider(body)));
-  *r_disp += diff;
+
+  if (abs(diff) > M_PI) {
+    if (diff > 0) {
+      //fprintf(stderr, "1diff is %f\n", diff);
+      diff = diff - 2 * M_PI;
+    }
+    else {
+      //fprintf(stderr, "2diff is %f\n", diff);
+      diff = diff + 2 * M_PI;
+    }
+
+  }
+  //fprintf(stderr, "diff is %f\n", diff);
+  *r_disp += r_scale * diff;
 }

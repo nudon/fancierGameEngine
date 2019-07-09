@@ -37,14 +37,7 @@ int matrix_index_compare(matrix_index* m1, matrix_index* m2) {
 int matrix_index_compare_wrapper(void* m, void* b) {
   return matrix_index_compare((matrix_index*)m,(matrix_index*)b);
 }
-
-
-
-
 comparer matrix_index_comp = {.compare= matrix_index_compare_wrapper};
-
-
-
 
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot) {
   polygon* poly = coll->shape;
@@ -100,6 +93,13 @@ collider* make_collider_from_polygon(polygon* poly) {
   new->bbox = createPolygon(4);
   find_bb_for_polygon(poly, new->bbox);
   fill_bb_dim(new->bbox, &(new->bb_dim));
+  return new;
+}
+
+collider* cloneCollider(collider* src) {
+  polygon* src_poly = get_polygon(src);
+  polygon* p = clonePolygon(src_poly);
+  collider* new = make_collider_from_polygon(p);
   return new;
 }
 
@@ -261,10 +261,7 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
       rot_index = 1;
     }
   }
-  //now, create polygon
-  //make square, set rotation to rots[2]
-  //then set it to the  xlen and ylen projections
-  //manually set points to (vir_pos){.x = +- x_len / 2, .y = +- y_len / 2};
+
   double xmin, xmax, ymin, ymax;
   if (result->sides == 4) {
     set_rotation(result,rots[rot_index]);
@@ -275,7 +272,6 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
     set_base_point(result, 2, &(virt_pos){.x = xmax, .y = ymax});
     set_base_point(result, 3, &(virt_pos){.x = xmin, .y = ymax});
     generate_normals_for_polygon(result);
-    //then, need to free results center, and point it to poly's center
     free(result->center);
     result->center = poly->center;
   }
@@ -327,6 +323,7 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
   int x_ind_off, y_ind_off;
   double small_amount = 0.001;
   result->cur_size = 0;
+  int side_done = 0;
   do {
     dest_corner = (curr_corner + 1) % bb->sides;
     get_actual_point(bb, curr_corner, &curr_pos);
@@ -355,38 +352,48 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
       *(matrix_index*)(result->elements[result->cur_size]) = curr_ind;
       result->cur_size++;
     }
-    
-    while(matrix_index_difference(&curr_ind, &dest_ind) > 0) {
-      //just calculating offest of corner relative to curr position
-      x_corner_off = (curr_ind.x_index + 1) * cellW - curr_pos.x;
-      if (x_ind_off < 0) {
-	x_corner_off = cellW - x_corner_off + 1;
-      }
-      y_corner_off = (curr_ind.y_index + 1) * cellH - curr_pos.y;
-      if (y_ind_off < 0) {
-	y_corner_off = cellH - y_corner_off + 1;
-      }
-      //checks for edge cases then compares slopes
-      if (x_corner_off == 0) { //directly on edge, move in y dir I guess?
-	vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
-      }
-      else if (dir.v1 == 0) { //moving purely up, move in y dir
-	vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
-      }
 
-      else if (x_corner_off > 0 && fabs((float)y_corner_off / x_corner_off) < fabs((float)dir.v2 / dir.v1)) {
-	vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
+    side_done = 0;
+    while(!side_done) {
+      double curr_mag, dest_mag;
+      curr_mag = get_projected_length_pos(&curr_pos, &dir);
+      dest_mag = get_projected_length_pos(&dest_pos, &dir);
+      if (matrix_index_difference(&curr_ind, &dest_ind) == 0 ||
+	  curr_mag > dest_mag) {
+	side_done = 1;
       }
       else {
-	vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
-      }
-      vector_2_to_virt_pos(&disp, &temp);
-      virt_pos_add(&curr_pos, &temp, &curr_pos);
-      shm_hash(map, &curr_pos, &curr_ind);
+	//just calculating offest of corner relative to curr position
+	x_corner_off = (curr_ind.x_index + 1) * cellW - curr_pos.x;
+	if (x_ind_off < 0) {
+	  x_corner_off = cellW - x_corner_off + 1;
+	}
+	y_corner_off = (curr_ind.y_index + 1) * cellH - curr_pos.y;
+	if (y_ind_off < 0) {
+	  y_corner_off = cellH - y_corner_off + 1;
+	}
+	//checks for edge cases then compares slopes
+	if (x_corner_off == 0) { //directly on edge, move in y dir I guess?
+	  vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
+	}
+	else if (dir.v1 == 0) { //moving purely up, move in y dir
+	  vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
+	}
+
+	else if (x_corner_off > 0 && fabs((float)y_corner_off / x_corner_off) < fabs((float)dir.v2 / dir.v1)) {
+	  vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
+	}
+	else {
+	  vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
+	}
+	vector_2_to_virt_pos(&disp, &temp);
+	virt_pos_add(&curr_pos, &temp, &curr_pos);
+	shm_hash(map, &curr_pos, &curr_ind);
       
-      if (!already_in_vector(result, &curr_ind, &matrix_index_comp)) {
-	*(matrix_index*)(result->elements[result->cur_size]) = curr_ind;
-	result->cur_size++;
+	if (!already_in_vector(result, &curr_ind, &matrix_index_comp)) {
+	  *(matrix_index*)(result->elements[result->cur_size]) = curr_ind;
+	  result->cur_size++;
+	}
       }
     }
     curr_corner = (curr_corner + 1) % bb->sides;

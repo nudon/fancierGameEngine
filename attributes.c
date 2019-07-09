@@ -9,10 +9,9 @@
 //should probably make hunters chase prey
 #define PREY_BIT 0
 #define HUNTER_BIT 1
-//designated to mark the user so user only events like map transitions happen
-//or, if non-users can go over maps, only change camera/active map if user goes through
-//or have it be travel bit
+//designated to mark the user so user only events like camera/map transitions happen
 #define USER_BIT 2
+//travel bit because I probably don't want things like walls to traverse maps
 #define TRAVEL_BIT 3
 
 typedef uint8_t att_bits;

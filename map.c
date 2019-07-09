@@ -63,32 +63,20 @@ void setMap(map* new) {
 //map loading warzone
 
 struct load_zone_struct {
-  //can either have pointers or strings for indicating a map
-  //strings if I want to use less memory but need a queing system for map
-  //pointers if I can have every map loaded at the same time
   char* from_map;
   char* to_map;
-  //similar system for planes
   char* from_plane;
   char* to_plane;
-  //then a dest position
+  //then a dest position to place user in to_map/plane
   virt_pos dest;
-  //then hold an event struct for fldkasdf
+  //event to trigger the map change
   event* trigger;
 };
 
-//probably best to make a custom hallway/door object to hold specifics for source/dest connections, and events for boundary, then have planes hold a list of boundaries
-//also trying to figure out how to get it in an easy way to save to disk
-//easiest for that is to probably load maps in memory and reference them by string names
-
-//okay made everything as if I was going to keep maps always loaded in
-//but I realized that when creating the load_zone's i'd have to be getting planes out of already existing maps
-//meaning I'd need to do string matching for maps and planes
-//at that point might as well just implement the loading lists to save memory
-//wait this will be annoyting, will have a char*** for [map][plane] things
-//wait worse than that
-//will have to have a char** | gen_list *** first level map for [map]
-//then a second level char** | gen_list **  for matching plane names
+//when things change maps, need to remove objects from current map and place in a waiting queue for dest map
+//when new map loads, empty the respective waiting queue into map
+//oh also there needs to be queues for each plane in map
+//so this got implemented as a 2-layer map from map/plane names to lists
 
 //initializes outer most_maps
 void map_load_init();
@@ -104,15 +92,11 @@ gen_list* map_load_get_travel_list(char* map_name, char* plane_name);
 
 //contains map_name to index 
 char* map_names[MAP_LIM];
-//may have types for these fucked up, may need[val][];
 //use index of map name to get plane names to index
 char** plane_names_in_map[MAP_LIM];
 //use map and plane index to get a gen list
 gen_list** gen_lists_for_plane_in_map [MAP_LIM];
 
-//arean't actually allocated here, just prototypes for the second layer types
-//char** plane_names[PLANE_LIM];
-//gen_list** gen_lists_for_plane[PLANE_LIM];
 
 void init_map_load() {
   null_init_array((void**)map_names, MAP_LIM);
@@ -121,7 +105,6 @@ void init_map_load() {
 }
 
 void map_load_create_travel_lists(map* map) {
-  printf("generating travel list for map %s\n", get_map_name(map));
   gen_node* curr_plane = get_planes(map)->start;
   plane* aPlane = NULL;
   gen_node* curr_lz = NULL;
@@ -159,6 +142,7 @@ void map_load_insert_travel_list(char* map_name, char* plane_name) {
   plane_names = plane_names_in_map[map_i];
   plane_i = char_search(plane_names, plane_name, PLANE_LIM);
   if (plane_i < 0) {
+    printf("generating travel list for map %s\n", map_name);
     plane_i = first_empty_index(plane_names, PLANE_LIM);
     plane_names[plane_i] = strdup(plane_name);
 
@@ -166,7 +150,7 @@ void map_load_insert_travel_list(char* map_name, char* plane_name) {
     gen_lists_for_planes[plane_i] = createGen_list();
   }
   else {
-    fprintf(stderr, "Duplicate insertion into travel list: map=%s, plane=%s\n", map_name, plane_name);
+    //fprintf(stderr, "Duplicate insertion into travel list: map=%s, plane=%s\n", map_name, plane_name);
   }
 }
 
@@ -183,7 +167,6 @@ gen_list* map_load_get_travel_list(char* map_name, char* plane_name) {
   }
   return ret;
 }
-
 
 load_zone* make_load_zone(char* m_from, char* m_to, char* p_from, char* p_to, virt_pos* dest, event* trigger) {
   load_zone* new = malloc(sizeof(load_zone));
@@ -212,11 +195,6 @@ void trigger_map_change(load_zone* lz, compound* trav) {
   plane* curr_plane = NULL;
   gen_list* move = NULL;
   if (is_travel(att)) {
-    //move to new map
-    //will have to update this
-    //can either use the compounds valid bit to remove from whereever it is
-    //and add it to the loading list
-    //or do more obxnoxious stuff that I can't even think of
     curr_plane = get_plane_by_name(getMap(), get_lz_from_plane(lz));
     remove_compound_from_plane(curr_plane, trav);
     move = map_load_get_travel_list(get_lz_to_map(lz), get_lz_to_plane(lz));
@@ -224,12 +202,10 @@ void trigger_map_change(load_zone* lz, compound* trav) {
     //also need to set trav's position
     set_compound_position(trav, &(lz->dest));
     if (is_user(att)) {
-      //potentiall update global map so map user is on get's drawn
       if (lz->from_map != lz->to_map) {
 	//update global map
 	//should be safe to do so now
 	//only dangerous if I trigger 2 loading zones at the same time
-	//load new map and set
 	map* newMap = NULL;
 	newMap = load_map_by_name(lz->to_map);
 	setMap(newMap);
@@ -265,11 +241,16 @@ void flush_travel_list_for_map(map* map) {
 
 void flush_travel_list_for_plane(gen_list* compound_list, plane* dest) {
   gen_node* curr = compound_list->start;
+  gen_node* temp = NULL;
   compound* comp = NULL;
   while(curr != NULL) {
     comp = (compound*)curr->stored;
     add_compound_to_plane(dest, comp);
+
+    temp = curr;
     curr = curr->next;
+    remove_node(temp);
+    freeGen_node(temp);
   }
 }
 
@@ -300,7 +281,6 @@ void check_load_triggers(map* map) {
 	//map change might free aHit, do this before calling
 	aHit = aHit->next;
 	if (do_polygons_intersect(hit_poly, event_poly)) {
-	  //call trigger map change
 	  trigger_map_change(lz, comp);
 	}
 	

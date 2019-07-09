@@ -21,21 +21,27 @@ typedef
 struct {
   SDL_Renderer* rend;
   SDL_Rect* dest;
-  pixel_pos* corner;
+  pixel_pos corner;
+  virt_pos* center;
 } camera;
 
-extern pixel_pos* zero_pix;
+void init_graphics();
+void quit_graphics();
+int init_rend(SDL_Renderer** rend);
 
 int getScreenWidth();
 int getScreenHeight();
 
+camera* make_camera();
 void setCam(camera* cam);
-
 camera* getCam();
+void update_corner(camera* cam);
+void set_camera_center(camera* cam, virt_pos* cent);
 
 void virt_to_pixel(virt_pos* virt, pixel_pos* result);
 
 void draw_events_in_map(camera* cam, map* map);
+void draw_events_in_list(camera* cam, gen_list* list);
 void draw_load_zones_in_map(camera* cam, map* map);
 void draw_hash_map(camera* cam, spatial_hash_map* map);
 

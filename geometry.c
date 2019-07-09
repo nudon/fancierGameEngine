@@ -38,12 +38,44 @@ polygon* createPolygon(int sides) {
   return new;
 }
 
+polygon* clonePolygon(polygon* src) {
+  polygon* new = malloc(sizeof(polygon));
+  int sides = src->sides;
+  new->sides = sides;
+  new->scale = src->scale;
+  new->rotation = src->rotation;
+  new->center = malloc(sizeof(virt_pos));
+  *(new->center) = *(src->center);
+  new->corners = malloc(sizeof(virt_pos) * sides);
+  new->base_corners = malloc(sizeof(virt_pos) * sides);
+  new->normals = malloc(sizeof(vector_2) * sides);
+  new->base_normals = malloc(sizeof(vector_2) * sides);
+  init_point(new->center);
+  for (int i = 0; i < sides; i++) {
+    new->corners[i] = src->corners[i];
+    new->base_corners[i] = src->base_corners[i];
+    new->normals[i] = src->normals[i];
+    new->base_normals[i] = src->base_normals[i];
+  }
+  return new;
+}
+
 polygon* createNormalPolygon(int sides) {
   polygon* poly = createPolygon(sides);
   make_normal_polygon(poly);
   generate_normals_for_polygon(poly);
   return poly;
 }
+
+polygon* createRectangle(int width, int height) {
+  polygon* r = createPolygon(4);
+  make_square(r);
+  stretch_deform_vert(r, fmax(1, height / 2));
+  stretch_deform_horz(r, fmax(1, width / 2));
+  generate_normals_for_polygon(r);
+  return r;
+}
+
 
 void generate_normals_for_polygon(polygon* poly) {
   int sides = poly->sides;

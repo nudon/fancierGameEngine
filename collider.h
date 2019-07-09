@@ -3,7 +3,8 @@
 
 struct collider_list_node_struct;
 struct collider_struct;
-struct spatial_hash_map_struct;
+typedef struct spatial_hash_map_struct spatial_hash_map;
+typedef struct collider_struct collider;
 
 #include "myList.h"
 #include "myVector.h"
@@ -26,15 +27,13 @@ struct {
 } matrix_index;
 
 
-typedef struct collider_struct{
+struct collider_struct{
   box bb_dim;
   polygon* shape;
   polygon* bbox;
-  //maybe a type+union combo for owner of collider
-  //also collider list node(s) for collider
   struct body_struct* body;
   struct collider_list_node_struct* collider_node;
-} collider;
+};
 
 polygon* get_polygon(collider* coll);
 
@@ -45,41 +44,25 @@ typedef struct collider_list_node_struct{
   int max_ref_amount;
   vector* active_cells;
   vector* old_cells;
-  //also, because I'm storing within the map cells a list
-  //have to keep some permanant container for the list nodes for collider
-  //because I still don't want a movement system that is intensive on mallocs/frees
-  
   //gen nodes to put into various shm cells, points to containing collider list node
   //contains max_ref_amount gen_nodes
   gen_node** active_cell_nodes;
   //node to be used in collision resolution, points to collider
   gen_node* cr_node;
   int status;
-  //tempted to rename struct something else, like collider references
 } collider_list_node;
 
-//typedef struct collider_struct collider;
-//typedef struct collider_list_node_struct collider_list_node;
 
-
-//probably doesn't need to be a struct
-//might be nice though, could add fields like an empty flag
-//
-typedef
-struct {
+typedef struct {
   gen_list * colliders_in_cell;
-  
 } spatial_map_cell;
 
 
-
-typedef
 struct spatial_hash_map_struct{
-  //could also be a box struct?
   box cell_dim;
   box matrix_dim;
   gen_matrix* hash_map;
-} spatial_hash_map;
+};
 
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot);
 void update_refs(collider* coll);
@@ -108,8 +91,8 @@ int adjacent_indexes(matrix_index* m, matrix_index* b);
 void remove_collider_from_shm_entries(spatial_hash_map* map, collider_list_node* node, vector* entries_to_clear);
 void add_collider_to_shm_entries(spatial_hash_map* map, collider_list_node* node, vector* entries_to_add);
 
-int number_of_unique_colliders_in_entries(spatial_hash_map* map, vector* entries);
-int unique_colliders_in_entries(spatial_hash_map* map, vector* entries, collider** results);
+//int number_of_unique_colliders_in_entries(spatial_hash_map* map, vector* entries);
+//int unique_colliders_in_entries(spatial_hash_map* map, vector* entries, collider** results);
 //results are collider*
 int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_list* result);
 
@@ -123,6 +106,7 @@ void shm_hash(spatial_hash_map* map, virt_pos* pos, matrix_index* result);
 
 
 collider* make_collider_from_polygon(polygon* poly);
+collider* cloneCollider(collider* src);
 void free_collider(collider* rm);
 
 spatial_hash_map* create_shm(int width, int height, int cols, int rows);

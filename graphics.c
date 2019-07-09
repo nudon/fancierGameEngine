@@ -2,15 +2,116 @@
 
 
 
-
 static void myDrawRect(camera* cam, int x1, int y1, int x2, int y2);
-
-
 static void myDrawCirc(int x, int y, int rad);
-
 static camera* gamgam;
 
-pixel_pos* zero_pix = &((pixel_pos){.x = 0, .y = 0});
+static int SCREEN_WIDTH = 720;
+static int SCREEN_HEIGHT = 480;
+
+picture* def_pic = NULL;
+
+static SDL_Window* gWin = NULL;
+
+static pixel_pos* zero_pix = &((pixel_pos){.x = 0, .y = 0});
+
+void init_graphics() {
+  SDL_Renderer* rend = NULL;
+  if (init_rend(&rend) != 0) {
+    fprintf(stderr, "Error, setting up SDL renderer failed, exiting\n");
+    exit(1);
+  }
+
+  camera*  mainCam = make_camera();
+  mainCam->rend = rend;
+  mainCam->dest = NULL;
+  setCam(mainCam);
+  
+  def_pic = make_picture("./media/rad.png");
+  if (def_pic->texture == NULL) {
+    def_pic = make_picture("./media/def.png");
+      if (def_pic->texture == NULL) {
+	fprintf(stderr, "missing both of the default textures, exiting\n");
+	fprintf(stderr, "place a random picture in media dir and call it \"def.png\" to fix\n");
+	exit(3);
+      }
+  }
+  //also probably put texture loading in here
+}
+
+void quit_graphics() {
+  SDL_DestroyWindow(gWin);
+  gWin = NULL;
+  //also free any textures that got loaded
+  
+}
+
+int init_rend(SDL_Renderer** rend) {
+  int fail = 0;
+  if(SDL_Init(SDL_INIT_VIDEO) >= 0) {
+    gWin = SDL_CreateWindow("SDL, Now with renderererers",
+			    SDL_WINDOWPOS_UNDEFINED,
+			    SDL_WINDOWPOS_UNDEFINED,
+			    getScreenWidth(),
+			    getScreenHeight(),
+			    SDL_WINDOW_SHOWN);
+    if (gWin != NULL) {
+      *rend = SDL_CreateRenderer(gWin, -1, SDL_RENDERER_ACCELERATED);
+      if (rend != NULL) {
+	SDL_SetRenderDrawColor(*rend, 0xff, 0xff, 0xff, 0xff);
+	int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
+	if ((IMG_Init(imgFlags) & imgFlags)) {
+	  if (TTF_Init() != -1) {
+	    //initialize my libraries
+	    init_poltergeists();
+	    init_events();
+	    init_map_load();
+	  }
+	  else {
+	    fail = 5;
+	    fprintf(stderr, "Error in loading TTF libraries: %s\n",
+		    TTF_GetError());
+	  }
+	}
+	else {
+	  fail = 4;
+	  fprintf(stderr, "Error in loading img loading librarys: %s \n",
+		  IMG_GetError());
+	}
+      }
+      else {
+	fail = 3;
+	fprintf(stderr, "Error in creating renderer for gWin: %s \n",
+		SDL_GetError());
+      }      
+    }
+    else {
+      fail = 2;
+      fprintf(stderr, "Window Could not be created: %s\n",
+	      SDL_GetError());
+    }
+  }
+  else {
+    fprintf(stderr, "Error in init video %s\n",
+	    SDL_GetError() );
+    fail =1;
+  }
+  return fail;
+}
+
+double x_virt_to_pixel_scale = 1.02;
+double y_virt_to_pixel_scale = 1.07;
+//double x_virt_to_pixel_scale = SCREEN_WIDTH / ORIG_SCREEN_WIDTH;
+//double y_virt_to_pixel_scale = SCREEN_HEIGHT / ORIG_SCREEN_HEIGHT;
+
+camera* make_camera() {
+  camera* cam = malloc(sizeof(camera));
+  cam->rend = NULL;
+  cam->dest = NULL;
+  cam->center = NULL;
+  cam->corner = *zero_pix;
+  return cam;
+}
 
 void setCam(camera* cam) {
   gamgam = cam;
@@ -20,24 +121,20 @@ camera* getCam(){
   return gamgam;
 }
 
-//generally don't think these should be static
-//because if I want to change these while program is running, would be ?
-static int SCREEN_WIDTH = 720;
-static int SCREEN_HEIGHT = 480;
-//defined as the resolution in which virt_pos and pix_pos are identical
-static int ORIG_SCREEN_WIDTH = 720;
-static int ORIG_SCREEN_HEIGHT = 480;
+void set_camera_center(camera* cam, virt_pos* cent) {
+  cam->center = cent;
+}
 
-//so fun thing
-//if I want to support non whatever ^^^ resolution ratio is
-//need a virt_to_pixel scale for both axis
-double virt_to_pixel_scale = 1;
+void update_corner(camera* cam) {
+  pixel_pos temp = *zero_pix;
+  if (cam->center != NULL) {
+    virt_to_pixel(cam->center, &temp);
+    temp.x -= getScreenWidth() / 2;
+    temp.y -= getScreenHeight() / 2;
+  }
+  cam->corner = temp;
+}
 
-//update these on screen resolution change
-double x_virt_to_pixel_scale = 1;
-double y_virt_to_pixel_scale = 1;
-//double x_virt_to_pixel_scale = SCREEN_WIDTH / ORIG_SCREEN_WIDTH;
-//double y_virt_to_pixel_scale = SCREEN_HEIGHT / ORIG_SCREEN_HEIGHT;
 
 int getScreenWidth() {
   return SCREEN_WIDTH;
@@ -50,35 +147,37 @@ int getScreenHeight(){
 
 
 void virt_to_pixel(virt_pos* virt, pixel_pos* result) {
-  result->x = virt->x * virt_to_pixel_scale;
-  result->y = virt->y * virt_to_pixel_scale;
+  result->x = virt->x * x_virt_to_pixel_scale;
+  result->y = virt->y * y_virt_to_pixel_scale;
 }
 
 //basic geometry
 
 void draw_events_in_map(camera* cam, map* map) {
-  //need to draw grid outlines, and draw a cross hatch for cells with things in hem
   plane* aPlane = NULL;
-  event* e = NULL;
-  polygon* p = NULL;
-  gen_node* event_node = NULL;
   gen_node* plane_node = get_planes(map)->start;
   while (plane_node != NULL) {
     aPlane = (plane*)plane_node->stored;
-    event_node = get_events(aPlane)->start;
-    
-
-    SDL_SetRenderDrawColor(cam->rend, 0, 255, 0, 0);
-
-
-    while(event_node != NULL) {
-      e = (event*)event_node->stored;
-      p = get_polygon(get_event_collider(e));
-      draw_polygon_outline(cam, p);
-      event_node = event_node->next;
-    }
+    draw_events_in_list(cam, get_events(aPlane));
     plane_node = plane_node->next;
   }
+}
+
+void draw_events_in_list(camera* cam, gen_list* list) {
+  SDL_SetRenderDrawColor(cam->rend, 0, 255, 0, 0);
+  
+  event* e = NULL;
+  polygon* p = NULL;
+  gen_node* event_node = NULL;
+  
+  event_node = list->start;  
+  while(event_node != NULL) {
+    e = (event*)event_node->stored;
+    p = get_polygon(get_event_collider(e));
+    draw_polygon_outline(cam, p);
+    event_node = event_node->next;
+  }
+  
 }
 
 
@@ -104,6 +203,7 @@ void draw_load_zones_in_map(camera* cam, map* map) {
 }
 
 void draw_hash_map(camera* cam, spatial_hash_map* map) {
+
   SDL_SetRenderDrawColor(cam->rend, 255, 0, 0, 0);
   matrix_index ind;
   int rows = map->matrix_dim.height;
@@ -192,13 +292,13 @@ void draw_virt_pos(camera* cam, virt_pos* virt) {
 }
 
 void draw_line(camera* cam, virt_pos* start, virt_pos* end) {
-  pixel_pos o = *(cam->corner);
+  pixel_pos o = cam->corner;
   pixel_pos t1 = *zero_pix, t2 = *zero_pix;
   virt_to_pixel(start, &t1);
   virt_to_pixel(end, &t2);
   SDL_RenderDrawLine(cam->rend,
-		     start->x - o.x, start->y - o.y,
-		     end->x - o.x, end->y - o.y);
+		     t1.x - o.x, t1.y - o.y,
+		     t2.x - o.x, t2.y - o.y);
 }
 
 void draw_polygon_outline(camera* cam, polygon* poly) {
@@ -241,11 +341,11 @@ void draw_compound_picture(camera* cam, compound* comp) {
 void draw_body_picture(camera* cam, body* body) {
   collider* coll = body->coll;
   virt_pos cent = *getCenter(body);
-  int x_dst = x_virt_to_pixel_scale * (cent.x - get_bb_width(coll) / 2);
-  int y_dst = y_virt_to_pixel_scale * (cent.y - get_bb_height(coll) / 2);
-  int w_dst = x_virt_to_pixel_scale * get_bb_width(coll);
-  int h_dst = y_virt_to_pixel_scale * get_bb_height(coll);
-  SDL_Rect dst = (SDL_Rect){.x = x_dst, .y = y_dst, .w = w_dst, .h = h_dst};
+  int x = x_virt_to_pixel_scale * (cent.x - get_bb_width(coll) / 2) - cam->corner.x;
+  int y = y_virt_to_pixel_scale * (cent.y - get_bb_height(coll) / 2) - cam->corner.y;
+  int w = x_virt_to_pixel_scale * get_bb_width(coll);
+  int h = y_virt_to_pixel_scale * get_bb_height(coll);
+  SDL_Rect dst = (SDL_Rect){.x = x, .y = y, .w = w, .h = h};
   draw_picture(cam, body->pic, NULL, &dst, get_rotation(coll->shape));
 }
 
@@ -253,6 +353,9 @@ void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, doubl
   //polygon rotation is in radians and + is counterclockwise
   //SDL expects degress and + is clockwise
   double sdl_rot = rot * RADS_TO_DEG * 1;
+  if (pic == NULL) {
+    pic = def_pic;
+  }
   SDL_RenderCopyEx(cam->rend, pic->texture, src, dst, sdl_rot, NULL, SDL_FLIP_NONE);
 }
 

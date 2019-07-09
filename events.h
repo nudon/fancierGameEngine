@@ -1,11 +1,11 @@
 #ifndef FILE_EVENTS_DEFINED
 #define FILE_EVENTS_DEFINED
 
+typedef struct event_struct event;
+
 #include "body.h"
 #include "collider.h"
 #include "geometry.h"
-
-typedef struct event_struct event;
 
 
 void init_events();
@@ -15,9 +15,9 @@ void set_event_by_name(event* e, char* func);
 void printEvent(struct event_struct* not, body* used);
 event* make_event(polygon* poly);
 void set_event(event* e, void (*newTrigger)(struct event_struct* e, body* b));
+collider* get_event_collider(event* e);
 void set_event_body(event* e, body* b);
 body* get_event_body(event* e);
-collider* get_event_collider(event* e);
 
 void trigger_event(event* e, body* arg);
 
@@ -30,5 +30,6 @@ void store_event_triggers(spatial_hash_map* map, event* e, gen_list* hits);
 
 //standard events
 void no_event(event* e, body* b);
+void basic_decide_event(event* e, body* b2);
 
 #endif

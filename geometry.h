@@ -1,6 +1,8 @@
 #ifndef FILE_GEOMETRY_SEEN
 #define FILE_GEOMETRY_SEEN
 
+#define RAD_2_DEG 180 / M_PI
+#define DEG_2_RAD M_PI / 180
 
 typedef
 struct {
@@ -36,7 +38,10 @@ extern vector_2* zero_vec;
 extern virt_pos* zero_pos;
 
 polygon* createPolygon(int sides);
+polygon* clonePolygon(polygon* src);
 polygon* createNormalPolygon(int sides);
+polygon* createRectangle(int width, int height);
+
 void freePolygon(polygon* poly);
 
 void generate_normals_for_polygon(polygon* poly);

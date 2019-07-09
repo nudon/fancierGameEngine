@@ -3,35 +3,39 @@
 //main use/idea is that collisions between objects from same collections are ignored
 //can suport multi-segmented things like centipides or the such
 #include "compound.h"
+#include "gi.h"
 
 
 struct compound_struct {
   //list of bodies in compound
   gen_list* bp;
-  vector_2 move_dir;
-  decision_att* decision_attributes;
-  //flag for removal of compound from plane
-  int valid;
+  gi* compound_intelligence;
 };
   
 
 compound* create_compound() {
   compound* new = malloc(sizeof(compound));
   new->bp = createGen_list();
-  new->move_dir = *zero_vec;
-  new->decision_attributes = make_decision_att();
-  new->valid = -1;
+  new->compound_intelligence = create_gi();
   return new;
 }
 
 gen_list* get_bodies(compound* comp) { return comp->bp; }
 
 decision_att* get_attributes(compound* comp) {
-  return comp->decision_attributes;
+  return get_gi_attributes(get_gi(comp));
 }
 
 void set_attributes(compound* comp, decision_att* na) {
-  copy_atts(na, comp->decision_attributes);
+  copy_atts(na, get_gi_attributes(get_gi(comp)));
+}
+
+gi* get_gi(compound* comp) {
+  return comp->compound_intelligence;
+}
+
+void set_gi(compound* comp, gi* g) {
+  comp->compound_intelligence = g;
 }
 
 void add_body_to_compound(compound* comp, body* body) {
@@ -79,23 +83,5 @@ void set_compound_position(compound* comp, virt_pos* np) {
 
 
 vector_2 get_dir(compound* comp) {
-  return comp->move_dir;
-}
-
-void set_dir(compound* comp, vector_2* nv) {
-  comp->move_dir.v1 = nv->v1;
-  comp->move_dir.v2 = nv->v2;
-}
-
-
-void set_valid(compound* comp, int val) {
-  comp->valid = val;
-}
-
-int is_valid(compound* comp) {
-  return (get_valid(comp) > 0);
-}
-
-int get_valid(compound* comp) {
-  return comp->valid;
+  return get_curr_dir(get_gi(comp));
 }

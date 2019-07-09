@@ -1,8 +1,87 @@
-
 #include "body.h"
 #include <math.h>
 
-void impact(body* b1, body* b2, vector_2* normal);
+body* createBody(fizzle* fizz, struct collider_struct* coll) {
+  body* new = malloc(sizeof(body));
+  new->fizz = fizz;
+  new->coll = coll;
+  new->polt = NULL;
+  coll->body = new;
+  new->owner = NULL;
+  new->pic = NULL;
+  new->event_list = createGen_list();
+  new->status = 0;
+  return new;
+}
+
+body* cloneBody(body* src) {
+  body* new = malloc(sizeof(body));
+  new->fizz = cloneFizzle(src->fizz);
+  new->coll = cloneCollider(src->coll);
+  new->polt = NULL;
+  new->coll->body = new;
+  new->owner = NULL;
+  new->pic = src->pic;
+  new->pic = NULL;
+  new->event_list = createGen_list();
+  new->status = 0;
+  return new;
+}
+
+void free_body(body* rm) {
+  free_fizzle(rm->fizz);
+  free_collider(rm->coll);
+  free(rm);
+}
+
+
+struct fizzle_struct* get_fizzle(body* body) { return body->fizz; }
+
+struct collider_struct * get_collider(body* body) { return body->coll; }
+
+struct compound_struct* get_owner(body* body) { return body->owner; }
+
+fizzle* getFizzle(body* aBody) {
+  return aBody->fizz;
+}
+
+double getMass(body* aBody) {
+  return aBody->fizz->mass;
+}
+
+vector_2* getVelocity(body* aBody) {
+  return &(aBody->fizz->velocity);
+}
+
+virt_pos* getCenter(body* aBody) {
+   return aBody->coll->shape->center;
+}
+
+picture* get_picture(body* aBody) {
+  return aBody->pic;
+}
+
+void set_picture(body* aBody, picture* pic) {
+  if (aBody->pic != NULL) {
+    fprintf(stderr, "warning, overwriting a bodies picture\n");
+  }
+  aBody->pic = pic;
+}
+
+void set_picture_by_name(body* aBody, char* fn) {
+  picture* pic = make_picture(fn);
+  set_picture(aBody, pic);
+}
+
+
+void add_event_to_body(body* b, event* e) {
+  prependToGen_list(b->event_list, createGen_node(e));
+  set_event_body(e, b);
+}
+
+gen_list* get_body_events(body* b) {
+  return b->event_list;
+}
 
 
 void resolve_collisions(spatial_hash_map* map, body* main_body) {
@@ -17,7 +96,6 @@ void resolve_collisions(spatial_hash_map* map, body* main_body) {
   while(currNode != NULL) {
     currBody =((collider*)currNode->stored)->body;
     if (currBody != main_body && currBody->owner != main_body->owner) {
-      //fprintf(stderr, "detecting  a collision!\n");
       resolve_collision(map, main_body, currBody);
     }
     currNode = currNode->next;
@@ -39,15 +117,12 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
   if (actual_collision != 0) {
     make_unit_vector(&normal_of_collision, &normal_of_collision);
     get_normals_of_collision(body1, body2, &normal_of_collision, &b1_norm, &b2_norm);
+    
     displace_bodies(map,body1, body2, mtv_mag, &b1_norm, &b2_norm);
-    //in addition to setting velocities, also need to displace object outside of eachother
     impact(body1, body2, &b1_norm);
   }
 }
 
-//returns an inverted mass contribution
-//out of sum of both masses, fill m1 with mass contribution of m2, and vice versa
-//used quite a bit when I want heavy objects to react less when interacting with lighter objects
 void inv_mass_contribution(double m1, double m2, double* m1c, double* m2c) {
   mass_contribution(m1, m2, m2c, m1c);
 }
@@ -96,7 +171,8 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   vector_2_to_virt_pos(&b1tv, &b1d);
   vector_2_to_virt_pos(&b2tv, &b2d);
 
-  
+  //slighly increases offsets
+  /*
   if (b1d.x != 0) {
     b1d.x += (b1d.x > 0) ? 1: -1;
   }
@@ -111,6 +187,7 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   if (b2d.y != 0) {
     b2d.y += (b2d.y > 0) ? 1: -1;
   }
+  */
   
   update(map, b1->coll, &b1d, 0);
   update(map, b2->coll, &b2d, 0);
@@ -135,93 +212,9 @@ void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector
   }
 }
 
-
-struct fizzle_struct* get_fizzle(body* body) { return body->fizz; }
-
-struct collider_struct * get_collider(body* body) { return body->coll; }
-
-struct compound_struct* get_owner(body* body) { return body->owner; }
-
-body* createBody(fizzle* fizz, struct collider_struct* coll) {
-  body* new = malloc(sizeof(body));
-  new->fizz = fizz;
-  new->coll = coll;
-  new->polt = NULL;
-  coll->body = new;
-  new->owner = NULL;
-  new->pic = make_picture("./media/rad.png");
-  new->status = 0;
-  return new;
-}
-
-void free_body(body* rm) {
-  free_fizzle(rm->fizz);
-  free_collider(rm->coll);
-  free(rm);
-}
-
-
-fizzle* getFizzle(body* aBody) {
-  return aBody->fizz;
-}
-
-double getMass(body* aBody) {
-  return aBody->fizz->mass;
-}
-
-vector_2* getVelocity(body* aBody) {
-  return &(aBody->fizz->velocity);
-}
-
-virt_pos* getCenter(body* aBody) {
-   return aBody->coll->shape->center;
-}
-
-picture* get_picture(body* aBody) {
-  return aBody->pic;
-}
-
-void set_picture(body* aBody, picture* new) {
-  if (get_picture(aBody) != NULL) {
-    free_picture(get_picture(aBody));
-  }
-  aBody->pic = new;
-}
-
-
-
-//two equations, based on conservation of mass and momentum
-//holds for elastic colliisons
-/*
-  vf1 + vi1 = vf2 + vi2
-  VVV this was wrong actually VVV
-  m1(vf1 - vi1) = m2(vf2 - vi2)
-  messed up simplification, here is original
-  m1(vi1) + m2(vi2) = m1(vf1) + m2(vf2) - >
-  m1(vf1 - vi1) = -m2(vf2 - fi2)
-  whoops
-  vf1 + vi1 = vf2 + vi2 ->
-  vf1 = vf2 + vi2 - vi1
-
-  m1(vf2 + vi2 - vi1 - vi1) = -m2(vf2 - fi2)
-  m1*vf2 + m1(vi2 - 2vi1) = -m2*vf2 + m2*fi2
-  m1*vf2 + m2*vf2 = +m2*fi2 - m1(vi2 - 2vi1)
-  vf2(m1 + m2) = +m2*fi2 - m1(vi2 - 2vi1)
-  vf2 = (+m2*vi2 - m1(vi2 - 2vi1)) / (m1 + m2)
- */
-
 void solveForFinals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f) {
   //solves for final velocities in an elastic colliison
-  //apparently c double arithmatic leaves things to be desired for infinity
-  //outline for goal behavior
-  /*
-    if both inf, vf = vi
-    if one is inf, sdfgsdfg
-    just negate velocity? idk
-    if neither is inf, do maths
-   */
   if (isinf(m1) && isinf(m2)) {
-    //just stop
     *v1f = v1i;
     *v2f = v2i;    
   }
@@ -257,28 +250,33 @@ void impact(body* b1, body* b2, vector_2* normal) {
   vector_2 *b1v = getVelocity(b1) , *b2v = getVelocity(b2);
   
   double body1i = 0, body2i = 0;
+  double body1f = 0, body2f = 0;
+  double body1d = 0, body2d = 0;
+  double scale = 0;
+  vector_2 body1add = *zero_vec, body2add = *zero_vec;
+  fizzle* f1 = getFizzle(b1), *f2 = getFizzle(b2);
   body1i = get_projected_length_vec(b1v, normal);
   body2i = get_projected_length_vec(b2v, normal);
   
-  double body1f = 0, body2f = 0;
+
   
   solveForFinals(m1, m2, body1i, body2i, &body1f, &body2f);
   
-  //double param = 1;
-  //elasticReduce(m1, m2, &body1f, &body2f, param);
-  
-  double body1d = body1f - body1i;
-  double body2d = body2f - body2i;
+  body1d = body1f - body1i;
+  body2d = body2f - body2i;
 
-  vector_2 body1add = *zero_vec, body2add = *zero_vec;
+  scale = (get_bounce(f1) + get_bounce(f2)) / 2.0;
+
+  body1d *= scale;
+  body2d *= scale;
+
   vector_2_scale(normal, body1d, &body1add);
   vector_2_scale(normal, body2d, &body2add);
 
 
-  fizzle* fizz1 = getFizzle(b1);
-  fizzle* fizz2 = getFizzle(b2);
-
-  add_impact(fizz1, &body1add);
-  add_impact(fizz2, &body2add);
+  add_impact(f1, &body1add);
+  add_impact(f2, &body2add);
+  inc_impact_count(f1);
+  inc_impact_count(f2);
 }
 

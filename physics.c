@@ -16,6 +16,7 @@ struct timespec ts;
 double dT = 0;
 //cap dT at a tenth of a second
 static double DT_LIMIT = 100;
+
 double time_since_update() {
   struct timespec tf;
   clock_gettime(CLOCK_REALTIME, &tf);
@@ -25,6 +26,10 @@ double time_since_update() {
 
 void time_update() {
   clock_gettime(CLOCK_REALTIME, &ts);
+}
+
+double get_dT_in_ms() {
+  return dT;
 }
 
 double get_dT() {
@@ -40,7 +45,12 @@ void set_dT(double new) {
 
 fizzle* createFizzle() {
   fizzle* new = malloc(sizeof(fizzle));
+  return new;
+}
 
+fizzle* cloneFizzle(fizzle* src) {
+  fizzle* new = malloc(sizeof(fizzle));
+  *new = *src;
   return new;
 }
 
@@ -50,10 +60,12 @@ void init_fizzle(fizzle* fizz) {
   fizz->dampening = *zero_vec;
   fizz->net_acceleration = *zero_vec;
   fizz->impact = *zero_vec;
+  fizz->impact_count = 0;
   fizz->tether = *zero_vec;
   fizz->gravity = (vector_2){.v1 = 0, .v2 = 0};
   fizz->rot_acceleration = 0;
   fizz->rot_velocity = 0;
+  fizz->bounce = 1;
 }
 
 void free_fizzle(fizzle* rm) {
@@ -77,12 +89,24 @@ void update_net(fizzle* fizz) {
   fizz->net_acceleration = loc;
 }
 
+void get_avg_impact(fizzle* fizz, vector_2* result) {
+  if (fizz->impact_count > 0) {
+    vector_2_scale(&(fizz->impact), 1.0 / fizz->impact_count, result);
+    //vector_2_scale(&(fizz->impact), 1.0 , result);
+  }
+  else {
+    *result = *zero_vec;
+  }
+}
+
 void update_vel(fizzle* fizz) {
   vector_2 loc = fizz->velocity;
   vector_2 net = fizz->net_acceleration;
+  vector_2 temp = *zero_vec;
   vector_2_scale(&net, get_dT(), &net);
   vector_2_add(&loc, &net, &loc);
-  vector_2_add(&(fizz->impact), &loc, &loc);
+  get_avg_impact(fizz, &temp);
+  vector_2_add(&temp, &loc, &loc);
   vector_2_add(&(fizz->tether), &loc, &loc);
   fizz->velocity = loc;
   fizz->rot_velocity += fizz->rot_acceleration * get_dT();
@@ -100,14 +124,14 @@ void update_rot_with_current_vel(double* rot, fizzle* fizz) {
   *rot += fizz->rot_velocity * get_dT();
 }
 
-void set_fizzle_dampening(fizzle* fizz, int limit) {
+void set_fizzle_dampening(fizzle* fizz, double alpha) {
   //want to rework dampening at some point
   vector_2 vel = fizz->velocity;
   vector_2 damp;
   double vel_mag = vector_2_magnitude(&vel), damp_amount;
   if (!isCloseEnoughToZeroVec(&vel)) {
     make_unit_vector(&vel, &vel);
-    damp_amount = vel_mag / limit;
+    damp_amount = vel_mag * vel_mag * alpha;
     vector_2_scale(&vel, -1 * damp_amount, &damp);
     fizz->dampening = damp;
   }
@@ -116,13 +140,20 @@ void set_fizzle_dampening(fizzle* fizz, int limit) {
   }
 }
 
+void set_fizzle_rot_dampening(fizzle* fizz, double alpha) {
+  double rv = fizz->rot_velocity;
+  fizz->rot_acceleration += rv * -1 * alpha;
+}
+
 void fizzle_update(fizzle* fizz) {
-  set_fizzle_dampening(fizz, 100);
+  set_fizzle_dampening(fizz, 0.003);
+  set_fizzle_rot_dampening(fizz, 0.3);
   update_net(fizz);
   update_vel(fizz);
   set_impact(fizz, zero_vec);
   set_tether(fizz, zero_vec);
   fizz->rot_acceleration = 0;
+  fizz->impact_count = 0;
 }
 
 void set_gravity(fizzle* fizz, vector_2* newGrav) {
@@ -139,6 +170,22 @@ void add_impact(fizzle* fizz, vector_2* newAdd) {
 
 void set_tether(fizzle* fizz, vector_2* newTF) {
   fizz->tether = *newTF;
+}
+
+void set_mass(fizzle* fizz, double mass) {
+  fizz->mass = mass;
+}
+
+double get_bounce(fizzle* f) {
+  return f->bounce;
+}
+
+double set_bounce(fizzle* f, double b) {
+  f->bounce = b;
+}
+
+void inc_impact_count(fizzle* f) {
+  f->impact_count++;
 }
 
 void add_tether(fizzle* fizz, vector_2* addTF) {

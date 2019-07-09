@@ -20,6 +20,9 @@ plane* xml_read_plane(xmlNodePtr plane_node);
 void xml_write_event(FILE* file_out, event* e);
 event* xml_read_event(xmlNodePtr event_node);
 
+void xml_write_gi(FILE* file_out, gi* g);
+gi* xml_read_gi(xmlNodePtr gi_node);
+
 void xml_write_compound(FILE* file_out, compound* comp);
 compound* xml_read_compound(xmlNodePtr comp_node);
 
@@ -31,7 +34,6 @@ fizzle* xml_read_fizzle(xmlNodePtr fizzle_node);
 
 void xml_write_polygon(FILE* file_out, polygon* poly);
 polygon* xml_read_polygon(xmlNodePtr polygon_node);
-
 
 void xml_write_picture(FILE* file_out, picture* pic);
 picture* xml_read_picture(xmlNodePtr pic_node);
@@ -46,6 +48,7 @@ void xml_read_virt_pos(xmlNodePtr vp_node, virt_pos* result);
 void xml_write_attributes(FILE* file_out, decision_att* atts);
 decision_att* xml_read_attributes(xmlNodePtr atts);						    
 		    
-
+double get_double_prop(xmlNodePtr node, char* id);
+int get_int_prop(xmlNodePtr node, char* id);
 
 #endif 

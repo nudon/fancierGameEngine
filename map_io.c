@@ -2,10 +2,6 @@
 #include <stdlib.h>
 #include "map_io.h"
 
-//was thinking of including a bunch of files and havine various routines for converting to/from text
-
-//some minor issues of list orders being reversed,
-//can be fixed by starting at ends of lists and going forward
 
 //updates
 //need to include planes events and tethers
@@ -123,21 +119,12 @@ plane* xml_read_plane(xmlNodePtr plane_node) {
   xmlNodePtr child = plane_node->xmlChildrenNode;
   int w = -1,h = -1,r = -1,c = -1, z = -1;
   char* text = NULL;
-  text = (char*)xmlGetProp(plane_node, (const xmlChar*)"rows");
-  r = atoi(text);
-  free(text);
-  text = (char*)xmlGetProp(plane_node, (const xmlChar*)"cols");
-  c = atoi(text);
-  free(text);
-  text = (char*)xmlGetProp(plane_node, (const xmlChar*)"cellW");
-  w = atoi(text);
-  free(text);
-  text = (char*)xmlGetProp(plane_node, (const xmlChar*)"cellH");
-  h = atoi(text);
-  free(text);
-  text = (char*)xmlGetProp(plane_node, (const xmlChar*)"zLevel");
-  z = atof(text);
-  free(text);
+  r = get_int_prop(plane_node, "rows");
+  c = get_int_prop(plane_node, "cols");
+  w = get_int_prop(plane_node, "cellW");
+  h = get_int_prop(plane_node, "cellH");
+  z = get_int_prop(plane_node, "zLevel");
+  
   text = (char*)xmlGetProp(plane_node, (const xmlChar*)"name");
   spatial_hash_map* map = create_shm(w,h,c,r);
   plane* plane = create_plane(map, text);
@@ -209,11 +196,6 @@ load_zone* xml_read_load_zone(xmlNodePtr lz_node) {
 }
 
 
-//almost done with these
-//but realized that events have some shared data which is hard to put into xml
-//thinking of rewriting it and having some specialized way to indicate shared data things
-//like a standard polt taking in a body, and it creates an event and sets associated body
-//
 void xml_write_event(FILE* file_out, event* e) {
   fprintf(file_out, "<event func=\"%s\" >\n", get_event_name(e));
   xml_write_polygon(file_out, get_polygon(get_event_collider(e)));
@@ -239,34 +221,82 @@ event* xml_read_event(xmlNodePtr event_node) {
   return e;
 }
 
+void xml_write_gi(FILE* file_out, gi* g) {
+  fprintf(file_out, "<gi decay_alpha=\"%f\">\n", get_exp_decay_alpha(g));
+  vector_2 temp = get_curr_dir(g);
+  xml_write_vector_2(file_out, &temp, "curr_dir");
+  temp = get_new_dir(g);
+  xml_write_vector_2(file_out, &temp, "new_dir");
+  xml_write_attributes(file_out, get_gi_attributes(g));  
+  fprintf(file_out, "</gi>\n");
+}
+
+gi* xml_read_gi(xmlNodePtr gi_node) {
+  double val = 0;
+  char* text = NULL;
+  text = (char*)xmlGetProp(gi_node, (const xmlChar*)"decay_alpha");
+  val = atof(text);
+  free(text);
+  xmlNodePtr child = gi_node->xmlChildrenNode;
+  decision_att* atts = NULL;
+  vector_2 curr = *zero_vec;
+  vector_2 new = *zero_vec;
+  vector_2 temp_vec = *zero_vec;
+  gi* g = NULL;
+  while(child != NULL) {
+    if (xmlStrcmp(child->name, (const xmlChar*)"vector_2") == 0) {
+      text = (char*)xmlGetProp(child, (const xmlChar*)"name");
+      xml_read_vector_2(child, &temp_vec);
+      if (strcmp(text, "curr_dir") == 0) {
+	curr = temp_vec;
+      }
+      else if (strcmp(text, "curr_dir") == 0) {
+	new = temp_vec;
+      }
+      free(text);
+    }
+    if (xmlStrcmp(child->name, (const xmlChar*)"decision_att") == 0) {
+      atts = xml_read_attributes(child);
+    }
+    child = child->next;
+  }
+  g = create_gi();
+  set_curr_dir(g, &curr);
+  set_new_dir(g, &new);
+  set_gi_attributes(g, atts);
+  set_exp_decay_alpha(g, val);
+  free_decision_att(atts);
+  return g;
+}
+
 void xml_write_compound(FILE* file_out, compound* comp) {
   fprintf(file_out, "<compound>\n");
   gen_node* cur = get_bodies(comp)->start;
-  xml_write_attributes(file_out, get_attributes(comp));
   while(cur != NULL) {
     xml_write_body(file_out, (body*)cur->stored);
     cur = cur->next;
   }
+  xml_write_gi(file_out, get_gi(comp));
   fprintf(file_out, "</compound>\n");
 }
 
 compound* xml_read_compound(xmlNodePtr comp_node) {
   compound* comp = create_compound();
-  xmlNodePtr body_node = comp_node->xmlChildrenNode;
+  xmlNodePtr child = comp_node->xmlChildrenNode;
   body* cur_body = NULL;
-  decision_att* atts;
-  while(body_node != NULL) {
-    if (xmlStrcmp(body_node->name, (const xmlChar*)"body") == 0) {
-      cur_body = xml_read_body(body_node);
+  gi* g = NULL;
+  while(child != NULL) {
+    if (xmlStrcmp(child->name, (const xmlChar*)"body") == 0) {
+      cur_body = xml_read_body(child);
       add_body_to_compound(comp, cur_body);
     }
-    else if (xmlStrcmp(body_node->name, (const xmlChar*)"decision_att") == 0) {
-      atts = xml_read_attributes(body_node);
-      set_attributes(comp, atts);
-      free_decision_att(atts);
+    else if (xmlStrcmp(child->name, (const xmlChar*)"gi") == 0) {
+      g = xml_read_gi(child);
     }
-    body_node = body_node->next;
+    child = child->next;
   }
+  free_gi(get_gi(comp));
+  set_gi(comp, g);
   return comp;
 }
 
@@ -275,6 +305,13 @@ void xml_write_body(FILE* file_out, body* body) {
   xml_write_fizzle(file_out, get_fizzle(body));
   xml_write_polygon(file_out, get_polygon(get_collider(body)));
   xml_write_picture(file_out, get_picture(body));
+  gen_node* curr = get_body_events(body)->start;
+  event* e = NULL;
+  while(curr != NULL) {
+    e = (event*)curr->stored;
+    xml_write_event(file_out, e);
+    curr = curr->next;
+  }
   fprintf(file_out, "</body>\n");
 }
 
@@ -284,6 +321,8 @@ body* xml_read_body(xmlNodePtr body_node) {
   collider* coll = NULL;
   polygon* poly = NULL;
   picture* pic = NULL;
+  gen_list* temp_event_list = createGen_list();
+  event* e = NULL;
   poltergeist* polt = NULL;
   char* text = (char*)xmlGetProp(body_node, (const xmlChar*)"poltergeist");
   if (strcmp(text, "NULL") != 0) {
@@ -312,16 +351,27 @@ body* xml_read_body(xmlNodePtr body_node) {
       }
       pic = xml_read_picture(child);
     }
+    else if (xmlStrcmp(child->name, (const xmlChar*)"event") == 0) {
+      e = xml_read_event(child);
+      prependToGen_list(temp_event_list, createGen_node(e));
+    }
     child = child->next;
   }
   body = createBody(fizz, coll);
   set_picture(body, pic);
   body->polt = polt;
+  gen_node* curr = temp_event_list->start;
+  while(curr != NULL) {
+    e = (event*)curr->stored;
+    add_event_to_body(body, e);
+    curr = curr->next;
+  }
+  freeGen_list(temp_event_list);
   return body;
 }
 
 void xml_write_fizzle(FILE* file_out, fizzle* fizz) {
-  fprintf(file_out, "<fizzle mass=\"%f\" rot_accel=\"%f\" rot_vel=\"%f\" >\n", fizz->mass, fizz->rot_acceleration, fizz->rot_velocity);
+  fprintf(file_out, "<fizzle mass=\"%f\" rot_accel=\"%f\" rot_vel=\"%f\" bounce=\"%f\" >\n", fizz->mass, fizz->rot_acceleration, fizz->rot_velocity, get_bounce(fizz));
   xml_write_vector_2(file_out, &(fizz->velocity), "velocity");
   xml_write_vector_2(file_out, &(fizz->dampening), "dampening");
   xml_write_vector_2(file_out, &(fizz->impact), "impact");
@@ -335,21 +385,24 @@ void xml_write_fizzle(FILE* file_out, fizzle* fizz) {
 fizzle* xml_read_fizzle(xmlNodePtr fizzle_node) {
   fizzle* fizz = createFizzle();
   init_fizzle(fizz);
-  double mass = -1, rot_vel = -1, rot_accel = -1;
+  double val = -1;
   xmlChar* text = NULL;
   vector_2 vec;
-  text = xmlGetProp(fizzle_node, (const xmlChar*)"mass");
-  mass = atof((const char*)text);
-  free(text);
-  text = xmlGetProp(fizzle_node, (const xmlChar*)"rot_accel");
-  rot_vel = atof((const char*)text);
-  free(text);
-  text = xmlGetProp(fizzle_node, (const xmlChar*)"rot_vel");
-  rot_accel = atof((const char*)text);
-  free(text);
-  fizz->mass = mass;
-  fizz->rot_acceleration = rot_accel;
-  fizz->rot_velocity = rot_vel;
+
+  val = get_double_prop(fizzle_node, "mass");
+  set_mass(fizz, val);
+
+  val = get_double_prop(fizzle_node, "rot_accel");
+  fizz->rot_acceleration = val;
+
+  val = get_double_prop(fizzle_node, "rot_vel");
+  fizz->rot_velocity = val;
+
+  val = get_double_prop(fizzle_node, "bounce");
+  set_bounce(fizz, val);
+  
+
+
   xmlNodePtr child = fizzle_node->xmlChildrenNode;
   while(child != NULL) {
     if (xmlStrcmp(child->name, (const xmlChar*)"vector_2") == 0) {
@@ -397,17 +450,14 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
   xmlChar* text = NULL;
   double val = 0;
   int ival = 0;
-  text = xmlGetProp(polygon_node, (const xmlChar*)"sides");
-  val = atoi((const char*)text);
-  free(text);
-  poly = createPolygon(val);
-  text = xmlGetProp(polygon_node, (const xmlChar*)"scale");
-  val = atof((const char*)text);
-  free(text);
+
+  ival = get_int_prop(polygon_node, "sides");
+  poly = createPolygon(ival);
+  
+  val = get_double_prop(polygon_node, "scale");
   poly->scale = val;
-  text = xmlGetProp(polygon_node, (const xmlChar*)"rotation");
-  val = atof((const char*)text);
-  free(text);
+
+  val = get_double_prop(polygon_node, "rotation");
   poly->rotation = val;
   
   xmlNodePtr child = polygon_node->xmlChildrenNode;
@@ -436,7 +486,9 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
 }
 
 void xml_write_picture(FILE* file_out, picture* pic) {
-  fprintf(file_out, "<picture file_name=\"%s\" />\n", pic->file_name);
+  if (pic != NULL) {
+    fprintf(file_out, "<picture file_name=\"%s\" />\n", pic->file_name);
+  }
 }
 
 picture* xml_read_picture(xmlNodePtr pic_node) {
@@ -453,15 +505,12 @@ void xml_write_vector_2(FILE* file_out, vector_2* vec, char* name) {
 }
 
 void xml_read_vector_2(xmlNodePtr vec_node, vector_2* result) {
-  xmlChar* text = NULL;
   double val = 0;
-  text = xmlGetProp(vec_node, (const xmlChar*)"v1");
-  val = atof((const char*)text);
-  free(text);
+
+  val = get_double_prop(vec_node, "v1");
   result->v1 = val;
-  text = xmlGetProp(vec_node, (const xmlChar*)"v2");
-  val = atof((const char*)text);
-  free(text);
+
+  val = get_double_prop(vec_node, "v2");
   result->v2 = val;
 }
 
@@ -470,16 +519,13 @@ void xml_write_virt_pos(FILE* file_out, virt_pos* vp, char* name) {
 }
 
 void xml_read_virt_pos(xmlNodePtr vp_node, virt_pos* result) {
-  xmlChar* text = NULL;
-  double val = 0;
-  text = xmlGetProp(vp_node, (const xmlChar*)"x");
-  val = atoi((const char*)text);
-  free(text);
-  result->x = val;
-  text = xmlGetProp(vp_node, (const xmlChar*)"y");
-  val = atoi((const char*)text);
-  free(text);
-  result->y = val;
+  int ival = 0;
+
+  ival = get_int_prop(vp_node, "x");
+  result->x = ival;
+
+  ival = get_int_prop(vp_node, "y");
+  result->y = ival;
 }
 
 void xml_write_attributes(FILE* file_out, decision_att* atts) {
@@ -493,4 +539,20 @@ decision_att* xml_read_attributes(xmlNodePtr atts_node) {
   decision_att* atts = text_to_atts(text);
   free(text);
   return atts;
+}
+
+double get_double_prop(xmlNodePtr node, char* id) {
+  xmlChar* text_val = xmlGetProp(node, (const xmlChar*)id);
+  double val = -1;
+  val = atof((const char*)text_val);
+  free(text_val);
+  return val;
+}
+
+int get_int_prop(xmlNodePtr node, char* id) {
+  xmlChar* text_val = xmlGetProp(node, (const xmlChar*)id);
+  int val = -1;
+  val = atoi((const char*)text_val);
+  free(text_val);
+  return val;
 }

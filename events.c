@@ -2,7 +2,6 @@
 #include "events.h"
 #include "util.h"
 
-
 //so, events
 
 //basically, lots of similarity with regular collision detection
@@ -17,7 +16,7 @@
 
 typedef struct event_struct {
   collider* coll;
-  body* associated_body;
+  body* body;
   void (*onTrigger)( event* e1, body* e2);
 } event;
 
@@ -32,6 +31,9 @@ void init_events() {
   int i = first_empty_index(func_names, FUNC_LIM);
   func_names[i] = "no_event";
   func_funcs[i] = no_event;
+  i = first_empty_index(func_names, FUNC_LIM);
+  func_names[i] = "basic_decide_event";
+  func_funcs[i] = basic_decide_event;
   
 }
 
@@ -65,7 +67,7 @@ event* make_event(polygon* poly) {
   collider* coll = make_collider_from_polygon(poly);
   new->coll = coll;
   new->onTrigger = no_event;
-  new->associated_body = NULL;
+  new->body = NULL;
   return new;
 }
 
@@ -73,19 +75,17 @@ void set_event(event* e, void (*newTrigger)(struct event_struct* e, body* b)) {
   e->onTrigger = newTrigger;
 }
 
-void set_event_body(event* e, body* b) {
-  virt_pos* cent = get_polygon(e->coll)->center;
-  free(cent);
-  get_polygon(e->coll)->center = get_polygon(get_collider(b))->center;
-  e->associated_body = b;
-}
-
-body* get_event_body(event* e) {
-  return e->associated_body;
-}
 
 collider* get_event_collider(event* e) {
   return e->coll;
+}
+
+void set_event_body(event* e, body* b) {
+  e->body = b;
+}
+
+body* get_event_body(event* e) {
+  return e->body;
 }
 
 void trigger_event(event* e, body* arg) {
@@ -116,6 +116,12 @@ void check_event(spatial_hash_map* map, event* e) {
   gen_node* aHit = NULL;
   body* hitBody = NULL;
   polygon* eventPoly = get_polygon(get_event_collider(e));
+  if (e->body != NULL) {
+    polygon* bodyPoly = get_polygon(get_collider(e->body));
+    virt_pos temp = get_center(bodyPoly);
+    set_rotation(eventPoly,get_rotation(bodyPoly));
+    set_center(eventPoly, &temp);
+  }
   entries_for_collider(map, area, cells);
   initGen_list(&hits);
   store_unique_colliders_in_list(map, cells, &hits);
@@ -149,4 +155,42 @@ void store_event_triggers(spatial_hash_map* map, event* e, gen_list* hits) {
 //standard event
 void no_event(event* e, body* b) {
 
+}
+
+void basic_decide_event(event* e, body* b2) {
+  body* b1 = get_event_body(e);
+  if (b1 != NULL) {
+    basic_decide(b1, b2);
+  }
+}
+
+//decision process
+//sets direction for compound to move
+void basic_decide(body* self, body* trigger) {
+  //might have some vector_2 as a reference argument to set
+  compound* self_comp = get_owner(self);
+  compound* trigger_comp = get_owner(trigger);
+  gi* si = get_gi(self_comp);
+  gi* ti = get_gi(trigger_comp);
+  decision_att* sa = get_gi_attributes(si);
+  decision_att* ta = get_gi_attributes(ti);
+  vector_2 dir = *zero_vec;
+  //double mag = 0;
+  //double run_scale = 500;
+  if (is_hunter(ta) && is_prey(sa)) {
+    //then run away
+    vector_between_points(getCenter(trigger), getCenter(self), &dir);
+    /*
+    mag = vector_2_magnitude(&dir);
+    if (mag > 0) {
+      vector_2_scale(&dir, run_scale / mag, &dir);
+      }
+    */
+    add_to_dir(si, &dir);
+    printf("noot noot time to scoot\n");
+  }
+
+  dir = get_dir(get_owner(self));
+    
+    
 }
