@@ -180,7 +180,7 @@ double get_bounce(fizzle* f) {
   return f->bounce;
 }
 
-double set_bounce(fizzle* f, double b) {
+void set_bounce(fizzle* f, double b) {
   f->bounce = b;
 }
 

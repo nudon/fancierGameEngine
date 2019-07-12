@@ -35,6 +35,7 @@ polygon* createPolygon(int sides) {
     init_vector(&(new->normals[i]));
     init_vector(&(new->base_normals[i]));
   }
+  new->rotation_offset = *zero_pos;
   return new;
 }
 
@@ -57,6 +58,7 @@ polygon* clonePolygon(polygon* src) {
     new->normals[i] = src->normals[i];
     new->base_normals[i] = src->base_normals[i];
   }
+  new->rotation_offset = *zero_pos;
   return new;
 }
 
@@ -216,11 +218,14 @@ void set_rotation(polygon* poly, double new) {
   poly->rotation = ang;
   //also need to recalculate normals and corners
   virt_pos temp = *zero_pos;
+
   for (int i = 0; i < poly->sides; i++) {
     temp = poly->base_corners[i];
     temp.x = temp.x * poly->scale;
     temp.y = temp.y * poly->scale;
+    
     virt_pos_rotate(&temp, ang, &temp);
+    //virt_pos_sub(&temp, &offset, &temp);
     poly->corners[i] = temp;
 
     vector_2_rotate(&(poly->base_normals[i]), ang, &(poly->normals[i]));
@@ -232,6 +237,9 @@ double get_rotation(polygon* poly) {
   return poly->rotation;
 }
 
+void set_rotation_offset(polygon* poly, virt_pos* offset) {
+  poly->rotation_offset = *offset;
+}
 
  int do_polygons_intersect(polygon* p1, polygon* p2) {
    //returns 1 if true, zero if false

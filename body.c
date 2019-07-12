@@ -188,9 +188,13 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
     b2d.y += (b2d.y > 0) ? 1: -1;
   }
   */
+
+  //update(map, b1->coll, &b1d, 0);
+  //update(map, b2->coll, &b2d, 0);
+
+  body_update(map, b1, &b1d, 0.0);
+  body_update(map, b2, &b2d, 0.0);
   
-  update(map, b1->coll, &b1d, 0);
-  update(map, b2->coll, &b2d, 0);
 }
 
 

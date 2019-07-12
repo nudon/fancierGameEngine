@@ -62,8 +62,10 @@ compound* makeBlockChain(virt_pos* start_pos, int len, int chain_type) {
 }
  
 // duplicates a body in the specified way and returns compound, original body is not used
+//also makes compound uniform, meaning bodies rotate and move in sync
 compound* makeBodyChain(body* start, virt_pos* start_pos,  int len, vector_2* dir, double disp) { 
   compound* chain = create_compound();
+  make_compound_uniform(chain);
   body* temp = NULL;
   polygon* p = NULL;
   make_unit_vector(dir, dir);
@@ -175,10 +177,9 @@ compound* makeCrab(virt_pos* center) {
   |  | 
   |__|
  */
-// annoying thing is I don't allow non-concave polygons
-// and I don't have ability to make rigid compounds
 compound* makeTrashCan(virt_pos* center) {
   compound* can = create_compound();
+  make_compound_uniform(can);
   body* bottom = NULL;
   body* lside = NULL;
   body* rside = NULL;
@@ -187,10 +188,10 @@ compound* makeTrashCan(virt_pos* center) {
   int width = 5;
   int bl = 80;
   int sl = 150;
-  double side_theta = 90 * DEG_2_RAD;
-  double side_omega = 180 * DEG_2_RAD- side_theta;
+  double side_theta = 80 * DEG_2_RAD;
+  double side_omega = 180 * DEG_2_RAD - side_theta;
   double a, b;
-
+  //printf("%f and %f\n", side_theta, side_omega);
   bp = createRectangle(bl, width);
   lp = createRectangle(sl, width);
   rp = createRectangle(sl, width);
@@ -202,11 +203,11 @@ compound* makeTrashCan(virt_pos* center) {
 
   a = cos(side_omega) * (sl / 2);
   b = sin(side_omega) * (sl / 2);
-  temp_cent.x = (bl / 2) + a;
+  temp_cent.x = (bl / 2) - a;
   temp_cent.y = -b;
   virt_pos_add(center, &temp_cent, &temp_cent);
   set_center(rp, &temp_cent);
-  temp_cent.x = ((bl / 2) + a) * -1;
+  temp_cent.x = ((bl / 2) - a) * -1;
   temp_cent.y = -b;
   virt_pos_add(center, &temp_cent, &temp_cent);
   set_center(lp, &temp_cent);
@@ -349,7 +350,7 @@ map* make_room_map() {
     
 
   virt_pos start = (virt_pos){.x = 0, .y = floor_height};
-  compound* floor = makeBlockChain(&start, 50, HORZ_CHAIN);
+  compound* floor = makeBlockChain(&start, 20, HORZ_CHAIN);
   add_compound_to_plane(plane, floor);
 
   

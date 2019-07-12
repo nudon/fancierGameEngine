@@ -7,8 +7,6 @@ typedef struct compound_struct compound;
 #include "myList.h"
 #include "attributes.h"
 #include "gi.h"
-//okay, compound time
-//will probably need a compound pointer in bodies as well
 
 
 
@@ -19,6 +17,9 @@ void set_attributes(compound* comp, decision_att* na);
 gi* get_gi(compound* comp);
 void set_gi(compound* comp, gi* g);
 
+int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
+void compound_update(spatial_hash_map* map, compound* c);
+
 gen_list* get_bodies(compound* comp);
 
 void add_body_to_compound(compound* comp, struct body_struct* body);
@@ -27,7 +28,10 @@ void tether_join_compound(compound* comp, struct tether_struct* teth, gen_list* 
 
 void set_compound_position(compound* comp, virt_pos* np);
 
-vector_2 get_dir(compound* comp);
-void set_dir(compound* comp, vector_2* nv);
+void make_compound_uniform(compound* c);
+int is_compound_uniform(compound* c);
+int get_compound_uniform_flag(compound* c);
+void set_compound_uniform_flag(compound* c, int v);
+
 
 #endif

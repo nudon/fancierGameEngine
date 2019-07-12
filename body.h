@@ -19,7 +19,6 @@ struct body_struct {
   int status;
   //used for holding ai related events
   gen_list* event_list;
-  
 };
 
 body* createBody(fizzle* fizz, struct collider_struct* coll);

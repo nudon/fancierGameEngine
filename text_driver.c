@@ -56,6 +56,7 @@ void main_loop() {
 
     update_map(map);
     update_corner(cam);
+    //printf("loop tick\n");
     draw_map(cam, map);
     
     update_wait = ms_per_frame - get_dT_in_ms();	
@@ -132,7 +133,6 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
   gen_node* body_curr;
   compound* aCompound;
   body* aBody = NULL;
-  collider* coll = NULL;
 
   fizzle* fizz = NULL;
   vector_2 input = *zero_vec;
@@ -145,7 +145,6 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
     while (body_curr != NULL) { 
       aBody = (body*)body_curr->stored;
       fizz = aBody->fizz;
-      coll = aBody->coll;
       
       check_events(map, get_body_events(aBody));
       
@@ -159,14 +158,19 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       fizzle_update(fizz);
       update_pos_with_curr_vel(&trans_disp, fizz);
       update_rot_with_current_vel(&rot_disp, fizz);
-      if (update(map, coll, &trans_disp, rot_disp)) {
+
+      /*
+      if (update(map, aBody->coll, &trans_disp, rot_disp)) {
 	//marks that body actually moved, and needs to be collision checked
 	aBody->status = 1;
       }
-      
+      */
+      if (body_update(map, aBody, &trans_disp, rot_disp)) {
+	aBody->status = 1;
+      }
       body_curr = body_curr->next;
     }
-    
+    compound_update(map, aCompound);
     comp_curr = comp_curr->next;
   }
   comp_curr = compound_list->start;
@@ -181,6 +185,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       }
       body_curr = body_curr->next;
     }
+    compound_update(map, aCompound);
     comp_curr = comp_curr->next;
   }
 }

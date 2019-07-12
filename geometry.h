@@ -30,7 +30,8 @@ struct {
   //having them be unit vectors would be nice
   //otherwise some way of determining which normal corresponds to which side or pair of corners
   vector_2* base_normals; 
-  vector_2* normals; 
+  vector_2* normals;
+  virt_pos rotation_offset;
 } polygon;
 
 extern vector_2* zero_vec;
@@ -60,6 +61,7 @@ void set_center(polygon* poly, virt_pos* val);
 
 void set_rotation(polygon* poly, double new);
 double get_rotation(polygon* poly);
+void set_rotation_offset(polygon* poly, virt_pos* offset);
 
 void get_actual_point(polygon* poly, int i, virt_pos* result);
 void get_base_point(polygon* poly, int i, virt_pos* result);

@@ -94,7 +94,7 @@ void add_impact(fizzle* fizz, vector_2* newAdd);
 void set_tether(fizzle* fizz, vector_2* newTF);
 void set_mass(fizzle* fizz, double mass);
 double get_bounce(fizzle* f);
-double set_bounce(fizzle* f, double b);
+void set_bounce(fizzle* f, double b);
 void inc_impact_count(fizzle* f);
 
 void add_tether(fizzle* fizz, vector_2* addTF);

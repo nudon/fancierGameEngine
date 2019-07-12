@@ -270,7 +270,7 @@ gi* xml_read_gi(xmlNodePtr gi_node) {
 }
 
 void xml_write_compound(FILE* file_out, compound* comp) {
-  fprintf(file_out, "<compound>\n");
+  fprintf(file_out, "<compound uniform=\"%i\">\n", get_compound_uniform_flag(comp));
   gen_node* cur = get_bodies(comp)->start;
   while(cur != NULL) {
     xml_write_body(file_out, (body*)cur->stored);
@@ -285,6 +285,8 @@ compound* xml_read_compound(xmlNodePtr comp_node) {
   xmlNodePtr child = comp_node->xmlChildrenNode;
   body* cur_body = NULL;
   gi* g = NULL;
+  int val = get_int_prop(comp_node, "uniform");
+  set_compound_uniform_flag(comp, val);
   while(child != NULL) {
     if (xmlStrcmp(child->name, (const xmlChar*)"body") == 0) {
       cur_body = xml_read_body(child);
