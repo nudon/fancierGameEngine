@@ -9,6 +9,7 @@
 #include "map_io.h"
 
 
+#define MAP_DIR "./maps/"
 
 /// picture/media definitions
 
@@ -240,11 +241,11 @@ polygon* make_event_poly(polygon* shape) {
   return new;
 }
 
-char* ORIGIN_MAP_NAME = "origin.map";
+char* ORIGIN_MAP_NAME = MAP_DIR"origin.map";
 
-char* ROOM_MAP_NAME = "room.map";
+char* ROOM_MAP_NAME = MAP_DIR"room.map";
 
-char* STREET_MAP_NAME = "streets.map";
+char* STREET_MAP_NAME = MAP_DIR"streets.map";
 
 char* BACKGROUND_PLANE_NAME = "background";
 

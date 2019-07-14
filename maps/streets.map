@@ -1,0 +1,18 @@
+<map name="./maps/streets.map">
+<plane rows="7" cols="20" cellH="68" cellW="72" zLevel="1.000000" name="main">
+<load_zone from_map="./maps/streets.map" to_map="./maps/room.map" from_plane="main" to_plane="main" >
+<virt_pos name="dest" x="570" y="70" />
+<event func="no_event" >
+<polygon sides="7" scale="1.000000" rotation="0.000000">
+<virt_pos name="center" x="570" y="70" />
+<virt_pos name="0" x="10" y="0" />
+<virt_pos name="1" x="6" y="8" />
+<virt_pos name="2" x="-2" y="10" />
+<virt_pos name="3" x="-9" y="4" />
+<virt_pos name="4" x="-9" y="-4" />
+<virt_pos name="5" x="-2" y="-10" />
+<virt_pos name="6" x="6" y="-8" />
+</polygon>
+</event >
+</load_zone >
+</plane></map>

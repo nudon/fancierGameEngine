@@ -33,5 +33,7 @@ int is_compound_uniform(compound* c);
 int get_compound_uniform_flag(compound* c);
 void set_compound_uniform_flag(compound* c, int v);
 
+vector_2 get_dir(compound* comp);
+
 
 #endif
