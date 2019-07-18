@@ -107,9 +107,9 @@ void check_events(spatial_hash_map* map, gen_list* e) {
 void check_event(spatial_hash_map* map, event* e) {
   collider* area = e->coll;
   if (area->collider_node == NULL) {
-    collider_list_node* cln = make_cln_from_collider(area);
+    collider_ref* cr = make_cr_from_collider(area);
     box cell_shape = get_cell_shape(map);
-    set_cln_vectors(area, cln, &cell_shape);
+    set_cr_vectors(area, cr, &cell_shape);
   }
   vector* cells = area->collider_node->active_cells;
   gen_list hits;
@@ -143,9 +143,9 @@ void check_event(spatial_hash_map* map, event* e) {
 void store_event_triggers(spatial_hash_map* map, event* e, gen_list* hits) {
   collider* area = e->coll;
   if (area->collider_node == NULL) {
-    collider_list_node* cln = make_cln_from_collider(area);
+    collider_ref* cr = make_cr_from_collider(area);
     box cell_shape = get_cell_shape(map);
-    set_cln_vectors(area, cln, &cell_shape);
+    set_cr_vectors(area, cr, &cell_shape);
   }
   vector* cells = area->collider_node->active_cells;
   entries_for_collider(map, area, cells);

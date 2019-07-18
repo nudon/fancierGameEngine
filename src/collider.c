@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "myList.h"
 #include "myMatrix.h"
-#include "myVector.h"
+//#include "myVector.h"
 #include "collider.h"
 #include "graphics.h"
 
@@ -11,8 +11,9 @@ int DEFAULT = 0;
 int VISITED = 1;
 int COUNTED = 2;
 
-//comparer stuff
-int matrix_index_compare(matrix_index* m1, matrix_index* m2) {
+int matrix_index_compare(void* a, void* b) {
+  matrix_index* m1 = (matrix_index*)a;
+  matrix_index* m2 = (matrix_index*)b;
   int result;
   if (m1->y_index < m2->y_index) {
     result = -1;
@@ -34,10 +35,13 @@ int matrix_index_compare(matrix_index* m1, matrix_index* m2) {
   return result;
 }
 
-int matrix_index_compare_wrapper(void* m, void* b) {
-  return matrix_index_compare((matrix_index*)m,(matrix_index*)b);
+int matrix_index_hash(void* i) {
+  matrix_index* m = (matrix_index*)i;
+  
+  return m->y_index * m->y_index * 13 + m->x_index * m->x_index * 7;
 }
-comparer matrix_index_comp = {.compare= matrix_index_compare_wrapper};
+
+
 
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot) {
   polygon* poly = coll->shape;
@@ -54,10 +58,10 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
     change++;
   }
   if (change > 0) {
-    collider_list_node* cln = coll->collider_node;
-    entries_for_collider(map, coll, cln->old_cells);
-    remove_collider_from_shm_entries(map, cln, cln->active_cells);
-    add_collider_to_shm_entries(map, cln, cln->old_cells);
+    collider_ref* cr = coll->collider_node;
+    entries_for_collider(map, coll, cr->old_cells);
+    remove_collider_from_shm_entries(map, cr, cr->active_cells);
+    add_collider_to_shm_entries(map, cr, cr->old_cells);
     update_refs(coll);
   }
   //fprintf(stderr, "update returns %d\n", change);
@@ -68,10 +72,10 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
 
 void update_refs(collider* coll) {
     vector* temp;
-    collider_list_node* cln = coll->collider_node;
-    temp = cln->active_cells;
-    cln->active_cells = cln->old_cells;
-    cln->old_cells = temp;
+    collider_ref* cr = coll->collider_node;
+    temp = cr->active_cells;
+    cr->active_cells = cr->old_cells;
+    cr->old_cells = temp;
 }
 
 void fill_bb_dim(polygon* bbox, box* bb_dim) {
@@ -106,14 +110,14 @@ collider* cloneCollider(collider* src) {
 polygon* get_polygon(collider* coll) { return coll->shape; }
 
 void free_collider(collider* rm) {
-  collider_list_node* cln = rm->collider_node;
-  int size = cln->max_ref_amount;
+  collider_ref* cr = rm->collider_node;
+  int size = cr->max_ref_amount;
   for (int i = 0; i < size; i++) {
-    remove_node(cln->active_cell_nodes[i]);
+    remove_node(cr->active_cell_nodes[i]);
   }
-  //also need to clear/free vectors from cln
+  //also need to clear/free vectors from cr
   fprintf(stderr, "Haven't free matrix indexes yet\n");
-  free(cln);
+  free(cr);
   freePolygon(rm->shape);
   //Collider should have center* reassigned to bbox
   if (rm->shape->center != rm->bbox->center) {
@@ -124,28 +128,28 @@ void free_collider(collider* rm) {
   free(rm);
 }
 
-void free_cln(collider_list_node* cln) {
-  int size = cln->max_ref_amount;
+void free_cr(collider_ref* cr) {
+  int size = cr->max_ref_amount;
   //clean & free list nodes
   for (int i = 0; i < size; i++) {
-    remove_node(cln->active_cell_nodes[i]);
-    freeGen_node(cln->active_cell_nodes[i]);
+    remove_node(cr->active_cell_nodes[i]);
+    freeGen_node(cr->active_cell_nodes[i]);
   }
   //free collider node
-  remove_node(cln->cr_node);
-  freeGen_node(cln->cr_node);
+  remove_node(cr->cr_node);
+  freeGen_node(cr->cr_node);
   
   //then free vectors
   matrix_index* m = NULL;
-  for (int i = 0; i < cln->active_cells->max_size; i++) {
-    m = elementAt(cln->active_cells, i);
+  for (int i = 0; i < cr->active_cells->max_size; i++) {
+    m = elementAt(cr->active_cells, i);
     free_matrix_index(m);
-    m = elementAt(cln->old_cells, i);
+    m = elementAt(cr->old_cells, i);
     free_matrix_index(m);
   }    
-  free_vector(cln->active_cells);
-  free_vector(cln->old_cells);
-  free(cln);
+  free_vector(cr->active_cells);
+  free_vector(cr->old_cells);
+  free(cr);
 }
 
 void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
@@ -161,12 +165,12 @@ void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
 void remove_compound_from_shm(spatial_hash_map* map, compound* comp) {
   gen_node* curr_body = get_bodies(comp)->start;
   collider* coll = NULL;
-  collider_list_node* cln = NULL;
+  collider_ref* cr = NULL;
   while(curr_body != NULL) {
     coll = get_collider((body*)curr_body->stored);
-    cln = coll->collider_node;
-    remove_collider_from_shm_entries(map, cln, cln->active_cells);
-    free_cln(cln);
+    cr = coll->collider_node;
+    remove_collider_from_shm_entries(map, cr, cr->active_cells);
+    free_cr(cr);
     coll->collider_node = NULL;
     curr_body = curr_body->next;
   }  
@@ -174,15 +178,15 @@ void remove_compound_from_shm(spatial_hash_map* map, compound* comp) {
 
 void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
   //setup node reference business
-  collider_list_node* node;
+  collider_ref* node;
   if (collider->collider_node == NULL ) {
-    node = make_cln_from_collider(collider);
+    node = make_cr_from_collider(collider);
   }
   else {
     fprintf(stderr, "warning, inserting a collider into spatial hash map when it's already in another\n");
     node = collider->collider_node;
   }
-  set_cln_vectors(collider, node, &(map->cell_dim));
+  set_cr_vectors(collider, node, &(map->cell_dim));
  
   //generate active cells for collider
   entries_for_collider(map, collider, node->active_cells);
@@ -192,7 +196,7 @@ void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
   //done with insertion?
 }
 
-void set_cln_vectors(collider* coll, collider_list_node* node, box* cell_dim) {
+void set_cr_vectors(collider* coll, collider_ref* node, box* cell_dim) {
   double cellW, cellH, boxW, boxH;
   cellW = cell_dim->width;
   cellH = cell_dim->height;
@@ -283,6 +287,14 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
 }
 
 
+int get_bb_width (collider* coll) {
+  return coll->bb_dim.width;
+}
+
+int get_bb_height (collider* coll) {
+  return coll->bb_dim.height;
+}
+
 /*
   take bounding box, traverse all 4 sides, add/fill in hashed indicies
   then, simply fill the interior
@@ -295,15 +307,6 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   check which quadrant line from cur to dest goes through by signs of x/y
   compare slope of line to slope of point in quadrant. can tell which cell you end up in next
   */
-
-int get_bb_width (collider* coll) {
-  return coll->bb_dim.width;
-}
-
-int get_bb_height (collider* coll) {
-  return coll->bb_dim.height;
-}
-
 
 void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result) {
   int cellW = map->cell_dim.width;
@@ -324,6 +327,9 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
   double small_amount = 0.001;
   result->cur_size = 0;
   int side_done = 0;
+  hash_table* table = collider->collider_node->table;
+  clear_table(table);
+  matrix_index* temp_ind = NULL;
   do {
     dest_corner = (curr_corner + 1) % bb->sides;
     get_actual_point(bb, curr_corner, &curr_pos);
@@ -348,11 +354,14 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
     shm_hash(map, &curr_pos, &curr_ind);
     shm_hash(map, &dest_pos, &dest_ind);
 
-    if (!already_in_vector(result, &curr_ind, &matrix_index_comp)) {
-      *(matrix_index*)(result->elements[result->cur_size]) = curr_ind;
+    //take unused element, set
+    temp_ind = (matrix_index*)(result->elements[result->cur_size]);
+    *temp_ind = curr_ind;
+    if (insert(table, temp_ind)) {
+      //insert succeded, temp was non_duplicate, increment size to indicate temp is now being used;
       result->cur_size++;
+      temp_ind = NULL;
     }
-
     side_done = 0;
     while(!side_done) {
       double curr_mag, dest_mag;
@@ -373,7 +382,7 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
 	  y_corner_off = cellH - y_corner_off + 1;
 	}
 	//checks for edge cases then compares slopes
-	if (x_corner_off == 0) { //directly on edge, move in y dir I guess?
+	if (x_corner_off == 0) { //directly on edge, move in y dir
 	  vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
 	}
 	else if (dir.v1 == 0) { //moving purely up, move in y dir
@@ -389,16 +398,19 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
 	vector_2_to_virt_pos(&disp, &temp);
 	virt_pos_add(&curr_pos, &temp, &curr_pos);
 	shm_hash(map, &curr_pos, &curr_ind);
-      
-	if (!already_in_vector(result, &curr_ind, &matrix_index_comp)) {
-	  *(matrix_index*)(result->elements[result->cur_size]) = curr_ind;
+
+	temp_ind = (matrix_index*)(result->elements[result->cur_size]);
+	*temp_ind = curr_ind;
+	if (insert(table, temp_ind)) {
+	  //insert succeded, temp was non_duplicate, increment size to indicate temp is now being used;
 	  result->cur_size++;
+	  temp_ind = NULL;
 	}
       }
     }
     curr_corner = (curr_corner + 1) % bb->sides;
   } while(curr_corner != start_corner);
-  //that filled the outline, fill interior by taking average of corners
+  
   virt_pos avg = *zero_pos;
   for (int i = 0; i < bb->sides; i++) {
     get_actual_point(bb, i, &curr_pos);
@@ -407,31 +419,129 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
   avg.x /= bb->sides;
   avg.y /= bb->sides;
   shm_hash(map, &avg, &curr_ind);
-  //start a recursive fill, handing in map, ind, and vector of results I guess?
-  recursive_fill(map, curr_ind, result);
+  recursive_fill(collider, curr_ind, result);
   set_rotation(bb, orig_rot);
 }
 
 
-void recursive_fill(spatial_hash_map* map, matrix_index ind, vector* result) {
-  if (!already_in_vector(result, &ind, &matrix_index_comp)) {
-    *(matrix_index*)(result->elements[result->cur_size]) = ind;
+void recursive_fill(collider* coll, matrix_index ind, vector* result) {
+  hash_table* table = coll->collider_node->table;
+  matrix_index* temp = NULL;
+  temp = (matrix_index*)(result->elements[result->cur_size]);
+  *temp = ind;
+  if (insert(table, temp)) {
     result->cur_size++;
     //+x
     ind.x_index += 1;
-    recursive_fill(map, ind, result);
+    recursive_fill(coll, ind, result);
     //-x
     ind.x_index -= 2;
-    recursive_fill(map, ind, result);
+    recursive_fill(coll, ind, result);
     ind.x_index += 1;
     //+y
     ind.y_index += 1;
-    recursive_fill(map, ind, result);
+    recursive_fill(coll, ind, result);
     //-y
     ind.y_index -= 2;
-    recursive_fill(map, ind, result);
+    recursive_fill(coll, ind, result);
   }
 }
+
+
+
+
+/*
+  iterative solution
+  cant merely start at center or corner and go left/right until hitting wall, then ++/-- y ind and reapeat
+  or going up/down first then moving left right
+  because most rotations/shapes of bounding box will cause outer loop to hit a wall before entire collider is filled
+  alternative is starting from two opposite corners of  bounding box, and doing that
+
+  issue with that. , if box has zero rotation and axis are alligned
+  then both corners will be visited and incrementing in correct directions also yeild visited nodes
+  
+  general wonkyness with this means I'll just be using the recursive solution until I can think of a bettwer approach
+
+ 
+
+
+
+void iterative_fill(spatial_hash_map* map, matrix_index ind, vector* result, int y_sign) {
+  matrix_index* temp = NULL;
+  hash_table* table = collider->collider_node->table;
+  
+  int y_done = 0;
+  int left_done = 0;
+  int right_done = 0;
+
+  int x = 0;
+  int y = 0;
+  while(!y_done) {
+    
+    rigth_done = 0;
+    left_done = 0;
+    x = 0;
+    
+    while(!left_done || !rigth_done) {
+      if (x == 0) {
+	//check middle,
+	temp = (matrix_index*)(result->elements[result->cur_size]);
+	*temp = ind;
+	temp->y_index += y * y_sign;
+	if (insert(table, temp)) {
+	  //new value, start left/right traversals
+	  result->cur_size++;
+	}
+	else {
+	  //reached wall, stop trabersal
+	  y_done = 1;
+	}
+      }
+
+      if (x != 0) {
+	//check left and right
+	temp = (matrix_index*)(result->elements[result->cur_size]);
+	*temp = ind;
+	temp->x_index += x;
+	if (insert(table, temp)) {
+	  //new value, keep going right
+	  result->cur_size++;
+	}
+	else {
+	  //repeat, stop going right
+	  right_done = 1;
+	}
+	//start checking left
+	temp = (matrix_index*)(result->elements[result->cur_size]);
+	*temp = ind;
+	temp->x_index -= x;
+	if (insert(table, temp)) {
+	  //new value, keep going left
+	  result->cur_size++;
+	}
+	else {
+	  //repeat, stop going left
+	  left_done = 1;
+	}
+      
+      }
+      x++;
+    }
+
+    if (y == 0) {
+
+    }
+  }
+  
+  temp = (matrix_index*)(result->elements[result->cur_size]);
+  *temp = curr_ind;
+  if (insert(table, temp)) {
+    result->cur_size++;
+  }
+}
+
+*/
+
 
 int matrix_index_difference(matrix_index* m, matrix_index* b) {
   return abs(m->x_index - b->x_index) + abs(m->y_index - b->y_index);
@@ -446,7 +556,7 @@ int adjacent_indexes(matrix_index* m, matrix_index* b) {
   }
 }
 
-void remove_collider_from_shm_entries(spatial_hash_map* map, collider_list_node* node, vector* entries_to_clear) {
+void remove_collider_from_shm_entries(spatial_hash_map* map, collider_ref* node, vector* entries_to_clear) {
   int i = 0;
   spatial_map_cell* cell;
   gen_node* list_node;
@@ -461,7 +571,7 @@ void remove_collider_from_shm_entries(spatial_hash_map* map, collider_list_node*
   }
 }
 
-void add_collider_to_shm_entries(spatial_hash_map* map, collider_list_node* node, vector* entries_to_add) {
+void add_collider_to_shm_entries(spatial_hash_map* map, collider_ref* node, vector* entries_to_add) {
   int i = 0;
   spatial_map_cell* cell;
   gen_node* list_node;
@@ -481,16 +591,16 @@ int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_l
   spatial_map_cell* cell;
   gen_node* curr;
   gen_node* collider_cr_node;
-  collider_list_node* cln;
+  collider_ref* cr;
   for(int i = 0; i < entries->cur_size;i++) {
     cell = get_entry_in_shm(map, elementAt(entries, i));
     if (cell != NULL) {
       curr = cell->colliders_in_cell->start;
       while (curr != NULL) {
-	cln = (collider_list_node*)(curr->stored);
-	if (cln->status == DEFAULT) {
-	  cln->status = VISITED;
-	  collider_cr_node = cln->cr_node;
+	cr = (collider_ref*)(curr->stored);
+	if (cr->status == DEFAULT) {
+	  cr->status = VISITED;
+	  collider_cr_node = cr->cr_node;
 	  /*
 	  if (already_in_a_list(collider_cr_node)) {
 	    //print things
@@ -509,22 +619,23 @@ int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_l
 void clean_collider_list(gen_list* list) {
   gen_node* curr= list->start;
   gen_node* collider_cr_node;
-  collider_list_node* cln;
+  collider_ref* cr;
   while (curr != NULL) {
-    cln = ((collider*)(curr->stored))->collider_node;
-    cln->status = DEFAULT;
+    cr = ((collider*)(curr->stored))->collider_node;
+    cr->status = DEFAULT;
     collider_cr_node = curr;
     curr = curr->next;
     remove_node(collider_cr_node);
   }
 }
 
-collider_list_node* make_cln_from_collider(collider* coll) {
-  collider_list_node* new = malloc(sizeof(collider_list_node));
+collider_ref* make_cr_from_collider(collider* coll) {
+  collider_ref* new = malloc(sizeof(collider_ref));
   new->collider = coll;
   new->status = DEFAULT;
   new->cr_node = createGen_node(coll);
   coll->collider_node = new;
+  new->table = create_hash_table( matrix_index_compare, matrix_index_hash, 0);
   return new;
 }
 

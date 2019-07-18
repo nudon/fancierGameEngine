@@ -135,7 +135,13 @@ void freeGen_list(gen_list* old) {
   free(old);
 }
 
+void set_data(gen_node* n, void* d) {
+  n->stored = d;
+}
 
+void* get_data(gen_node* n) {
+  return n->stored;
+}
 
 
 
