@@ -157,9 +157,12 @@ compound* makeCrab(virt_pos* center) {
   fizzle* fizz;
   body* body;
   poly = createRectangle(60, 40);
-
+  poly = createNormalPolygon(5);
+  poly->scale = 5;
+  
   *(poly->center) = *center;
   coll = make_collider_from_polygon(poly);
+  
   fizz = createFizzle();
   init_fizzle(fizz);
   set_bounce(fizz, 0.3);
@@ -168,8 +171,11 @@ compound* makeCrab(virt_pos* center) {
   body = createBody(fizz, coll);
   add_body_to_compound(centComp, body);
 
- 
   set_picture_by_name(body, CRAB_PIC_FN );
+
+  picture* pic = get_picture(body);
+  SDL_Texture* test = outline(poly);
+  set_picture_texture(pic, test);
   return centComp;
 }
 
@@ -303,6 +309,7 @@ map* make_origin_map() {
 
   plane* plane = create_plane(map, MAIN_PLANE_NAME);
   virt_pos center = (virt_pos){.x = getScreenWidth() / 2, .y = getScreenHeight() / 2};
+
   compound* user = makeCrab(&center);
   compound* walls = makeWalls();
   make_compound_user(user);

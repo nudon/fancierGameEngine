@@ -11,5 +11,6 @@ typedef struct {
 
 picture* make_picture(char* fn);
 void free_picture(picture* rm);
+void set_picture_texture(picture* pic, SDL_Texture* t);
 
 #endif

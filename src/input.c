@@ -2,6 +2,8 @@
 
 #include "input.h"
 #include "game_state.h"
+#include "collider.h"
+
 int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
@@ -38,8 +40,6 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
       }
       else {
 	switch(e.key.keysym.sym) {
-	  //scaling is bad thing to do with the shm being a thing
-	  //will probably crash when increasing size too much and generating entries for things
 	case SDLK_UP:
 	  poly->scale += scale_delta;
 	  break;
@@ -49,7 +49,6 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
 	case SDLK_RIGHT:
 	  *rot_disp += rot_delta;
 	  break;
-
 	case SDLK_LEFT:
 	  *rot_disp -= rot_delta;
 	  break;

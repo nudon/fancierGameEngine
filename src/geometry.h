@@ -38,6 +38,10 @@ extern vector_2* zero_vec;
 
 extern virt_pos* zero_pos;
 
+extern vector_2* x_axis;
+
+extern vector_2* y_axis;
+
 polygon* createPolygon(int sides);
 polygon* clonePolygon(polygon* src);
 polygon* createNormalPolygon(int sides);
@@ -99,12 +103,14 @@ void vector_2_rotate(vector_2* vec, double radians, vector_2* result);
 
 void virt_pos_add(virt_pos* p1, virt_pos* p2, virt_pos* result);
 void virt_pos_sub(virt_pos* p1, virt_pos* p2, virt_pos* result);
+void virt_pos_scale(virt_pos* p1, double c, virt_pos* result);
 void virt_pos_midpoint(virt_pos* p1, virt_pos* p2, virt_pos* result);
 void virt_pos_rotate(virt_pos* pos, double radians, virt_pos* result);
 
 void virt_pos_to_vector_2(virt_pos* in, vector_2* out);
 void vector_2_to_virt_pos(vector_2* in, virt_pos* out);
 void vector_2_to_virt_pos_ceil(vector_2* in, virt_pos* out);
+void vector_2_to_virt_pos_zero(vector_2* in, virt_pos* out);
 
 void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result);
 
@@ -114,5 +120,6 @@ void print_point(virt_pos* pos);
 void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha);
 void exponential_decay(double old, double cur, double* new, double alpha);
 
+int sign_of(double val);
 
 #endif

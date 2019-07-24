@@ -109,6 +109,8 @@ collider* cloneCollider(collider* src) {
 
 polygon* get_polygon(collider* coll) { return coll->shape; }
 
+collider_ref* get_collider_ref(collider* coll) { return coll->collider_node; }
+
 void free_collider(collider* rm) {
   collider_ref* cr = rm->collider_node;
   int size = cr->max_ref_amount;
@@ -153,7 +155,7 @@ void free_cr(collider_ref* cr) {
 }
 
 void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
-  collider* coll;
+  collider* coll = NULL;
   gen_node* curr = get_bodies(comp)->start;
   while(curr != NULL) {
     coll = ((body*)curr->stored)->coll;
@@ -178,7 +180,7 @@ void remove_compound_from_shm(spatial_hash_map* map, compound* comp) {
 
 void insert_collider_in_shm(spatial_hash_map* map, collider* collider) {
   //setup node reference business
-  collider_ref* node;
+  collider_ref* node = NULL;
   if (collider->collider_node == NULL ) {
     node = make_cr_from_collider(collider);
   }
@@ -241,18 +243,16 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   double rots[3];
   double areas[3];
   int rot_index;
-  vector_2 x_axis = (vector_2){.v1 = 1, .v2 = 0}, y_axis = (vector_2){.v1 = 0, .v2 = 1};
   rots[0] = 0;
   rots[1] = M_PI / 4;
-  
   double rot_threshold = M_PI / 256;
   while(rots[1] - rots[0] > rot_threshold) {
     rots[2] = (rots[1] + rots[0] )/ 2;
     for (int i = 0; i < 3; i++) {
       set_rotation(poly, rots[i]);
-      extreme_projections_of_polygon(poly, poly->center, &x_axis, &min, &max);
+      extreme_projections_of_polygon(poly, poly->center, x_axis, &min, &max);
       x_len = fabs(max - min);
-      extreme_projections_of_polygon(poly, poly->center, &y_axis, &min, &max);
+      extreme_projections_of_polygon(poly, poly->center, y_axis, &min, &max);
       y_len = fabs(max - min);
       areas[i] = y_len * x_len;
     }
@@ -269,8 +269,8 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   double xmin, xmax, ymin, ymax;
   if (result->sides == 4) {
     set_rotation(result,rots[rot_index]);
-    extreme_projections_of_polygon(poly, poly->center, &x_axis, &xmin, &xmax);
-    extreme_projections_of_polygon(poly, poly->center, &y_axis, &ymin, &ymax);
+    extreme_projections_of_polygon(poly, poly->center, x_axis, &xmin, &xmax);
+    extreme_projections_of_polygon(poly, poly->center, y_axis, &ymin, &ymax);
     set_base_point(result, 0, &(virt_pos){.x = xmin, .y = ymin});
     set_base_point(result, 1, &(virt_pos){.x = xmax, .y = ymin});
     set_base_point(result, 2, &(virt_pos){.x = xmax, .y = ymax});
@@ -295,84 +295,53 @@ int get_bb_height (collider* coll) {
   return coll->bb_dim.height;
 }
 
-/*
-  take bounding box, traverse all 4 sides, add/fill in hashed indicies
-  then, simply fill the interior
-  
-  filling outline of bbox
-  multiple ways of doing this
-  easist would actually be just taking shm hashes of curr and dest from each corner
-  and just kind of incrementing/decrementing indeses by one until complete
-  take corners of current cell, represent in coordinate space with curr pos as origin
-  check which quadrant line from cur to dest goes through by signs of x/y
-  compare slope of line to slope of point in quadrant. can tell which cell you end up in next
-  */
-
-void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result) {
+void entries_for_polygon(spatial_hash_map * map, polygon* p, hash_table* table, vector* result) {
   int cellW = map->cell_dim.width;
   int cellH = map->cell_dim.height;
-  int start_corner = 0;
-  int curr_corner = 0;
   int dest_corner;
-  polygon* bb = collider->bbox;
-  double orig_rot = get_rotation(bb);
-  set_rotation(bb, get_rotation(bb) + get_rotation(collider->shape));
-  virt_pos  curr_pos, dest_pos, temp;
-  vector_2 dir, unit;
+  int sides = p->sides;
+  virt_pos  curr_pos, dest_pos, avg;
+
   matrix_index curr_ind, dest_ind;
 
   int x_corner_off, y_corner_off;
-  vector_2 x_unit, y_unit, disp;
   int x_ind_off, y_ind_off;
-  double small_amount = 0.001;
-  result->cur_size = 0;
   int side_done = 0;
-  hash_table* table = collider->collider_node->table;
+  
+  result->cur_size = 0;
   clear_table(table);
+
   matrix_index* temp_ind = NULL;
-  do {
-    dest_corner = (curr_corner + 1) % bb->sides;
-    get_actual_point(bb, curr_corner, &curr_pos);
-    get_actual_point(bb, dest_corner, &dest_pos);
-    vector_between_points(&curr_pos, &dest_pos, &dir);
-    make_unit_vector(&dir, &unit);
 
-    x_ind_off = 1;
-    y_ind_off = 1;
-    if (dir.v1 < 0) {
-      x_ind_off = -1;
-    }
-    if (dir.v2 < 0) {
-      y_ind_off = -1;
-    }
-    x_unit = unit;
-    y_unit = unit;
-    vector_2_scale(&x_unit, fabs(1.0 / x_unit.v1), &x_unit);
-    vector_2_scale(&y_unit, fabs(1.0 / y_unit.v2), &y_unit);
-    
-    
-    shm_hash(map, &curr_pos, &curr_ind);
+  virt_pos offset_to_dest;
+  virt_pos offset_step;
+  double step_size = 0;
+  for (int curr_corner = 0; curr_corner < sides; curr_corner++) {
+    dest_corner = (curr_corner + 1) % sides;
+    get_actual_point(p, curr_corner, &curr_pos);
+    get_actual_point(p, dest_corner, &dest_pos);
+
     shm_hash(map, &dest_pos, &dest_ind);
-
-    //take unused element, set
+    shm_hash(map, &curr_pos, &curr_ind);
+    
     temp_ind = (matrix_index*)(result->elements[result->cur_size]);
     *temp_ind = curr_ind;
     if (insert(table, temp_ind)) {
-      //insert succeded, temp was non_duplicate, increment size to indicate temp is now being used;
       result->cur_size++;
       temp_ind = NULL;
     }
+    
     side_done = 0;
     while(!side_done) {
-      double curr_mag, dest_mag;
-      curr_mag = get_projected_length_pos(&curr_pos, &dir);
-      dest_mag = get_projected_length_pos(&dest_pos, &dir);
-      if (matrix_index_difference(&curr_ind, &dest_ind) == 0 ||
-	  curr_mag > dest_mag) {
+      shm_hash(map, &curr_pos, &curr_ind);
+      virt_pos_sub(&dest_pos, &curr_pos, &offset_to_dest);
+      x_ind_off = sign_of(offset_to_dest.x);
+      y_ind_off = sign_of(offset_to_dest.y);
+      
+      if (matrix_index_difference(&curr_ind, &dest_ind) == 0) {
 	side_done = 1;
       }
       else {
-	//just calculating offest of corner relative to curr position
 	x_corner_off = (curr_ind.x_index + 1) * cellW - curr_pos.x;
 	if (x_ind_off < 0) {
 	  x_corner_off = cellW - x_corner_off + 1;
@@ -381,51 +350,62 @@ void entries_for_collider(spatial_hash_map * map, collider* collider, vector* re
 	if (y_ind_off < 0) {
 	  y_corner_off = cellH - y_corner_off + 1;
 	}
-	//checks for edge cases then compares slopes
-	if (x_corner_off == 0) { //directly on edge, move in y dir
-	  vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
-	}
-	else if (dir.v1 == 0) { //moving purely up, move in y dir
-	  vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
-	}
 
-	else if (x_corner_off > 0 && fabs((float)y_corner_off / x_corner_off) < fabs((float)dir.v2 / dir.v1)) {
-	  vector_2_scale(&y_unit, y_corner_off + small_amount, &disp);
+	if (x_ind_off == 0) {
+	  step_size = 1.0 * y_corner_off / offset_to_dest.y;
+	}
+	else if (y_ind_off == 0) {
+	  step_size = 1.0 * x_corner_off / offset_to_dest.x;
+	}
+	else if (fabs((float)y_corner_off / x_corner_off) < fabs((float)offset_to_dest.y / offset_to_dest.x)) {
+	  //offset to dests slope is higher greater than corner, will change y index
+	  step_size = 1.0 * y_corner_off / offset_to_dest.y;
 	}
 	else {
-	  vector_2_scale(&x_unit, x_corner_off + small_amount, &disp);	
+	  //change x index
+	  step_size = 1.0 * x_corner_off / offset_to_dest.x;
 	}
-	vector_2_to_virt_pos(&disp, &temp);
-	virt_pos_add(&curr_pos, &temp, &curr_pos);
+	step_size = fabs(step_size);
+	virt_pos_scale(&offset_to_dest, step_size, &offset_step);
+	virt_pos_add(&curr_pos, &offset_step, &curr_pos);
+	
 	shm_hash(map, &curr_pos, &curr_ind);
 
 	temp_ind = (matrix_index*)(result->elements[result->cur_size]);
 	*temp_ind = curr_ind;
 	if (insert(table, temp_ind)) {
-	  //insert succeded, temp was non_duplicate, increment size to indicate temp is now being used;
 	  result->cur_size++;
 	  temp_ind = NULL;
 	}
       }
     }
-    curr_corner = (curr_corner + 1) % bb->sides;
-  } while(curr_corner != start_corner);
-  
-  virt_pos avg = *zero_pos;
-  for (int i = 0; i < bb->sides; i++) {
-    get_actual_point(bb, i, &curr_pos);
+  }
+
+  avg = *zero_pos;
+  for (int i = 0; i < p->sides; i++) {
+    get_actual_point(p, i, &curr_pos);
     virt_pos_add(&curr_pos, &avg, &avg);
   }
-  avg.x /= bb->sides;
-  avg.y /= bb->sides;
+  avg.x /= p->sides;
+  avg.y /= p->sides;
   shm_hash(map, &avg, &curr_ind);
-  recursive_fill(collider, curr_ind, result);
+  recursive_fill(table, curr_ind,  result);
+}
+
+
+void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result) {
+
+  polygon* p = collider->shape;
+  polygon* bb = collider->bbox;
+  double orig_rot = get_rotation(bb);
+  set_rotation(bb, get_rotation(bb) + get_rotation(p));
+  //code also works for p, so I could get a better fitting set of entries than with bounding box
+  entries_for_polygon(map, bb, collider->collider_node->table, result);
   set_rotation(bb, orig_rot);
 }
 
 
-void recursive_fill(collider* coll, matrix_index ind, vector* result) {
-  hash_table* table = coll->collider_node->table;
+void recursive_fill( hash_table* table, matrix_index ind ,vector* result) {
   matrix_index* temp = NULL;
   temp = (matrix_index*)(result->elements[result->cur_size]);
   *temp = ind;
@@ -433,115 +413,19 @@ void recursive_fill(collider* coll, matrix_index ind, vector* result) {
     result->cur_size++;
     //+x
     ind.x_index += 1;
-    recursive_fill(coll, ind, result);
+    recursive_fill(table, ind, result);
     //-x
     ind.x_index -= 2;
-    recursive_fill(coll, ind, result);
+    recursive_fill(table, ind, result);
     ind.x_index += 1;
     //+y
     ind.y_index += 1;
-    recursive_fill(coll, ind, result);
+    recursive_fill(table, ind, result);
     //-y
     ind.y_index -= 2;
-    recursive_fill(coll, ind, result);
+    recursive_fill(table, ind, result);
   }
 }
-
-
-
-
-/*
-  iterative solution
-  cant merely start at center or corner and go left/right until hitting wall, then ++/-- y ind and reapeat
-  or going up/down first then moving left right
-  because most rotations/shapes of bounding box will cause outer loop to hit a wall before entire collider is filled
-  alternative is starting from two opposite corners of  bounding box, and doing that
-
-  issue with that. , if box has zero rotation and axis are alligned
-  then both corners will be visited and incrementing in correct directions also yeild visited nodes
-  
-  general wonkyness with this means I'll just be using the recursive solution until I can think of a bettwer approach
-
- 
-
-
-
-void iterative_fill(spatial_hash_map* map, matrix_index ind, vector* result, int y_sign) {
-  matrix_index* temp = NULL;
-  hash_table* table = collider->collider_node->table;
-  
-  int y_done = 0;
-  int left_done = 0;
-  int right_done = 0;
-
-  int x = 0;
-  int y = 0;
-  while(!y_done) {
-    
-    rigth_done = 0;
-    left_done = 0;
-    x = 0;
-    
-    while(!left_done || !rigth_done) {
-      if (x == 0) {
-	//check middle,
-	temp = (matrix_index*)(result->elements[result->cur_size]);
-	*temp = ind;
-	temp->y_index += y * y_sign;
-	if (insert(table, temp)) {
-	  //new value, start left/right traversals
-	  result->cur_size++;
-	}
-	else {
-	  //reached wall, stop trabersal
-	  y_done = 1;
-	}
-      }
-
-      if (x != 0) {
-	//check left and right
-	temp = (matrix_index*)(result->elements[result->cur_size]);
-	*temp = ind;
-	temp->x_index += x;
-	if (insert(table, temp)) {
-	  //new value, keep going right
-	  result->cur_size++;
-	}
-	else {
-	  //repeat, stop going right
-	  right_done = 1;
-	}
-	//start checking left
-	temp = (matrix_index*)(result->elements[result->cur_size]);
-	*temp = ind;
-	temp->x_index -= x;
-	if (insert(table, temp)) {
-	  //new value, keep going left
-	  result->cur_size++;
-	}
-	else {
-	  //repeat, stop going left
-	  left_done = 1;
-	}
-      
-      }
-      x++;
-    }
-
-    if (y == 0) {
-
-    }
-  }
-  
-  temp = (matrix_index*)(result->elements[result->cur_size]);
-  *temp = curr_ind;
-  if (insert(table, temp)) {
-    result->cur_size++;
-  }
-}
-
-*/
-
 
 int matrix_index_difference(matrix_index* m, matrix_index* b) {
   return abs(m->x_index - b->x_index) + abs(m->y_index - b->y_index);
@@ -581,6 +465,7 @@ void add_collider_to_shm_entries(spatial_hash_map* map, collider_ref* node, vect
     cell = get_entry_in_shm(map, ind);
     if (cell  != NULL) {
       list_node = node->active_cell_nodes[i];
+      remove_node(list_node);
       prependToGen_list(cell->colliders_in_cell, list_node);
     }
     i++;
@@ -659,7 +544,7 @@ spatial_hash_map* create_shm(int width, int height, int cols, int rows) {
   new->cell_dim.height = height;
   new->matrix_dim.width = cols;
   new->matrix_dim.height = rows;
-  new->hash_map = newGen_matrix(width, height);
+  new->hash_map = newGen_matrix(cols, rows);
   for(int col_i = 0; col_i < cols; col_i++) {
     for(int row_i = 0; row_i < rows; row_i++) {
       setDataAtIndex(new->hash_map, col_i, row_i, create_shm_cell());

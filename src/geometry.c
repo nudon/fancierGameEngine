@@ -8,6 +8,10 @@ vector_2* zero_vec = &((vector_2){.v1 = 0, .v2 = 0});
 
 virt_pos* zero_pos = &((virt_pos){.x = 0, .y = 0});
 
+vector_2* x_axis = &((vector_2){.v1 = 1, .v2 = 0});
+
+vector_2* y_axis = &((vector_2){.v1 = 0, .v2 = 1});
+
 static void init_point(virt_pos* p) {
   p->x = 0;
   p->y = 0;
@@ -564,6 +568,11 @@ void virt_pos_sub(virt_pos* p1, virt_pos* p2, virt_pos* result) {
   result->y = p1->y - p2->y;
 }
 
+void virt_pos_scale(virt_pos* p1, double c, virt_pos* result) {
+  result->x = round(p1->x * c);
+  result->y = round(p1->y * c);
+}
+
 
 void virt_pos_midpoint(virt_pos* p1, virt_pos* p2, virt_pos* result) {
   virt_pos_add(p1, p2, result);
@@ -594,6 +603,11 @@ void vector_2_to_virt_pos_ceil(vector_2* in, virt_pos* out) {
   out->y = ceil(in->v2);
 }
 
+void vector_2_to_virt_pos_zero(vector_2* in, virt_pos* out) {
+  out->x = (int)in->v1;
+  out->y = (int)in->v2;
+}
+
 void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result) {
   //p1 is start, p2 is end
   result->v1 = p2->x - p1->x;
@@ -616,4 +630,17 @@ void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, doubl
 
 void exponential_decay(double old, double cur, double* new, double alpha) {
   *new = alpha * cur + (1 - alpha) * old;
+}
+
+int sign_of(double val) {
+  if (val == 0) {
+    return 0;
+  }
+  else if (val < 0) {
+    return -1;
+  }
+  else {
+    return 1;
+  }
+  
 }

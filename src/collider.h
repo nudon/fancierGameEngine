@@ -5,6 +5,9 @@ typedef struct spatial_hash_map_struct spatial_hash_map;
 typedef struct collider_struct collider;
 typedef struct collider_ref_struct collider_ref;
 
+
+
+
 #include "myList.h"
 #include "myVector.h"
 #include "hash_table.h"
@@ -67,6 +70,7 @@ struct spatial_hash_map_struct{
 };
 
 polygon* get_polygon(collider* coll);
+collider_ref* get_collider_ref(collider* coll);
 
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot);
 void update_refs(collider* coll);
@@ -83,7 +87,8 @@ void fill_bb_dim(polygon* bbox, box* bb_dim);
 int get_bb_width (collider* coll);
 int get_bb_height (collider* coll);
 
-void recursive_fill(collider* coll, matrix_index ind, vector* result);
+void recursive_fill( hash_table* table, matrix_index ind ,vector* result);
+void entries_for_polygon(spatial_hash_map * map, polygon* p, hash_table* table, vector* result);
 void entries_for_collider(spatial_hash_map * map, collider* collider, vector* result);
 
 int matrix_index_difference(matrix_index* m, matrix_index* b);

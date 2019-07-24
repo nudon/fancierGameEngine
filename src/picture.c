@@ -15,3 +15,10 @@ void free_picture(picture* rm) {
   free(rm);
 }
 
+
+void set_picture_texture(picture* pic, SDL_Texture* t) {
+  pic->texture = t;
+  free(pic->file_name);
+  pic->file_name = "MANUALLY_SET";
+}
+

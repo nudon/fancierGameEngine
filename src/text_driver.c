@@ -16,9 +16,7 @@ static void myClose();
 
 void main_loop();
 void update_map(map* map);
-void draw_map(camera* cam, map* map);
 void update_plane(plane* plane);
-void draw_plane(plane* plane, camera* cam);
 void update_tethers(gen_list* tetherList);
 void update_compounds(spatial_hash_map* map, gen_list* compound_list);
 
@@ -29,9 +27,11 @@ static int FPS_CAP = 60;
 int main(int argc, char** args) {
   init_graphics();
   
-  write_maps_to_disk();
+  //write_maps_to_disk();
   
-  map* map = load_origin_map();
+  // map* map = load_origin_map();
+  map* map = make_origin_map();
+  
   map_load_create_travel_lists(map);
   setMap(map);
   main_loop(map);
@@ -49,7 +49,7 @@ void main_loop() {
   update_corner(cam);
   time_update();
   while (!getQuit()) {
-    SDL_SetRenderDrawColor(cam->rend,0xff,0xff,0xff,0xff);
+    SDL_SetRenderDrawColor(cam->rend,0xff,0xff,0xff,SDL_ALPHA_OPAQUE);
     SDL_RenderClear(cam->rend);
     set_dT(time_since_update());
     time_update();
@@ -84,37 +84,10 @@ void update_map(map* map) {
   check_load_triggers(map);
 }
 
-void draw_map(camera* cam, map* map) {
-  gen_node* curr = get_planes(map)->start;
-  plane* p = NULL;
-  while(curr != NULL) {
-    p = (plane*)curr->stored;
-    draw_plane(p, cam);
-    curr = curr->next;
-  }
-  draw_events_in_map(cam, map);
-  draw_load_zones_in_map(cam, map);
-}
-
-
 void update_plane(plane* plane) {
   update_tethers(get_tethers(plane));
   check_events(get_shm(plane), get_events(plane));
   update_compounds(get_shm(plane), get_compounds(plane));
-}
-
-void draw_plane(plane* plane, camera* cam) {
-  gen_node* curr_compound;
-  compound* temp;
-  SDL_SetRenderDrawColor(cam->rend,0,0,0,0xff);
-  curr_compound = get_compounds(plane)->start;
-  while (curr_compound != NULL) {
-    temp = (compound*)curr_compound->stored;
-    //draw_compound_outline(cam, temp);
-    draw_compound_picture(cam, temp);
-    curr_compound = curr_compound->next;
-  }
-  draw_hash_map(cam, get_shm(plane)); 
 }
 
 void update_tethers(gen_list* tetherList) {
@@ -148,7 +121,6 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       
       check_events(map, get_body_events(aBody));
       
-      draw_events_in_list(getCam(), get_body_events(aBody));
       trans_disp = *zero_pos;
       input = *zero_vec;
       rot_disp = 0.0;
@@ -159,12 +131,6 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       update_pos_with_curr_vel(&trans_disp, fizz);
       update_rot_with_current_vel(&rot_disp, fizz);
 
-      /*
-      if (update(map, aBody->coll, &trans_disp, rot_disp)) {
-	//marks that body actually moved, and needs to be collision checked
-	aBody->status = 1;
-      }
-      */
       if (body_update(map, aBody, &trans_disp, rot_disp)) {
 	aBody->status = 1;
       }

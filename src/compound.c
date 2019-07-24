@@ -39,9 +39,6 @@ compound* create_compound() {
 }
 
 int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
-  if (r_disp != 0) {
-    int a = 4;
-  }
   compound* c = get_owner(b);
   if (is_compound_uniform(c)) {
     virt_pos_add(t_disp, &(c->t_disp), &(c->t_disp));
