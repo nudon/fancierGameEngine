@@ -27,10 +27,10 @@ static int FPS_CAP = 60;
 int main(int argc, char** args) {
   init_graphics();
   
-  //write_maps_to_disk();
+  write_maps_to_disk();
   
-  // map* map = load_origin_map();
-  map* map = make_origin_map();
+  map* map = load_origin_map();
+  //map* map = make_origin_map();
   
   map_load_create_travel_lists(map);
   setMap(map);

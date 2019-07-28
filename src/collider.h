@@ -112,6 +112,7 @@ void shm_hash(spatial_hash_map* map, virt_pos* pos, matrix_index* result);
 collider* make_collider_from_polygon(polygon* poly);
 collider* cloneCollider(collider* src);
 void free_collider(collider* rm);
+void free_cr(collider_ref* cr);
 
 spatial_hash_map* create_shm(int width, int height, int cols, int rows);
 void free_shm(spatial_hash_map* rm);

@@ -197,8 +197,8 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
   *result = poly->normals[i];
 }
 
-virt_pos get_center(polygon* poly) {
-  return *(poly->center);
+virt_pos* get_center(polygon* poly) {
+  return poly->center;
 }
 
 void set_center(polygon* poly, virt_pos* val) {

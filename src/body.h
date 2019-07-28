@@ -7,7 +7,7 @@ typedef struct body_struct body;
 #include "physics.h"
 #include "poltergeist.h"
 #include "compound.h"
-#include "picture.h"
+#include "graphics.h"
 #include "events.h"
 
 struct body_struct {
@@ -28,12 +28,13 @@ void free_body(body* rm);
 
 
 fizzle* get_fizzle(body* body);
-struct collider_struct * get_collider(body* body);
+collider * get_collider(body* body);
 compound* get_owner(body* body);
-fizzle* getFizzle(body* aBody);
-double getMass(body* aBody);
-vector_2* getVelocity(body* aBody);
-virt_pos* getCenter(body* aBody);
+fizzle* get_fizzle(body* aBody);
+double get_mass(body* aBody);
+vector_2* get_velocity(body* aBody);
+virt_pos* get_body_center(body* b);
+void set_body_center(body* b, virt_pos* vp);
 picture* get_picture(body* aBody);
 
 void set_picture(body* aBody, picture* pic);
@@ -50,8 +51,8 @@ void inv_mass_contribution(double m1, double m2, double* m1c, double* m2c);
 void mass_contribution(double m1, double m2, double* m1c, double* m2c);
 void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, vector_2* b1tv_unit, vector_2* b2tv_unit);
 void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm);
-void solveForFinals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f);
-void elasticReduce(double m1, double m2, double* f1f, double* f2f, double els);
+void solve_for_finals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f);
+void elastic_reduce(double m1, double m2, double* f1f, double* f2f, double els);
 void impact(body* b1, body* b2, vector_2* normal);
 
 #endif

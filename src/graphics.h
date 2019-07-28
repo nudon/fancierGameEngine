@@ -1,30 +1,38 @@
 #ifndef FILE_GRAPHICS_DEFINED
 #define FILE_GRAPHICS_DEFINED
+
+typedef struct pixel_pos_struct pixel_pos;
+typedef struct camera_struct camera;
+typedef struct picture_struct picture;
+
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include "geometry.h"
 #include "collider.h"
 #include "compound.h"
 #include "map.h"
+#include "media_names.h"
 
-#define RADS_TO_DEG 360 / (2 * M_PI)
-
-//renderer things
-typedef
-struct {
+struct pixel_pos_struct{
   int x;
   int y;
-} pixel_pos;
+};
 
-
-typedef
-struct {
+struct camera_struct {
   SDL_Renderer* rend;
   SDL_Rect* dest;
   pixel_pos corner;
   virt_pos* center;
-} camera;
+};
 
+struct picture_struct {
+  SDL_Texture* texture;
+  char* file_name;
+};
+
+picture* make_picture(char* fn);
+void free_picture(picture* rm);
+void set_picture_texture(picture* pic, SDL_Texture* t);
 
 void init_graphics();
 void quit_graphics();
@@ -66,7 +74,10 @@ void drawText(TTF_Font* font, char* text, SDL_Color* textColor, SDL_Rect* dstRec
 SDL_Texture* drawTextToTexture(TTF_Font* font, char* text, SDL_Color* textColor);
 SDL_Surface* createSurfaceFromDim(int w, int h);
 
+void tile_texture_for_body(body* b, char* fn, int g_w, int g_h, int t_w, int t_h);
+SDL_Texture* generate_polygon_texture(polygon* in, int grain_w, int grain_h, SDL_Surface* tile, int tile_width, int tile_height, char* surf_save_fn);
+SDL_Surface* tile_image(int tot_width, int tot_height, SDL_Surface* tile, int tile_width, int tile_height);
+SDL_Surface* polygon_outline(polygon* in, Uint32 interior_val, Uint32 exterior_val, int grain_width, int grain_height);
 
-SDL_Texture* outline(polygon* p);
 
 #endif

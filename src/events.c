@@ -118,7 +118,7 @@ void check_event(spatial_hash_map* map, event* e) {
   polygon* eventPoly = get_polygon(get_event_collider(e));
   if (e->body != NULL) {
     polygon* bodyPoly = get_polygon(get_collider(e->body));
-    virt_pos temp = get_center(bodyPoly);
+    virt_pos temp = *get_center(bodyPoly);
     set_rotation(eventPoly,get_rotation(bodyPoly));
     set_center(eventPoly, &temp);
   }
@@ -179,7 +179,7 @@ void basic_decide(body* self, body* trigger) {
   //double run_scale = 500;
   if (is_hunter(ta) && is_prey(sa)) {
     //then run away
-    vector_between_points(getCenter(trigger), getCenter(self), &dir);
+    vector_between_points(get_body_center(trigger), get_body_center(self), &dir);
     /*
     mag = vector_2_magnitude(&dir);
     if (mag > 0) {

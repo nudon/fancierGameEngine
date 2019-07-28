@@ -11,13 +11,13 @@
 <vector_2 name="net_acceleration" v1="0.000000" v2="0.000000" />
 </fizzle>
 <polygon sides="4" scale="1.000000" rotation="0.000000">
-<virt_pos name="center" x="29" y="20" />
+<virt_pos name="center" x="360" y="240" />
 <virt_pos name="0" x="-30" y="-20" />
 <virt_pos name="1" x="30" y="-20" />
 <virt_pos name="2" x="30" y="20" />
 <virt_pos name="3" x="-30" y="20" />
 </polygon>
-<picture file_name="MANUALLY_SET" />
+<picture file_name="./media/crab.png" />
 </body>
 <gi decay_alpha="0.050000">
 <vector_2 name="curr_dir" v1="0.000000" v2="0.000000" />

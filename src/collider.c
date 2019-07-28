@@ -117,15 +117,15 @@ void free_collider(collider* rm) {
   for (int i = 0; i < size; i++) {
     remove_node(cr->active_cell_nodes[i]);
   }
-  //also need to clear/free vectors from cr
-  fprintf(stderr, "Haven't free matrix indexes yet\n");
-  free(cr);
+  free_cr(cr);
   freePolygon(rm->shape);
   //Collider should have center* reassigned to bbox
   if (rm->shape->center != rm->bbox->center) {
-    fprintf(stderr, "Some collider didn't get it's center reassigned\nYou will be leaking memory\n");
+    fprintf(stderr, "Some collider didn't get it's center reassigned\n");
   }
-  rm->bbox->center = NULL;
+  else {
+    rm->bbox->center = NULL;
+  }
   freePolygon(rm->bbox);
   free(rm);
 }

@@ -11,6 +11,7 @@ typedef struct compound_struct compound;
 
 
 compound* create_compound();
+body* get_compound_head(compound* c);
 
 decision_att* get_attributes(compound* comp);
 void set_attributes(compound* comp, decision_att* na);

@@ -60,7 +60,7 @@ void stretch_deform_horz(polygon* poly, double amount);
 
 
 
-virt_pos get_center(polygon* poly);
+virt_pos* get_center(polygon* poly);
 void set_center(polygon* poly, virt_pos* val);
 
 void set_rotation(polygon* poly, double new);

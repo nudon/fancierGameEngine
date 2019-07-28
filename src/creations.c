@@ -11,12 +11,6 @@
 
 #define MAP_DIR "./maps/"
 
-/// picture/media definitions
-
-#define MEDIA_FOLDER "./media/"
-
-#define CRAB_PIC_FN MEDIA_FOLDER"crab.png"
-
 /// helper functions
 
 
@@ -45,11 +39,11 @@ body* makeNormalBody(int sides) {
 compound* makeBlockChain(virt_pos* start_pos, int len, int chain_type) {
   vector_2 dir;
   double disp = 0;
-  int width = 30;
-  int height = 30;
+  int width = 50;
+  int height = 31;
   if (chain_type == HORZ_CHAIN) {
     dir = (vector_2){.v1 = 1, .v2 = 0};
-    disp = width;
+    disp = width - 2;
   }
   else if (chain_type == VERT_CHAIN) {
     dir = (vector_2){.v1 = 0, .v2 = 1};
@@ -121,7 +115,7 @@ compound* makeWalls() {
     generate_normals_for_polygon(aWall);
 
     b = blankBody(aWall);
-    set_mass(getFizzle(b), wallMass);
+    set_mass(get_fizzle(b), wallMass);
     add_body_to_compound(wallCompound, b);
   }
   return wallCompound;
@@ -132,9 +126,10 @@ body* makeBlock (int width, int height) {
   body* b = NULL;
   polygon* p = createRectangle(width, height);
   b = blankBody(p);
-  fizzle* f = getFizzle(b);
+  fizzle* f = get_fizzle(b);
   set_mass(f, INFINITY);
   set_bounce(f, 0.1);
+  set_picture_by_name(b, SAND_FN);
   return b;
 }
 
@@ -143,7 +138,7 @@ compound* makeCentipede(int segments, gen_list* tethers, virt_pos* center) {
   body* body;
   for (int i = 0; i < segments; i++) {
     body = makeNormalBody(8);
-    *(getCenter(body)) = *center;
+    set_center(get_polygon(get_collider(body)), center);
     add_body_to_compound(centComp, body);
   }
   tether_join_compound(centComp, NULL, tethers);
@@ -157,8 +152,6 @@ compound* makeCrab(virt_pos* center) {
   fizzle* fizz;
   body* body;
   poly = createRectangle(60, 40);
-  poly = createNormalPolygon(5);
-  poly->scale = 5;
   
   *(poly->center) = *center;
   coll = make_collider_from_polygon(poly);
@@ -171,11 +164,8 @@ compound* makeCrab(virt_pos* center) {
   body = createBody(fizz, coll);
   add_body_to_compound(centComp, body);
 
-  set_picture_by_name(body, CRAB_PIC_FN );
+  set_picture_by_name(body, CRAB_FN );
 
-  picture* pic = get_picture(body);
-  SDL_Texture* test = outline(poly);
-  set_picture_texture(pic, test);
   return centComp;
 }
 
@@ -346,7 +336,7 @@ map* make_room_map() {
   poltergeist* p = make_poltergeist();
   give_standard_poltergeist(p);
   temp->polt = p;
-  *(getCenter(temp)) = pos;
+  set_center(get_polygon(get_collider(temp)), &pos);
   add_body_to_compound(triangle, temp);
   set_prey(get_attributes(triangle), 1);
   add_compound_to_plane(plane, triangle);
@@ -359,6 +349,16 @@ map* make_room_map() {
 
   virt_pos start = (virt_pos){.x = 0, .y = floor_height};
   compound* floor = makeBlockChain(&start, 20, HORZ_CHAIN);
+  
+  body* wall = makeBlock(58, 555);
+  virt_pos left_eye_wall_pos = (virt_pos){.x = 0, .y = floor_height};
+  set_body_center(wall, &left_eye_wall_pos);
+  tile_texture_for_body(wall, EYE_FN, 3,2,29,29);
+  compound* wall_comp = create_compound();
+  add_body_to_compound(wall_comp, wall);
+  add_compound_to_plane(plane, wall_comp);
+  
+  
   add_compound_to_plane(plane, floor);
 
   

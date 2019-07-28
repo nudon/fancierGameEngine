@@ -1,13 +1,17 @@
 #include "graphics.h"
 
-
-
 static void myDrawRect(camera* cam, int x1, int y1, int x2, int y2);
 static void myDrawCirc(int x, int y, int rad);
 static camera* gamgam;
 
 static int SCREEN_WIDTH = 720;
 static int SCREEN_HEIGHT = 480;
+
+static void add_surface(char* fn);
+static void add_texture(char* fn);
+static void init_surfaces();
+static void init_textures();
+
 
 picture* def_pic = NULL;
 
@@ -36,7 +40,8 @@ void init_graphics() {
 	exit(3);
       }
   }
-  //also probably put texture loading in here
+  init_surfaces();
+  init_textures();
 }
 
 void quit_graphics() {
@@ -97,6 +102,25 @@ int init_rend(SDL_Renderer** rend) {
     fail =1;
   }
   return fail;
+}
+
+picture* make_picture(char* fn) {
+  picture* new = malloc(sizeof(picture));
+  new->texture = loadTexture(fn);
+  new->file_name = strdup(fn);
+  return new;
+}
+
+void free_picture(picture* rm) {
+  SDL_DestroyTexture(rm->texture);
+  free(rm->file_name);
+  free(rm);
+}
+
+void set_picture_texture(picture* pic, SDL_Texture* t) {
+  pic->texture = t;
+  free(pic->file_name);
+  pic->file_name = "MANUALLY_SET";
 }
 
 double x_virt_to_pixel_scale = 1.02;
@@ -366,10 +390,10 @@ void draw_compound(compound* c, camera* cam) {
     temp_coll = get_collider(temp_body);
     temp_poly = get_polygon(temp_coll);
 
-    draw_polygon_outline(cam, temp_poly);
+    //draw_polygon_outline(cam, temp_poly);
     draw_body_picture(cam, temp_body);
     draw_events_in_list(cam, get_body_events(temp_body));
-    draw_bbox(cam, temp_coll);
+    //draw_bbox(cam, temp_coll);
     
     curr = curr->next;
   }
@@ -393,7 +417,7 @@ void draw_polygon_outline(camera* cam, polygon* poly) {
 
 void draw_body_picture(camera* cam, body* body) {
   collider* coll = body->coll;
-  virt_pos cent = *getCenter(body);
+  virt_pos cent = *get_center(get_polygon(get_collider(body)));
   int x = x_virt_to_pixel_scale * (cent.x - get_bb_width(coll) / 2) - cam->corner.x;
   int y = y_virt_to_pixel_scale * (cent.y - get_bb_height(coll) / 2) - cam->corner.y;
   int w = x_virt_to_pixel_scale * get_bb_width(coll);
@@ -403,7 +427,7 @@ void draw_body_picture(camera* cam, body* body) {
 }
 
 void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, double rot) {
-  double sdl_rot = rot * RADS_TO_DEG;
+  double sdl_rot = rot * RAD_2_DEG;
   if (pic == NULL) {
     pic = def_pic;
   }
@@ -476,79 +500,189 @@ SDL_Surface* createSurfaceFromDim(int w, int h) {
   return surface;
 }
 
-//texture shaping library
 
-SDL_Texture* outline(polygon* in) {
-  polygon* p = clonePolygon(in);
-  collider* c = make_collider_from_polygon(p);
-  
-  double xmin = 0, xmax = 0, ymin = 0, ymax = 0;
-  extreme_projections_of_polygon(p, p->center, x_axis, &xmin, &xmax);
-  extreme_projections_of_polygon(p, p->center, y_axis, &ymin, &ymax);
-  int tot_width = xmax - xmin;
-  int tot_height = ymax - ymin;
+#define SURFACE_LIM 100
+#define TEXTURE_LIM 100
 
-  int grain_width = 3;
-  int grain_height = 2;
+static int surface_i = 0;
+char* surface_name[SURFACE_LIM];
+SDL_Surface* surfaces[SURFACE_LIM];
 
-  int shm_cols = (tot_width / grain_width) + 2; //add 2 for some padding on both sides
-  int shm_rows = (tot_height / grain_height) + 2;
+static int texture_i = 0;
+char* texture_name[TEXTURE_LIM];
+SDL_Texture* textures[TEXTURE_LIM];
 
-  shm_rows += 10;
-  shm_cols += 10;
-
-  tot_width = shm_cols * grain_width;
-  tot_height = shm_rows * grain_height;
-  fprintf(stderr, "shm for texture has %i rows and %i cols\n", shm_rows, shm_cols);
-
-  spatial_hash_map* shm = create_shm(grain_width, grain_height, shm_cols, shm_rows);
-
-  virt_pos texture_center = (virt_pos){ .x = tot_width / 2, .y = tot_height / 2};
-  //virt_pos screen_center = (virt_pos){ .x = getScreenWidth() / x_virt_to_pixel_scale / 2, .y = getScreenHeight() / getScreenHeight() / y_virt_to_pixel_scale / 2};
-  set_center(p, &texture_center);
-  //set_center(p, &screen_center);
-  //set_camera_center(getCam(), zero_pos);
-
-  collider_ref* cr = make_cr_from_collider(c);
-  set_cr_vectors(c, cr, &(shm->cell_dim));
-  entries_for_polygon(shm, p, cr->table, cr->active_cells);
-
-
-
-  
-
-  SDL_Surface* surf = createSurfaceFromDim(tot_width, tot_height);
-
-  Uint32 alpha_val = SDL_MapRGB(surf->format, 255,255,255);
-  Uint32 no_alpha_val = SDL_MapRGB(surf->format, 122,222,20);
-
-  //SDL_SetColorKey(surf, SDL_TRUE, alpha_val);
-
-
-  SDL_Renderer* rend = getCam()->rend;
-  SDL_SetRenderDrawColor(rend, 255,255,0,SDL_ALPHA_OPAQUE);
-  SDL_FillRect(surf, NULL, alpha_val);
-
-  
-  //SDL_SetRenderDrawColor(rend, 0,0,0, SDL_ALPHA_OPAQUE);
-  vector* results = cr->active_cells;
-  matrix_index ind;
-  SDL_Rect rect;
-  rect.w = grain_width;
-  rect.h = grain_height;
-  for (int i = 0; i < results->cur_size; i++) {
-    //fprintf(stderr, " ooo\n");
-    ind = *(matrix_index*)elementAt(results, i);
-    rect.x = ind.x_index * grain_width;
-    rect.y = ind.y_index * grain_height;
-    //rect.x = 0;
-    //rect.y = 0;
-    SDL_FillRect(surf, &rect, no_alpha_val);
+static void add_surface(char* fn) {
+  SDL_Surface* add = IMG_Load(fn);
+  if (surface_i > SURFACE_LIM) {
+    fprintf(stderr, "error, adding too many surfaces\n");
   }
+  surface_name[surface_i] = fn;
+  surfaces[surface_i] = add;
+  surface_i++;
+}
 
-  SDL_Texture* ret = loadSurfaceToTexture(surf);
-  SDL_FreeSurface(surf);
-  return ret;
+static void add_texture(char* fn) {
+  SDL_Texture* add = loadTexture(fn);
+  if (texture_i > TEXTURE_LIM) {
+    fprintf(stderr, "error, adding too many textures\n");
+  }
+  texture_name[texture_i] = fn;
+  textures[texture_i] = add;
+  texture_i++;
+}
+
+static void init_surfaces() {
+  for (int i = 0; i < SURFACE_LIM; i++) {
+    surface_name[i] = NULL;
+    surfaces[i] = NULL;
+  }
+  add_surface(SAND_FN);
 }
 
 
+static void init_textures() {
+  for (int i = 0; i < TEXTURE_LIM; i++) {
+    texture_name[i] = NULL;
+    textures[i] = NULL;
+  }
+}
+
+SDL_Surface* get_surface_by_name(char* fn) {
+  for (int i = 0; i < surface_i; i++) {
+    if (strcmp(fn, surface_name[i]) == 0) {
+      return surfaces[i];
+    }
+  }
+  return NULL;
+}
+
+SDL_Texture* get_texture_by_name(char* fn) {
+  for (int i = 0; i < texture_i; i++) {
+    if (strcmp(fn, texture_name[i]) == 0) {
+      return textures[i];
+    }
+  }
+  return NULL;
+}
+
+
+static int texture_number = 1;
+static const int name_size = 50;
+
+void tile_texture_for_body(body* b, char* fn, int g_w, int g_h, int t_w, int t_h) {
+  SDL_Surface* tile = get_surface_by_name(fn);
+  if (tile == NULL) {
+    add_surface(fn);
+    tile = get_surface_by_name(fn);
+    if (tile == NULL) {
+      fprintf(stderr, "error, unable to load and store SDL_Surface for pic \"%s\"\n", fn);
+      exit(1);
+    }
+  }
+  polygon* p = get_polygon(get_collider(b));
+  char name[name_size];
+  snprintf(name, name_size, MEDIA_FOLDER"texture_%i.png", texture_number++);
+  SDL_Texture* t = generate_polygon_texture(p, g_w, g_h, tile, t_w, t_h, name);
+  picture* pic = get_picture(b);
+  set_picture_texture(pic, t);
+  pic->file_name = strdup(name);
+  
+}
+
+SDL_Texture* generate_polygon_texture(polygon* in, int g_w, int g_h, SDL_Surface* tile, int t_w, int t_h, char* surf_save_fn) {
+  Uint32 interior_val = SDL_MapRGB(tile->format, 255, 255, 255);
+  Uint32 exterior_val = SDL_MapRGB(tile->format, 122, 122, 20);
+  SDL_Surface* vignette = polygon_outline(in, interior_val, exterior_val, g_w, g_h);
+  SDL_Surface* background = tile_image(vignette->w, vignette->h, tile, t_w, t_h);
+  
+  SDL_SetColorKey(vignette, SDL_TRUE, interior_val);
+  SDL_BlitSurface(vignette, NULL, background, NULL);
+  SDL_SetColorKey(background, SDL_TRUE, exterior_val);
+  
+  SDL_Texture* ret = loadSurfaceToTexture(background);
+  if (surf_save_fn != NULL) {
+    IMG_SavePNG(background, surf_save_fn);
+  }
+  SDL_FreeSurface(vignette);
+  SDL_FreeSurface(background);
+  return ret;
+}
+
+SDL_Surface* tile_image(int tot_width, int tot_height, SDL_Surface* tile, int tile_width, int tile_height) {
+  SDL_Surface* tot = createSurfaceFromDim(tot_width, tot_height);
+  SDL_Rect rect;
+  
+  Uint32 white_val = SDL_MapRGB(tile->format, 255, 122, 255);
+  SDL_FillRect(tot, NULL, white_val);
+  
+  if (tile_width <= 0) {
+    tile_width = tile->w;
+  }
+  if (tile_height <= 0) {
+    tile_height = tile->h;
+  }
+  for (int x_i = 0; x_i < tot_width; x_i += tile_width) {
+    rect.x = x_i;
+    for (int y_i = 0; y_i < tot_height; y_i += tile_height) {
+      rect.w = tile_width; 
+      rect.h = tile_height;
+      rect.y = y_i;
+      SDL_BlitScaled(tile, NULL, tot, &rect);
+    }
+  }
+  
+  return tot;
+}
+
+SDL_Surface* polygon_outline(polygon* in, Uint32 interior_val, Uint32 exterior_val, int grain_width, int grain_height) {
+  polygon* p = clonePolygon(in);
+  collider* c = make_collider_from_polygon(p);
+  collider_ref* cr = NULL;
+  spatial_hash_map* shm = NULL;
+  virt_pos texture_center = *zero_pos;
+  SDL_Surface* outline = NULL;
+  SDL_Rect rect;
+  vector* results = NULL;
+  matrix_index ind;
+  double xmin = 0, xmax = 0, ymin = 0, ymax = 0;
+  int tot_width, tot_height, shm_cols, shm_rows;
+  
+  extreme_projections_of_polygon(p, p->center, x_axis, &xmin, &xmax);
+  extreme_projections_of_polygon(p, p->center, y_axis, &ymin, &ymax);
+  tot_width = xmax - xmin;
+  tot_height = ymax - ymin;
+  
+  shm_cols = (tot_width / grain_width) + 2; //add 2 for some padding on both sides
+  shm_rows = (tot_height / grain_height) + 2;
+  
+  tot_width = shm_cols * grain_width;
+  tot_height = shm_rows * grain_height;
+  
+  shm = create_shm(grain_width, grain_height, shm_cols, shm_rows);
+
+  texture_center = (virt_pos){ .x = tot_width / 2, .y = tot_height / 2};
+  set_center(p, &texture_center);
+
+  cr = make_cr_from_collider(c);
+  set_cr_vectors(c, cr, &(shm->cell_dim));
+  entries_for_polygon(shm, p, cr->table, cr->active_cells);
+  results = cr->active_cells;
+  
+  outline = createSurfaceFromDim(tot_width, tot_height);
+  SDL_FillRect(outline, NULL, exterior_val);
+  
+  rect.w = grain_width;
+  rect.h = grain_height;
+  for (int i = 0; i < results->cur_size; i++) {
+    ind = *(matrix_index*)elementAt(results, i);
+    rect.x = ind.x_index * grain_width;
+    rect.y = ind.y_index * grain_height;
+    SDL_FillRect(outline, &rect, interior_val);
+  }
+
+  free_collider(c);
+  free_shm(shm);
+  
+  return outline;
+}

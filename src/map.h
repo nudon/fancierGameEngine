@@ -9,7 +9,7 @@ typedef struct load_zone_struct load_zone;
 
 
 #include <stdlib.h>
-#include "map.h"
+#include "events.h"
 #include "myList.h"
 
 map* create_map(char* name);

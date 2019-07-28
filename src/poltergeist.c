@@ -96,7 +96,7 @@ void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) 
 void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
   static int cam_init = 0;
   if (!cam_init) {
-    set_camera_center(getCam(), getCenter(user_body));
+    set_camera_center(getCam(), get_body_center(user_body));
     cam_init = 1;
   }
   polygon* poly = user_body->coll->shape;

@@ -38,6 +38,10 @@ compound* create_compound() {
   return new;
 }
 
+body* get_compound_head(compound* c) {
+  return (body*)c->bp->start->stored;
+}
+
 int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
   compound* c = get_owner(b);
   if (is_compound_uniform(c)) {
@@ -60,7 +64,7 @@ void compound_update(spatial_hash_map* map, compound* c) {
   virt_pos curr_offset = *zero_pos;
   virt_pos t_disp = *zero_pos;
   polygon* p = NULL;
-  polygon* head = get_polygon(get_collider(((body*)c->bp->start->stored)));
+  polygon* head = get_polygon(get_collider(get_compound_head(c)));
   double r_disp = 0;
   if (is_compound_uniform(c)) {
     if (c->t_count != 0) {
@@ -107,8 +111,8 @@ virt_pos get_rotational_offset(body* b) {
   virt_pos curr_center = *zero_pos;
   virt_pos offset = *zero_pos;
   if (is_compound_uniform(comp) && comp->bp->start != NULL) {
-    head_center = get_center(get_polygon(get_collider(((body*)comp->bp->start->stored))));
-    curr_center = get_center(get_polygon(get_collider((b))));
+    head_center = *get_body_center(get_compound_head(comp));
+    curr_center = *get_body_center(b);
     virt_pos_sub(&head_center, &curr_center, &offset);
   }
   return offset;
@@ -141,7 +145,7 @@ void tether_join_compound(compound* comp, tether* teth, gen_list* append) {
     b2 = b1;
     b1 = (body*)curr_body->stored;
     if (b2 != NULL) {
-      body_teth = create_tether_blank(getCenter(b1),getCenter(b2),getFizzle(b1),getFizzle(b2));
+      body_teth = create_tether_blank(get_body_center(b1),get_body_center(b2),get_fizzle(b1),get_fizzle(b2));
       if (teth == NULL) {
 	teth = default_tether;
       }
