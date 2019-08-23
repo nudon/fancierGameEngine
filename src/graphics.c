@@ -12,12 +12,25 @@ static void add_texture(char* fn);
 static void init_surfaces();
 static void init_textures();
 
+SDL_Surface* get_surface_by_name(char* fn);
+SDL_Texture* get_texture_by_name(char* fn);
+
 
 picture* def_pic = NULL;
 
 static SDL_Window* gWin = NULL;
 
 static pixel_pos* zero_pix = &((pixel_pos){.x = 0, .y = 0});
+
+static SDL_Surface* pixel_format_holder = NULL;
+
+static SDL_PixelFormat* get_pixel_format() {
+  if (pixel_format_holder == NULL) {
+    fprintf(stderr, "error, pixel format not initd\n");
+    exit(3);
+  }
+  return pixel_format_holder->format;
+}
 
 void init_graphics() {
   SDL_Renderer* rend = NULL;
@@ -26,22 +39,17 @@ void init_graphics() {
     exit(1);
   }
 
+  pixel_format_holder = createSurfaceFromDim(1,1);
+
+  init_surfaces();
+  init_textures();
+
   camera*  mainCam = make_camera();
   mainCam->rend = rend;
   mainCam->dest = NULL;
   setCam(mainCam);
   
-  def_pic = make_picture("./media/rad.png");
-  if (def_pic->texture == NULL) {
-    def_pic = make_picture("./media/def.png");
-      if (def_pic->texture == NULL) {
-	fprintf(stderr, "missing both of the default textures, exiting\n");
-	fprintf(stderr, "place a random picture in media dir and call it \"def.png\" to fix\n");
-	exit(3);
-      }
-  }
-  init_surfaces();
-  init_textures();
+  def_pic = make_picture(DEF_FN);
 }
 
 void quit_graphics() {
@@ -106,7 +114,13 @@ int init_rend(SDL_Renderer** rend) {
 
 picture* make_picture(char* fn) {
   picture* new = malloc(sizeof(picture));
-  new->texture = loadTexture(fn);
+  if (fn == NULL) {
+    fn = DEF_FN;
+  }
+  if (get_texture_by_name(fn) == NULL) {
+    add_texture(fn);
+  }
+  new->texture = get_texture_by_name(fn);
   new->file_name = strdup(fn);
   return new;
 }
@@ -123,8 +137,8 @@ void set_picture_texture(picture* pic, SDL_Texture* t) {
   pic->file_name = "MANUALLY_SET";
 }
 
-double x_virt_to_pixel_scale = 1.02;
-double y_virt_to_pixel_scale = 1.07;
+double x_virt_to_pixel_scale = 2;
+double y_virt_to_pixel_scale = 2;
 //double x_virt_to_pixel_scale = SCREEN_WIDTH / ORIG_SCREEN_WIDTH;
 //double y_virt_to_pixel_scale = SCREEN_HEIGHT / ORIG_SCREEN_HEIGHT;
 
@@ -237,7 +251,7 @@ void draw_plane(plane* plane, camera* cam) {
     draw_compound(temp, cam);
     curr_compound = curr_compound->next;
   }
-  draw_hash_map(cam, get_shm(plane)); 
+  //draw_hash_map(cam, get_shm(plane)); 
 }
 
 
@@ -390,7 +404,7 @@ void draw_compound(compound* c, camera* cam) {
     temp_coll = get_collider(temp_body);
     temp_poly = get_polygon(temp_coll);
 
-    //draw_polygon_outline(cam, temp_poly);
+    draw_polygon_outline(cam, temp_poly);
     draw_body_picture(cam, temp_body);
     draw_events_in_list(cam, get_body_events(temp_body));
     //draw_bbox(cam, temp_coll);
@@ -423,15 +437,21 @@ void draw_body_picture(camera* cam, body* body) {
   int w = x_virt_to_pixel_scale * get_bb_width(coll);
   int h = y_virt_to_pixel_scale * get_bb_height(coll);
   SDL_Rect dst = (SDL_Rect){.x = x, .y = y, .w = w, .h = h};
-  draw_picture(cam, body->pic, NULL, &dst, get_rotation(coll->shape));
+  SDL_RendererFlip flip = SDL_FLIP_NONE;
+  vector_2 vel = *get_velocity(body);
+  if (vel.v1 < 0) {
+    //draw picture flipped about y axis
+    flip = SDL_FLIP_HORIZONTAL;
+  }
+  draw_picture(cam, body->pic, NULL, &dst, get_rotation(coll->shape), flip);
 }
 
-void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, double rot) {
+void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, double rot, SDL_RendererFlip flip) {
   double sdl_rot = rot * RAD_2_DEG;
   if (pic == NULL) {
     pic = def_pic;
   }
-  SDL_RenderCopyEx(cam->rend, pic->texture, src, dst, sdl_rot, NULL, SDL_FLIP_NONE);
+  SDL_RenderCopyEx(cam->rend, pic->texture, src, dst, sdl_rot, NULL, flip);
 }
 
 void draw_bbox(camera* cam, collider* coll) {
@@ -520,6 +540,10 @@ static void add_surface(char* fn) {
   surface_name[surface_i] = fn;
   surfaces[surface_i] = add;
   surface_i++;
+  if (get_surface_by_name(fn) == NULL) {
+    fprintf(stderr, "error in adding surface %s\n", fn);
+    exit(1);
+  }
 }
 
 static void add_texture(char* fn) {
@@ -530,9 +554,14 @@ static void add_texture(char* fn) {
   texture_name[texture_i] = fn;
   textures[texture_i] = add;
   texture_i++;
+  if (get_texture_by_name(fn) == NULL) {
+    fprintf(stderr, "error in adding texture %s\n", fn);
+    exit(1);
+  }
 }
 
 static void init_surfaces() {
+  surface_i = 0;
   for (int i = 0; i < SURFACE_LIM; i++) {
     surface_name[i] = NULL;
     surfaces[i] = NULL;
@@ -542,6 +571,7 @@ static void init_surfaces() {
 
 
 static void init_textures() {
+  texture_i = 0;
   for (int i = 0; i < TEXTURE_LIM; i++) {
     texture_name[i] = NULL;
     textures[i] = NULL;
@@ -575,11 +605,8 @@ void tile_texture_for_body(body* b, char* fn, int g_w, int g_h, int t_w, int t_h
   if (tile == NULL) {
     add_surface(fn);
     tile = get_surface_by_name(fn);
-    if (tile == NULL) {
-      fprintf(stderr, "error, unable to load and store SDL_Surface for pic \"%s\"\n", fn);
-      exit(1);
-    }
   }
+  
   polygon* p = get_polygon(get_collider(b));
   char name[name_size];
   snprintf(name, name_size, MEDIA_FOLDER"texture_%i.png", texture_number++);
@@ -591,18 +618,25 @@ void tile_texture_for_body(body* b, char* fn, int g_w, int g_h, int t_w, int t_h
 }
 
 SDL_Texture* generate_polygon_texture(polygon* in, int g_w, int g_h, SDL_Surface* tile, int t_w, int t_h, char* surf_save_fn) {
-  Uint32 interior_val = SDL_MapRGB(tile->format, 255, 255, 255);
-  Uint32 exterior_val = SDL_MapRGB(tile->format, 122, 122, 20);
+  Uint32 interior_val = SDL_MapRGB(get_pixel_format(), 12, 34, 56);
+  Uint32 exterior_val = SDL_MapRGB(get_pixel_format(), 122, 122, 20);
   SDL_Surface* vignette = polygon_outline(in, interior_val, exterior_val, g_w, g_h);
   SDL_Surface* background = tile_image(vignette->w, vignette->h, tile, t_w, t_h);
-  
+  SDL_Surface* composite = createSurfaceFromDim(background->w, background->h);
+
+  SDL_SetSurfaceBlendMode(vignette, SDL_BLENDMODE_NONE);
+  SDL_SetSurfaceBlendMode(background, SDL_BLENDMODE_NONE);
+  SDL_SetSurfaceBlendMode(composite, SDL_BLENDMODE_NONE);
+
   SDL_SetColorKey(vignette, SDL_TRUE, interior_val);
   SDL_BlitSurface(vignette, NULL, background, NULL);
   SDL_SetColorKey(background, SDL_TRUE, exterior_val);
+  SDL_BlitSurface(background, NULL, composite, NULL);
+
   
-  SDL_Texture* ret = loadSurfaceToTexture(background);
+  SDL_Texture* ret = loadSurfaceToTexture(composite);
   if (surf_save_fn != NULL) {
-    IMG_SavePNG(background, surf_save_fn);
+    IMG_SavePNG(composite, surf_save_fn);
   }
   SDL_FreeSurface(vignette);
   SDL_FreeSurface(background);
@@ -613,7 +647,7 @@ SDL_Surface* tile_image(int tot_width, int tot_height, SDL_Surface* tile, int ti
   SDL_Surface* tot = createSurfaceFromDim(tot_width, tot_height);
   SDL_Rect rect;
   
-  Uint32 white_val = SDL_MapRGB(tile->format, 255, 122, 255);
+  Uint32 white_val = SDL_MapRGB(get_pixel_format(), 255, 255, 255);
   SDL_FillRect(tot, NULL, white_val);
   
   if (tile_width <= 0) {
@@ -683,6 +717,6 @@ SDL_Surface* polygon_outline(polygon* in, Uint32 interior_val, Uint32 exterior_v
 
   free_collider(c);
   free_shm(shm);
-  
+
   return outline;
 }

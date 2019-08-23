@@ -11,7 +11,9 @@ typedef struct picture_struct picture;
 #include "collider.h"
 #include "compound.h"
 #include "map.h"
+#include "plane.h"
 #include "media_names.h"
+
 
 struct pixel_pos_struct{
   int x;
@@ -64,7 +66,7 @@ void drawWallIndication(camera* cam, SDL_Rect* rect);
 void draw_compound(compound* c, camera* cam);
 void draw_polygon_outline(camera* cam, polygon* poly);
 void draw_body_picture(camera* cam, body* body);
-void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, double rot);
+void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, double rot, SDL_RendererFlip flip);
 void draw_bbox(camera* cam, collider* coll);
 
 // textures
