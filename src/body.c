@@ -11,6 +11,7 @@ body* createBody(fizzle* fizz, struct collider_struct* coll) {
   new->pic = NULL;
   new->event_list = createGen_list();
   new->status = 0;
+  new->pic = make_picture(NULL);
   return new;
 }
 
@@ -66,10 +67,17 @@ picture* get_picture(body* aBody) {
 }
 
 void set_picture(body* aBody, picture* pic) {
-  if (aBody->pic != NULL) {
+  if (aBody->pic != NULL && strcmp(aBody->pic->file_name ,DEF_FN) != 0) {
     fprintf(stderr, "warning, overwriting a bodies picture\n");
   }
   aBody->pic = pic;
+}
+
+void set_poltergeist(body* b, poltergeist* polt) {
+  b->polt = polt;
+}
+poltergeist* get_poltergeist(body* b) {
+  return b->polt;
 }
 
 void set_picture_by_name(body* aBody, char* fn) {
@@ -175,27 +183,6 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   vector_2_to_virt_pos(&b1tv, &b1d);
   vector_2_to_virt_pos(&b2tv, &b2d);
 
-  //slighly increases offsets
-  /*
-  if (b1d.x != 0) {
-    b1d.x += (b1d.x > 0) ? 1: -1;
-  }
-  if (b1d.y != 0) {
-    b1d.y += (b1d.y > 0) ? 1: -1;
-  }
-  
-  if (b2d.x != 0) {
-    b2d.x += (b2d.x > 0) ? 1: -1;
-  }
-  
-  if (b2d.y != 0) {
-    b2d.y += (b2d.y > 0) ? 1: -1;
-  }
-  */
-
-  //update(map, b1->coll, &b1d, 0);
-  //update(map, b2->coll, &b2d, 0);
-
   body_update(map, b1, &b1d, 0.0);
   body_update(map, b2, &b2d, 0.0);
   
@@ -284,7 +271,11 @@ void impact(body* b1, body* b2, vector_2* normal) {
 
   add_impact(f1, &body1add);
   add_impact(f2, &body2add);
-  inc_impact_count(f1);
-  inc_impact_count(f2);
+}
+
+tether* tether_bodies(body* b1, body* b2, tether* tether_params) {
+  tether* teth = create_tether_blank(get_body_center(b1), get_body_center(b2), get_fizzle(b1), get_fizzle(b2));
+  copy_tether_params(tether_params, teth);
+  return teth;
 }
 

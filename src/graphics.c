@@ -117,11 +117,12 @@ picture* make_picture(char* fn) {
   if (fn == NULL) {
     fn = DEF_FN;
   }
+  fn = strdup(fn);
   if (get_texture_by_name(fn) == NULL) {
     add_texture(fn);
   }
   new->texture = get_texture_by_name(fn);
-  new->file_name = strdup(fn);
+  new->file_name = fn;
   return new;
 }
 
@@ -620,9 +621,11 @@ void tile_texture_for_body(body* b, char* fn, int g_w, int g_h, int t_w, int t_h
 SDL_Texture* generate_polygon_texture(polygon* in, int g_w, int g_h, SDL_Surface* tile, int t_w, int t_h, char* surf_save_fn) {
   Uint32 interior_val = SDL_MapRGB(get_pixel_format(), 12, 34, 56);
   Uint32 exterior_val = SDL_MapRGB(get_pixel_format(), 122, 122, 20);
+  Uint32 white_val = SDL_MapRGB(get_pixel_format(), 255, 255, 255);
   SDL_Surface* vignette = polygon_outline(in, interior_val, exterior_val, g_w, g_h);
   SDL_Surface* background = tile_image(vignette->w, vignette->h, tile, t_w, t_h);
   SDL_Surface* composite = createSurfaceFromDim(background->w, background->h);
+  SDL_FillRect(composite, NULL, white_val);
 
   SDL_SetSurfaceBlendMode(vignette, SDL_BLENDMODE_NONE);
   SDL_SetSurfaceBlendMode(background, SDL_BLENDMODE_NONE);
@@ -632,6 +635,7 @@ SDL_Texture* generate_polygon_texture(polygon* in, int g_w, int g_h, SDL_Surface
   SDL_BlitSurface(vignette, NULL, background, NULL);
   SDL_SetColorKey(background, SDL_TRUE, exterior_val);
   SDL_BlitSurface(background, NULL, composite, NULL);
+  SDL_SetColorKey(composite, SDL_TRUE, white_val);
 
   
   SDL_Texture* ret = loadSurfaceToTexture(composite);
@@ -671,6 +675,7 @@ SDL_Surface* tile_image(int tot_width, int tot_height, SDL_Surface* tile, int ti
 
 SDL_Surface* polygon_outline(polygon* in, Uint32 interior_val, Uint32 exterior_val, int grain_width, int grain_height) {
   polygon* p = clonePolygon(in);
+  set_rotation(p,0);
   collider* c = make_collider_from_polygon(p);
   collider_ref* cr = NULL;
   spatial_hash_map* shm = NULL;

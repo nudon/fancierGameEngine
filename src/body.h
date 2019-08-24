@@ -36,6 +36,8 @@ vector_2* get_velocity(body* aBody);
 virt_pos* get_body_center(body* b);
 void set_body_center(body* b, virt_pos* vp);
 picture* get_picture(body* aBody);
+void set_poltergeist(body* b, poltergeist* polt);
+poltergeist* get_poltergeist(body* b);
 
 void set_picture(body* aBody, picture* pic);
 void set_picture_by_name(body* aBody, char* fn);
@@ -54,5 +56,7 @@ void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector
 void solve_for_finals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f);
 void elastic_reduce(double m1, double m2, double* f1f, double* f2f, double els);
 void impact(body* b1, body* b2, vector_2* normal);
+
+tether* tether_bodies(body* b1, body* b2, tether* tether_params);
 
 #endif

@@ -14,6 +14,7 @@ virt_pos get_rotational_offset(body* b);
 struct compound_struct {
   //list of bodies in compound
   gen_list* bp;
+  gen_list* self_tethers;
   gi* compound_intelligence;
   //stuff for uniform movement of compound
   //flag that determines if body parts should be moved uniformly or not'
@@ -28,6 +29,7 @@ struct compound_struct {
 compound* create_compound() {
   compound* new = malloc(sizeof(compound));
   new->bp = createGen_list();
+  new->self_tethers = createGen_list();
   new->compound_intelligence = create_gi();
   new->uniform_flag = NONUNIFORM_COMPOUND;
   // new->uniform_flag = UNIFORM_COMPOUND;
@@ -137,7 +139,7 @@ void add_body_to_compound(compound* comp, body* b) {
 //join together bodies of comp
 //teth, optional. if !NULL, copy setup from teth. else use a default
 //genList, a list to append created tethers to.
-void tether_join_compound(compound* comp, tether* teth, gen_list* append) {
+void tether_join_compound(compound* comp, tether* teth) {
   gen_node* curr_body = comp->bp->start;
   body* b1 = NULL, *b2 = NULL;
   tether* body_teth;
@@ -150,12 +152,19 @@ void tether_join_compound(compound* comp, tether* teth, gen_list* append) {
 	teth = default_tether;
       }
       copy_tether_params(teth, body_teth);
-      if (append != NULL) {
-	appendToGen_list(append, createGen_node(body_teth));
-      }
+      
+      add_tether_to_compound(comp, body_teth);
     }
     curr_body = curr_body->next;
   }
+}
+
+void add_tether_to_compound(compound* comp, tether* teth) {
+  appendToGen_list(comp->self_tethers, createGen_node(teth));
+}
+
+gen_list* get_compound_tethers(compound* comp) {
+  return comp->self_tethers;
 }
 
 void set_compound_position(compound* comp, virt_pos* np) {

@@ -5,6 +5,8 @@
 #define CRAB_FN MEDIA_FOLDER"crab.png"
 #define SAND_FN MEDIA_FOLDER"sand.png"
 #define EYE_FN  MEDIA_FOLDER"eye.png"
-
+#define BLUE_SLIME_FN MEDIA_FOLDER"slime.png"
+#define BEACH_TREE_FN MEDIA_FOLDER"tree.png"
+#define DEF_FN MEDIA_FOLDER"def.png"
 
 #endif

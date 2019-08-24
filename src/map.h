@@ -4,13 +4,10 @@
 typedef struct map_struct map;
 typedef struct load_zone_struct load_zone;
 
-#include "plane.h"
-
-
-
 #include <stdlib.h>
 #include "events.h"
 #include "myList.h"
+#include "plane.h"
 
 map* create_map(char* name);
 gen_list* get_planes(map* map);

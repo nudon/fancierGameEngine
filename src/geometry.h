@@ -57,9 +57,7 @@ void make_square(polygon* poly);
 void stretch_deform_vert(polygon* poly, double amount);
 void stretch_deform_horz(polygon* poly, double amount);
 
-
-
-
+void set_scale(polygon* p, double scale);
 virt_pos* get_center(polygon* poly);
 void set_center(polygon* poly, virt_pos* val);
 
@@ -67,9 +65,9 @@ void set_rotation(polygon* poly, double new);
 double get_rotation(polygon* poly);
 void set_rotation_offset(polygon* poly, virt_pos* offset);
 
+void recalc_corners_and_norms(polygon* poly);
 void get_actual_point(polygon* poly, int i, virt_pos* result);
 void get_base_point(polygon* poly, int i, virt_pos* result);
-
 void set_base_point(polygon* poly, int i, virt_pos* set);
 void get_actual_normal(polygon* poly, int i, vector_2* result);
 

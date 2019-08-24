@@ -70,6 +70,7 @@ polygon* createNormalPolygon(int sides) {
   polygon* poly = createPolygon(sides);
   make_normal_polygon(poly);
   generate_normals_for_polygon(poly);
+  recalc_corners_and_norms(poly);
   return poly;
 }
 
@@ -112,12 +113,9 @@ void generate_normals_for_polygon(polygon* poly) {
     poly->base_normals[i] = temp;
   }
   //initializes rotated and normal corners for poly
-  set_rotation(poly, get_rotation(poly));
+  recalc_corners_and_norms(poly);
 }
 
-//had idea for a general normal polygon generator
-//just have center and some radial length
-//create first point, then rotate 360/sides, for second point, and so on.
 void make_normal_polygon(polygon* poly) {
   int sides = poly->sides;
   double rot_delta = M_PI * 2 / sides;
@@ -169,7 +167,10 @@ void stretch_deform_horz(polygon* poly, double amount) {
 
 //could do stretch deform for arbitrary lines. just need to project each point onto line, get orth and parrallell components, scale the parllell components and add to orthogonal.
 
-
+void set_scale(polygon* p, double scale) {
+  p->scale = scale;
+  recalc_corners_and_norms(p);
+}
 
 void freePolygon(polygon* poly) {
   free(poly->base_corners);
@@ -221,20 +222,22 @@ void set_rotation(polygon* poly, double new) {
   }
   poly->rotation = ang;
   //also need to recalculate normals and corners
-  virt_pos temp = *zero_pos;
+  recalc_corners_and_norms(poly);
+}
 
+void recalc_corners_and_norms(polygon* poly) {
+  virt_pos temp = *zero_pos;
+  double ang = poly->rotation;
   for (int i = 0; i < poly->sides; i++) {
     temp = poly->base_corners[i];
     temp.x = temp.x * poly->scale;
     temp.y = temp.y * poly->scale;
     
     virt_pos_rotate(&temp, ang, &temp);
-    //virt_pos_sub(&temp, &offset, &temp);
     poly->corners[i] = temp;
 
     vector_2_rotate(&(poly->base_normals[i]), ang, &(poly->normals[i]));
   }
-  
 }
 
 double get_rotation(polygon* poly) {

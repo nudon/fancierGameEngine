@@ -109,15 +109,13 @@ void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
 //also might want to have some limited speed modes by modifying magnitude of direction. could either add hard-coded tiers/thresholds or take a log of magnitude for nice but sometimes funny stuff
 
 void standard_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) {
-  //move roughly in direcion of compounds dir
-  
   vector_2 dir = get_curr_dir(get_gi(get_owner(body)));
   //might also take scales from gi
   double t_scale = 1.5;
   double r_scale = 0.004;
-  double mag = log(vector_2_magnitude(&dir));
+  double mag = vector_2_magnitude(&dir);
   if (mag > 0) {
-    vector_2_scale(&dir, t_scale * mag , &dir);
+    vector_2_scale(&dir, t_scale / mag , &dir);
     vector_2_add(t_disp, &dir, t_disp);
     r_scale *= mag;
   }

@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include "plane.h"
+#include "creations.h"
+
 
 struct plane_struct {
   spatial_hash_map* map;
@@ -7,6 +9,7 @@ struct plane_struct {
   gen_list* tethers_in_plane;
   gen_list* events_in_plane;
   gen_list* load_zones_in_plane;
+  gen_list* spawners_in_plane;
   double z_level;
   char* plane_name;
 };
@@ -19,6 +22,7 @@ plane* create_plane(spatial_hash_map* empty_map, char* name) {
   new->tethers_in_plane = createGen_list();
   new->events_in_plane = createGen_list();
   new->load_zones_in_plane = createGen_list();
+  new->spawners_in_plane = createGen_list();
   new->z_level = 1;
   new->plane_name = strdup(name);
   return new;
@@ -44,17 +48,25 @@ gen_list* get_load_zones(plane* plane) {
   return plane->load_zones_in_plane;
 }
 
+gen_list* get_spawners(plane* plane) {
+  return plane->spawners_in_plane;
+}
+
 char* get_plane_name(plane* p) { return p->plane_name; }
 
 double get_z_level(plane* plane) {
   return plane->z_level;
 }
 
-
 void set_z_level(plane* plane, double nz) {
   plane->z_level = nz;
 }
 
+void add_body_to_plane(plane* plane, body* b) {
+  compound* comp = create_compound();
+  add_body_to_compound(comp, b);
+  add_compound_to_plane(plane, comp);
+}
 
 void add_compound_to_plane(plane* plane, compound* comp) {
   prependToGen_list(get_compounds(plane), createGen_node(comp));
@@ -85,10 +97,14 @@ void add_tether_to_plane(plane* plane, tether* teth) {
 }
 
 void add_event_to_plane(plane* plane, event* event) {
-    prependToGen_list(get_events(plane), createGen_node(event));
+  prependToGen_list(get_events(plane), createGen_node(event));
 }
 
 void add_load_zone_to_plane(plane* plane, load_zone* lz) {
   prependToGen_list(get_load_zones(plane), createGen_node(lz));
+}
+
+void add_spawner_to_plane(plane* plane, compound_spawner* spawn) {
+  prependToGen_list(get_spawners(plane), createGen_node(spawn));
 }
 

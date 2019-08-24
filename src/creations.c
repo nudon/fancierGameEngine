@@ -10,9 +10,99 @@
 
 
 #define MAP_DIR "./maps/"
+char* ORIGIN_MAP_NAME = MAP_DIR"origin.map";
+char* BEACH_MAP_NAME = MAP_DIR"beach.map";
 
-/// helper functions
+char* BACKGROUND_PLANE_NAME = "background";
+char* FOREGROUND_PLANE_NAME = "foreground";
+char* MAIN_PLANE_NAME = "main";
 
+virt_pos ORIGIN_BEACH_POS = (virt_pos){.x= 345, .y=270};
+
+
+#define BLUE_SLIME_SPAWN "blue_slime_spawn"
+#define TEST_SPAWN "tunctish"
+
+struct compound_spawner_struct {
+  char* compound_name;
+  int spawn_cap;
+  virt_pos spawn_center;
+  compound* (*spawner) (int x_pos, int y_pos);
+};
+
+char* get_spawner_name(compound_spawner* spawn) {
+  return spawn->compound_name;
+}
+
+int get_spawner_cap(compound_spawner* spawn) {
+  return spawn->spawn_cap;
+}
+
+void get_spawner_pos(compound_spawner* spawn, virt_pos* result) {
+  *result = spawn->spawn_center;
+}
+
+compound_spawner* create_compound_spawner(char* name, int cap, int x_pos, int y_pos) {
+  compound_spawner* spawn = malloc(sizeof(compound_spawner));
+  spawn->compound_name = strdup(name);
+  spawn->spawn_cap = cap;
+  spawn->spawn_center = (virt_pos){.x = x_pos, .y = y_pos};
+  
+  //then look at name and find / set spawner func
+  if (strcmp(name, BLUE_SLIME_SPAWN) == 0) {
+    spawn->spawner = &makeSlime;
+  }
+  else if (strcmp(name, TEST_SPAWN) == 0) {
+    spawn->spawner = &tunctish;
+  }
+  else {
+    fprintf(stderr, "warning, unable to find spawner for %s\n", name);
+  }
+  return spawn;
+}
+
+void trigger_spawners_in_map(map* map) {
+  gen_node* curr_plane = get_planes(map)->start;
+  gen_node* curr_spawner;
+  plane* p = NULL;
+  compound_spawner* spawn = NULL;
+  while(curr_plane != NULL) {
+    p = (plane*)curr_plane->stored;
+    curr_spawner = get_spawners(p)->start;
+    while(curr_spawner != NULL) {
+      spawn = (compound_spawner*)curr_spawner->stored;
+      trigger_spawner(spawn, p);
+      curr_spawner = curr_spawner->next;
+    }
+    curr_plane = curr_plane->next;
+  }
+}
+
+void trigger_spawner(compound_spawner* spawn, plane* insert) {
+  virt_pos pos = *zero_pos;
+  compound* spawned = NULL;
+  if (spawn->spawn_cap != 0) {
+    if (spawn->spawn_cap > 0) {
+      spawn->spawn_cap--;
+    }
+    get_spawner_pos(spawn, &pos);
+    spawned = spawn->spawner(pos.x, pos.y);
+    add_compound_to_plane(insert, spawned);
+  }
+}
+
+
+
+
+
+
+double BLOCK_W_H_RATIO = 50.0 / 31;
+#define M_W 51
+#define M_H M_W / BLOCK_W_H_RATIO
+#define S_W 30
+#define S_H S_W / BLOCK_W_H_RATIO
+#define L_W 77
+#define L_H L_W / BLOCK_W_H_RATIO
 
 //handles initial setup
 body* blankBody(polygon* base) {
@@ -24,26 +114,52 @@ body* blankBody(polygon* base) {
   return b;
 }
 
-body* makeNormalBody(int sides) {
+body* makeNormalBody(int sides, double scale) {
   polygon* ngon = NULL;
   body* b;
   ngon = createNormalPolygon(sides);
+  set_scale(ngon, scale);
   b = blankBody(ngon);
   return b;
 }
+
+body* makeRectangleBody(int width, int height) {
+  polygon* rect = createRectangle(width, height);
+  body* b = blankBody(rect);
+  return b;
+}
+
+body* quick_nopic_block(int width, int height, int x_pos, int y_pos) {
+  body* b = makeBlock(width, height);
+  virt_pos p = (virt_pos){.x = x_pos, .y = y_pos};
+  set_body_center(b,&p);
+  return b;
+}
+
+body* quick_block(int width, int height, int x_pos, int y_pos, char* fn) {
+  body* b = quick_nopic_block(width, height, x_pos, y_pos);
+  set_picture_by_name(b, fn);
+  return b;
+}
+
+body* quick_tile_block(int width, int height, int x_pos, int y_pos, char* fn) {
+  body* b = quick_nopic_block(width, height, x_pos, y_pos);
+  tile_texture_for_body(b, fn, 3,3,0,0);
+  return b;
+}
+  
+
 
 //functions for automatically creating/spacing multiple objects
 #define HORZ_CHAIN 0
 #define VERT_CHAIN 1
  
-compound* makeBlockChain(virt_pos* start_pos, int len, int chain_type) {
+compound* makeBlockChain(int pos_x, int pos_y, int width, int height, char* pic_fn, int len, int chain_type) {
   vector_2 dir;
   double disp = 0;
-  int width = 50;
-  int height = 31;
   if (chain_type == HORZ_CHAIN) {
     dir = (vector_2){.v1 = 1, .v2 = 0};
-    disp = width - 2;
+    disp = width - 3;
   }
   else if (chain_type == VERT_CHAIN) {
     dir = (vector_2){.v1 = 0, .v2 = 1};
@@ -53,7 +169,9 @@ compound* makeBlockChain(virt_pos* start_pos, int len, int chain_type) {
     fprintf(stderr, "unset chain dir\n");
   }
   body* base_block = makeBlock(width, height);
-  return makeBodyChain(base_block, start_pos, len, &dir, disp);
+  set_picture_by_name(base_block, pic_fn);
+  virt_pos center = (virt_pos){.x = pos_x, .y = pos_y};
+  return makeBodyChain(base_block, &center, len, &dir, disp);
 }
  
 // duplicates a body in the specified way and returns compound, original body is not used
@@ -76,6 +194,21 @@ compound* makeBodyChain(body* start, virt_pos* start_pos,  int len, vector_2* di
     add_body_to_compound(chain, temp);
   }
   return chain;
+}
+
+//loadzones are still pretty annoying to create
+void insert_load_zone_into_plane(char* from_map, char* to_map, plane* from_plane, char* to_plane_name, virt_pos* from_pos, virt_pos* to_pos) {
+  char* from_plane_name = get_plane_name(from_plane);
+  event* load_event = make_load_event(from_pos);
+  load_zone* lz = make_load_zone(from_map, to_map, from_plane_name, to_plane_name, to_pos, load_event);
+  add_load_zone_to_plane(from_plane, lz);
+}
+
+event* make_load_event(virt_pos* cent) {
+  polygon* poly = createNormalPolygon(7);
+  set_center(poly, cent);
+  event* load = make_event(poly);
+  return load;
 }
 
 /// prefabs
@@ -129,28 +262,29 @@ body* makeBlock (int width, int height) {
   fizzle* f = get_fizzle(b);
   set_mass(f, INFINITY);
   set_bounce(f, 0.1);
-  set_picture_by_name(b, SAND_FN);
   return b;
 }
 
-compound* makeCentipede(int segments, gen_list* tethers, virt_pos* center) {
+compound* makeCentipede(int segments, int pos_x, int pos_y) {
   compound* centComp = create_compound();
   body* body;
+  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
   for (int i = 0; i < segments; i++) {
-    body = makeNormalBody(8);
+    body = makeNormalBody(8, 2);
     set_center(get_polygon(get_collider(body)), center);
     add_body_to_compound(centComp, body);
   }
-  tether_join_compound(centComp, NULL, tethers);
+  tether_join_compound(centComp, NULL);
   return centComp;
 }
 
-compound* makeCrab(virt_pos* center) {
+compound* makeCrab(int pos_x, int pos_y) {
   compound* centComp = create_compound();
   polygon* poly;
   collider* coll;
   fizzle* fizz;
   body* body;
+  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
   poly = createRectangle(60, 40);
   
   *(poly->center) = *center;
@@ -169,13 +303,93 @@ compound* makeCrab(virt_pos* center) {
   return centComp;
 }
 
+compound* makeSlime(int pos_x, int pos_y) {
+  compound* centComp = create_compound();
+  polygon* poly;
+  collider* coll;
+  fizzle* fizz;
+  body* slime_body;
+  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
+  poly = createRectangle(48, 48);
+  
+  *(poly->center) = *center;
+  coll = make_collider_from_polygon(poly);
+  
+  fizz = createFizzle();
+  init_fizzle(fizz);
+  set_bounce(fizz, 3.3);
+  vector_2 g = (vector_2){.v1 = 0, .v2 = 400};
+  set_gravity(fizz, &g);
+  slime_body = createBody(fizz, coll);
+  add_body_to_compound(centComp, slime_body);
+
+  set_picture_by_name(slime_body, BLUE_SLIME_FN );
+
+  poltergeist* p = make_poltergeist();
+  give_standard_poltergeist(p);
+  set_poltergeist(slime_body, p);
+  set_hunter(get_attributes(centComp), 1);
+  make_basic_vision_event(slime_body);
+
+  return centComp;
+}
+
+compound* tunctish(int pos_x, int pos_y) {
+  compound* comp = create_compound();
+  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
+
+  body* torso = makeNormalBody(8, 7);
+  body* leg1 = makeRectangleBody(12,45);
+  body* leg2 = makeRectangleBody(12,45);
+  body* leg3 = makeRectangleBody(12,45);
+
+  body* arm1 = makeRectangleBody(9,40);
+  body* lure = makeNormalBody(7, 2);
+
+  set_body_center(torso, center);
+  virt_pos leg_p1, leg_p2, leg_p3, arm_p1;
+  polygon* torso_poly = get_polygon(get_collider(torso));
+  get_actual_point(torso_poly, 1, &arm_p1);
+  get_actual_point(torso_poly, 2, &leg_p1);
+  get_actual_point(torso_poly, 3, &leg_p2);
+  get_actual_point(torso_poly, 4, &leg_p3);
+
+  set_body_center(arm1, &arm_p1);
+  set_body_center(lure, &arm_p1);
+  set_body_center(leg1, &leg_p1);
+  set_body_center(leg2, &leg_p2);
+  set_body_center(leg3, &leg_p3);
+  
+  tether* lure_tether = tether_bodies(arm1, lure, default_tether);
+  add_tether_to_compound(comp, lure_tether);
+  
+  tile_texture_for_body(lure, BLUE_SLIME_FN, 4,5,4,4);
+  tile_texture_for_body(torso, EYE_FN, 6,6,0,0);
+  tile_texture_for_body(arm1, DEF_FN, 3,3,0,0);
+  tile_texture_for_body(leg1, DEF_FN, 3,3,0,0);
+  tile_texture_for_body(leg2, DEF_FN, 3,3,0,0);
+  tile_texture_for_body(leg3, DEF_FN, 3,3,0,0);
+  
+  
+  add_body_to_compound(comp, lure);
+  make_compound_uniform(comp);
+  add_body_to_compound(comp, torso);
+  add_body_to_compound(comp, arm1);
+  add_body_to_compound(comp, leg1);
+  add_body_to_compound(comp, leg2);
+  add_body_to_compound(comp, leg3);
+
+  return comp;
+}
+
 //goal is to make a trashcan like this
 /*
   |  | 
   |__|
  */
-compound* makeTrashCan(virt_pos* center) {
+compound* makeTrashCan(int pos_x, int pos_y) {
   compound* can = create_compound();
+  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
   make_compound_uniform(can);
   body* bottom = NULL;
   body* lside = NULL;
@@ -237,49 +451,23 @@ polygon* make_event_poly(polygon* shape) {
   return new;
 }
 
-char* ORIGIN_MAP_NAME = MAP_DIR"origin.map";
-
-char* ROOM_MAP_NAME = MAP_DIR"room.map";
-
-char* STREET_MAP_NAME = MAP_DIR"streets.map";
-
-char* BACKGROUND_PLANE_NAME = "background";
-
-char* MAIN_PLANE_NAME = "main";
-
-virt_pos ORIGIN_ROOM_POS = (virt_pos){.x= 345, .y=270};
-virt_pos ROOM_STREET_POS = (virt_pos){.x= 120, .y=270};
-virt_pos STREET_ROOM_POS = (virt_pos){.x= 570, .y=70};
-
 void write_maps_to_disk() {
-  map* origin = make_origin_map();
-  FILE* origin_map = fopen(ORIGIN_MAP_NAME, "w+");
-  xml_write_map(origin_map, origin);
-  fclose(origin_map);
+  map* aMap = make_origin_map();
+  FILE* mapFile = fopen(ORIGIN_MAP_NAME, "w+");
+  xml_write_map(mapFile, aMap);
+  fclose(mapFile);
   
-  map* street = make_street_map();
-  FILE* streets_map = fopen(STREET_MAP_NAME, "w+");
-  xml_write_map(streets_map, street);
-  fclose(streets_map);
+  aMap = make_beach_map();
+  mapFile = fopen(BEACH_MAP_NAME, "w+");
+  xml_write_map(mapFile, aMap);
+  fclose(mapFile);
   
-  map* room = make_room_map();
-  FILE* room_map = fopen(ROOM_MAP_NAME, "w+");
-  xml_write_map(room_map, room);
-  fclose(room_map);
   
   printf("Wrote maps to disk\n");
 }
 
 map* load_origin_map() {
   return load_map_by_name(ORIGIN_MAP_NAME);
-}
-
-map* load_room_map() {
-  return load_map_by_name(ROOM_MAP_NAME);
-}
-
-map* load_streets_map() {
-  return load_map_by_name(STREET_MAP_NAME);
 }
 
 map* load_map_by_name(char* name) {
@@ -300,105 +488,79 @@ map* make_origin_map() {
   plane* plane = create_plane(map, MAIN_PLANE_NAME);
   virt_pos center = (virt_pos){.x = getScreenWidth() / 2, .y = getScreenHeight() / 2};
 
-  compound* user = makeCrab(&center);
+  compound* user = makeCrab(center.x, center.y);
   compound* walls = makeWalls();
   make_compound_user(user);
-  set_hunter(get_attributes(user), 1);
+  //set_hunter(get_attributes(user), 1);
+  set_prey(get_attributes(user), 1);
   add_compound_to_plane(plane, user);
   add_compound_to_plane(plane, walls);
   
-  
-  event* load_event = make_load_event(&ORIGIN_ROOM_POS);
-  load_zone* lz = make_load_zone(ORIGIN_MAP_NAME, ROOM_MAP_NAME, MAIN_PLANE_NAME, MAIN_PLANE_NAME, &ORIGIN_ROOM_POS, load_event);
-  add_load_zone_to_plane(plane, lz);
+
+  insert_load_zone_into_plane(ORIGIN_MAP_NAME, BEACH_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
   add_plane(origin_map, plane);
   return origin_map;
 }
 
-map* make_room_map() {
-  map* origin_map = create_map(ROOM_MAP_NAME);
+map* make_beach_map() {
+  map* beach = create_map(BEACH_MAP_NAME);
 
-  int map_width = 1600;
-  int map_height = 800;
+  int map_width = getScreenWidth() * 3.5;
+  int map_height = getScreenHeight() * 1.5;
   int cols = 20;
   int rows = 14;
   int width = map_width / cols;
   int height = map_height / rows;
 
-  double floor_height = map_height * 2 / 3;
+  double floor_height = map_height * 0.8;
+  double floor_top = floor_height - M_W / 2.0;
   spatial_hash_map* map = create_shm(width, height, cols, rows);
 
-  plane* plane = create_plane(map, MAIN_PLANE_NAME);
+  plane* bg = create_plane(map, BACKGROUND_PLANE_NAME);
+  plane* main = create_plane(map, MAIN_PLANE_NAME);
+  plane* fg = create_plane(map, FOREGROUND_PLANE_NAME);
   
-  virt_pos pos = (virt_pos){.x = map_width * 2 / 3, .y = map_height / 2}; 
-  compound* triangle = create_compound();
-  body* temp = makeNormalBody(3);
-  poltergeist* p = make_poltergeist();
-  give_standard_poltergeist(p);
-  temp->polt = p;
-  set_center(get_polygon(get_collider(temp)), &pos);
-  add_body_to_compound(triangle, temp);
-  set_prey(get_attributes(triangle), 1);
-  add_compound_to_plane(plane, triangle);
+  compound_spawner* slime_spawn = create_compound_spawner(BLUE_SLIME_SPAWN, -1 ,map_width * 2 / 3, map_height / 2);
+  add_spawner_to_plane(main, slime_spawn);
+  
+  compound* can = makeTrashCan(ORIGIN_BEACH_POS.x, floor_top);
+  add_compound_to_plane(main, can);
+  
+  compound* floor = makeBlockChain(0, floor_height, M_W, M_H, SAND_FN, 40, HORZ_CHAIN);
+  add_compound_to_plane(main, floor);
 
+  compound_spawner* monster_spawn = create_compound_spawner(TEST_SPAWN, -1, 666, floor_top - 100);
+  add_spawner_to_plane(main, monster_spawn);
   
-  virt_pos can_pos = (virt_pos){.x = ORIGIN_ROOM_POS.x, floor_height - 15}; // -15 is half of the floor block width
-  compound* can = makeTrashCan(&can_pos);
-  add_compound_to_plane(plane, can);
-    
 
-  virt_pos start = (virt_pos){.x = 0, .y = floor_height};
-  compound* floor = makeBlockChain(&start, 20, HORZ_CHAIN);
+  body* left_wall = quick_tile_block(58, 555, 0, floor_height, EYE_FN);
+  body* right_wall = quick_tile_block(58, 555, map_width, floor_height, EYE_FN);
   
-  body* wall = makeBlock(58, 555);
-  virt_pos left_eye_wall_pos = (virt_pos){.x = 0, .y = floor_height};
-  set_body_center(wall, &left_eye_wall_pos);
-  tile_texture_for_body(wall, EYE_FN, 3,2,29,29);
   compound* wall_comp = create_compound();
-  add_body_to_compound(wall_comp, wall);
-  add_compound_to_plane(plane, wall_comp);
-  
-  
-  add_compound_to_plane(plane, floor);
+  add_body_to_compound(wall_comp, left_wall);
+  add_body_to_compound(wall_comp, right_wall);
+  add_compound_to_plane(main, wall_comp);
 
   
-  make_basic_vision_event((body*)get_bodies(triangle)->start->stored);
+  body* aTree = NULL;
+  floor_top = floor_height - 190 / 2.0;
+  aTree = quick_block(48,190, 700, floor_top, BEACH_TREE_FN);
+  add_body_to_plane(bg, aTree);
   
-  event* load_event = make_load_event(&ROOM_STREET_POS);
-  load_zone* lz = make_load_zone(ROOM_MAP_NAME, STREET_MAP_NAME, MAIN_PLANE_NAME, MAIN_PLANE_NAME, &ROOM_STREET_POS, load_event);
-  add_load_zone_to_plane(plane, lz);
-  add_plane(origin_map, plane);
-  return origin_map;
-}
-
-map* make_street_map() {
-  map* street_map = create_map(STREET_MAP_NAME);
+  aTree = quick_block(48,190,70, floor_top, BEACH_TREE_FN);
+  add_body_to_plane(fg, aTree);
   
-  int cols = 20;
-  int rows = 7;
-  int width = 2 * getScreenWidth() / cols;
-  int height = getScreenHeight() / rows;
-  spatial_hash_map* map = create_shm(width, height, cols, rows);
-
-  plane* plane = create_plane(map, MAIN_PLANE_NAME);
-  //compound* triangle = makeTriangle();
-  //set_prey(get_attributes(triangle), 1);
-  //add_compound_to_plane(plane, triangle);
+  aTree = quick_block(48,190, 600, floor_top, BEACH_TREE_FN);
+  add_body_to_plane(bg, aTree);
   
-  //struct event_struct* vi = make_basic_vision_event((body*)get_bodies(triangle)->start->stored);
-  //add_event_to_plane(plane, vi);
-
-  event* load_event = make_load_event(&STREET_ROOM_POS);
-  load_zone* lz = make_load_zone(STREET_MAP_NAME, ROOM_MAP_NAME, MAIN_PLANE_NAME, MAIN_PLANE_NAME, &STREET_ROOM_POS, load_event);
-  add_load_zone_to_plane(plane, lz);
+  aTree = quick_block(48,190, 300, floor_top, BEACH_TREE_FN);
+  add_body_to_plane(fg, aTree);
   
-  add_plane(street_map, plane);
-  return street_map;
-}
+  aTree = quick_block(48,190, 320, floor_top, BEACH_TREE_FN);
+  add_body_to_plane(bg, aTree);
 
-event* make_load_event(virt_pos* cent) {
-  polygon* poly = createNormalPolygon(7);
-  set_center(poly, cent);
-  event* load = make_event(poly);
-  return load;
+  add_plane(beach, bg);
+  add_plane(beach, main);
+  add_plane(beach, fg);
+  return beach;
 }

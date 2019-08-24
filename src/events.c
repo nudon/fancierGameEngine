@@ -175,20 +175,16 @@ void basic_decide(body* self, body* trigger) {
   decision_att* sa = get_gi_attributes(si);
   decision_att* ta = get_gi_attributes(ti);
   vector_2 dir = *zero_vec;
-  //double mag = 0;
-  //double run_scale = 500;
   if (is_hunter(ta) && is_prey(sa)) {
     //then run away
     vector_between_points(get_body_center(trigger), get_body_center(self), &dir);
-    /*
-    mag = vector_2_magnitude(&dir);
-    if (mag > 0) {
-      vector_2_scale(&dir, run_scale / mag, &dir);
-      }
-    */
     add_to_dir(si, &dir);
-    printf("noot noot time to scoot\n");
   }
+    if (is_hunter(sa) && is_prey(ta)) {
+    //then chase
+    vector_between_points(get_body_center(self), get_body_center(trigger), &dir);
+    add_to_dir(si, &dir);
+    }
 
   dir = get_dir(get_owner(self));
     

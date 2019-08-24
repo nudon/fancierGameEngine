@@ -23,9 +23,11 @@ void compound_update(spatial_hash_map* map, compound* c);
 
 gen_list* get_bodies(compound* comp);
 
-void add_body_to_compound(compound* comp, struct body_struct* body);
+void add_body_to_compound(compound* comp, body* body);
 
-void tether_join_compound(compound* comp, struct tether_struct* teth, gen_list* append);
+void tether_join_compound(compound* comp, tether* teth);
+void add_tether_to_compound(compound* comp, tether* teth);
+gen_list* get_compound_tethers(compound* comp);
 
 void set_compound_position(compound* comp, virt_pos* np);
 
@@ -35,6 +37,5 @@ int get_compound_uniform_flag(compound* c);
 void set_compound_uniform_flag(compound* c, int v);
 
 vector_2 get_dir(compound* comp);
-
 
 #endif

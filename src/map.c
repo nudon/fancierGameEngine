@@ -190,7 +190,6 @@ virt_pos get_lz_dest(load_zone* lz) { return lz->dest; }
 event* get_lz_event(load_zone* lz) { return lz->trigger; }
 
 void trigger_map_change(load_zone* lz, compound* trav) {
-  printf("something is changing maps...\n");
   decision_att* att = get_attributes(trav);
   plane* curr_plane = NULL;
   gen_list* move = NULL;
@@ -209,6 +208,7 @@ void trigger_map_change(load_zone* lz, compound* trav) {
 	map* newMap = NULL;
 	newMap = load_map_by_name(lz->to_map);
 	setMap(newMap);
+	trigger_spawners_in_map(newMap);
 	//then flush travel lists to new one
 	flush_travel_list_for_map(newMap);
 	//also generate travel lists for new map

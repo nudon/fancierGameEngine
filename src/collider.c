@@ -69,7 +69,6 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
 }
 
 
-
 void update_refs(collider* coll) {
     vector* temp;
     collider_ref* cr = coll->collider_node;
@@ -118,7 +117,6 @@ void free_collider(collider* rm) {
     remove_node(cr->active_cell_nodes[i]);
   }
   free_cr(cr);
-  freePolygon(rm->shape);
   //Collider should have center* reassigned to bbox
   if (rm->shape->center != rm->bbox->center) {
     fprintf(stderr, "Some collider didn't get it's center reassigned\n");
@@ -126,6 +124,7 @@ void free_collider(collider* rm) {
   else {
     rm->bbox->center = NULL;
   }
+  freePolygon(rm->shape);
   freePolygon(rm->bbox);
   free(rm);
 }

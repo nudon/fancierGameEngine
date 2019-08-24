@@ -30,7 +30,7 @@ int main(int argc, char** args) {
   write_maps_to_disk();
   
   map* map = load_origin_map();
-  //map* map = make_origin_map();
+  //map* map = make_beach_map();
   
   map_load_create_travel_lists(map);
   setMap(map);
@@ -113,6 +113,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
   double rot_disp = 0;
   while(comp_curr != NULL){
     aCompound = (compound*)comp_curr->stored;
+    update_tethers(get_compound_tethers(aCompound));
     calc_new_dir(get_gi(aCompound));
     body_curr = get_bodies(aCompound)->start;
     while (body_curr != NULL) { 

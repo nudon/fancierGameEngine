@@ -20,6 +20,9 @@ event* xml_read_event(xmlNodePtr event_node);
 void xml_write_gi(FILE* file_out, gi* g);
 gi* xml_read_gi(xmlNodePtr gi_node);
 
+void xml_write_spawner(FILE* file_out, compound_spawner* spawn);
+compound_spawner* xml_read_spawner(xmlNodePtr spawn_node);
+
 void xml_write_compound(FILE* file_out, compound* comp);
 compound* xml_read_compound(xmlNodePtr comp_node);
 
@@ -47,61 +50,7 @@ decision_att* xml_read_attributes(xmlNodePtr atts);
 		    
 double get_double_prop(xmlNodePtr node, char* id);
 int get_int_prop(xmlNodePtr node, char* id);
-
-
-void test_xml_parse() {
-  xmlDocPtr doc;
-  xmlNodePtr cur;
-  char* fn = "test.xml";
-  doc = xmlParseFile(fn);
-
-  if (doc != NULL) {
-    cur = xmlDocGetRootElement(doc);
-    if (cur != NULL) {
-      printf("yay %s\n", cur->name);
-    }
-    else {
-      
-    }
-  }
-  else {
-    
-  }
-}
-
-void test_plane_parse(plane* test) {
-  fprintf(stderr, "do I pass\n");
-  char* fn1 = "test1.xml";
-  char* fn2 = "test2.xml";
-  FILE* file1 = fopen(fn1, "w+");
-  FILE* file2 = fopen(fn2, "w+");
-
-  char* xml_open = "<?xml version=\"1.0\"?>\n";
-
-
-  fprintf(file1, xml_open);
-  xml_write_plane(file1, test);
-  fclose(file1);
-  
-  xmlDocPtr doc;
-  xmlNodePtr cur;
-  doc = xmlParseFile(fn1);
-  cur = xmlDocGetRootElement(doc);
-  //cur = cur->xmlChildrenNode;
-
-  while (cur != NULL && xmlStrcmp(cur->name, (const xmlChar*)"plane") != 0) {
-    cur = cur->next;
-    printf("%s\n", cur->name);
-  }
-
-  plane* other_test = xml_read_plane(cur);
-  
-  fprintf(file2, xml_open);
-  xml_write_plane(file2, other_test);
- 
-  fclose(file2);
-  fprintf(stderr, "I guess go check %s and %s to see if they look similar\n", fn1, fn2);
-}
+char* get_charp_prop(xmlNodePtr node, char* id);
 
 map* load_map(char* filename) {
   xmlDocPtr doc = xmlParseFile(filename);
@@ -154,7 +103,12 @@ void xml_write_plane(FILE* file_out, plane* plane) {
     xml_write_load_zone(file_out, (load_zone*)curr_load->stored);
     curr_load = curr_load->prev;
   }
-  fprintf(file_out, "</plane>");
+  gen_node* curr_spawner = get_spawners(plane)->end;
+  while (curr_spawner != NULL) {
+    xml_write_spawner(file_out, (compound_spawner*)curr_spawner->stored);
+    curr_spawner = curr_spawner->prev;
+  }
+  fprintf(file_out, "</plane>\n");
 }
 
 plane* xml_read_plane(xmlNodePtr plane_node) {
@@ -174,6 +128,7 @@ plane* xml_read_plane(xmlNodePtr plane_node) {
   set_z_level(plane, z);
   compound* comp = NULL;
   load_zone* lz = NULL;
+  compound_spawner* spawn = NULL;
   while (child != NULL) {
     if (xmlStrcmp(child->name, (const xmlChar*)"compound") == 0) {
       comp = xml_read_compound(child);
@@ -183,6 +138,11 @@ plane* xml_read_plane(xmlNodePtr plane_node) {
       lz = xml_read_load_zone(child);
       add_load_zone_to_plane(plane, lz);
     }
+    else if (xmlStrcmp(child->name, (const xmlChar*)"spawner") == 0) {
+      spawn = xml_read_spawner(child);
+      add_spawner_to_plane(plane, spawn);
+    }
+    
     child = child->next;
   }
   return plane;
@@ -309,6 +269,30 @@ gi* xml_read_gi(xmlNodePtr gi_node) {
   set_exp_decay_alpha(g, val);
   free_decision_att(atts);
   return g;
+}
+
+void xml_write_spawner(FILE* file_out, compound_spawner* spawn) {
+  fprintf(file_out, "<spawner compound_name=\"%s\" spawn_cap = \"%i\">\n", get_spawner_name(spawn), get_spawner_cap(spawn));
+  virt_pos temp;
+  get_spawner_pos(spawn, &temp);
+  xml_write_virt_pos(file_out, &temp, "spawn_center");
+  fprintf(file_out, "</spawner>\n");
+}
+
+compound_spawner* xml_read_spawner(xmlNodePtr spawn_node) {
+  char* spawn_name = get_charp_prop(spawn_node, "compound_name");
+  int cap = get_int_prop(spawn_node, "spawn_cap");
+  virt_pos spawn_pos = *zero_pos;
+  xmlNodePtr child =  spawn_node->xmlChildrenNode;
+  while(child != NULL) {
+    if (xmlStrcmp(child->name, (const xmlChar*)"virt_pos") == 0) {
+      xml_read_virt_pos(child, &spawn_pos);
+    }
+    child = child->next;
+  }
+  compound_spawner* spawn = create_compound_spawner(spawn_name, cap, spawn_pos.x, spawn_pos.y);
+  free(spawn_name);
+  return spawn;
 }
 
 void xml_write_compound(FILE* file_out, compound* comp) {
@@ -498,8 +482,7 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
   ival = get_int_prop(polygon_node, "sides");
   poly = createPolygon(ival);
   
-  val = get_double_prop(polygon_node, "scale");
-  poly->scale = val;
+  double scale = get_double_prop(polygon_node, "scale");
 
   val = get_double_prop(polygon_node, "rotation");
   poly->rotation = val;
@@ -526,6 +509,7 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
     child = child->next;
   }
   generate_normals_for_polygon(poly);
+  set_scale(poly, scale);
   return poly;
 }
 
@@ -585,6 +569,14 @@ decision_att* xml_read_attributes(xmlNodePtr atts_node) {
   return atts;
 }
 
+int get_int_prop(xmlNodePtr node, char* id) {
+  xmlChar* text_val = xmlGetProp(node, (const xmlChar*)id);
+  int val = -1;
+  val = atoi((const char*)text_val);
+  free(text_val);
+  return val;
+}
+
 double get_double_prop(xmlNodePtr node, char* id) {
   xmlChar* text_val = xmlGetProp(node, (const xmlChar*)id);
   double val = -1;
@@ -593,10 +585,7 @@ double get_double_prop(xmlNodePtr node, char* id) {
   return val;
 }
 
-int get_int_prop(xmlNodePtr node, char* id) {
+char* get_charp_prop(xmlNodePtr node, char* id) {
   xmlChar* text_val = xmlGetProp(node, (const xmlChar*)id);
-  int val = -1;
-  val = atoi((const char*)text_val);
-  free(text_val);
-  return val;
+  return (char*)text_val;
 }
