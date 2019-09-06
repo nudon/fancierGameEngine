@@ -42,5 +42,6 @@ void write_maps_to_disk();
 compound* makeCrab(int pos_x, int pos_y);
 compound* makeSlime(int pos_x, int pos_y);
 compound* tunctish(int pos_x, int pos_y);
+compound* makeTrashCan(int pos_x, int pos_y);
 
 #endif

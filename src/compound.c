@@ -16,27 +16,13 @@ struct compound_struct {
   gen_list* bp;
   gen_list* self_tethers;
   gi* compound_intelligence;
-  //stuff for uniform movement of compound
-  //flag that determines if body parts should be moved uniformly or not'
-  int uniform_flag;
-  virt_pos t_disp;
-  int t_count;
-  double r_disp;
-  int r_count;
 };
-  
 
 compound* create_compound() {
   compound* new = malloc(sizeof(compound));
   new->bp = createGen_list();
   new->self_tethers = createGen_list();
   new->compound_intelligence = create_gi();
-  new->uniform_flag = NONUNIFORM_COMPOUND;
-  // new->uniform_flag = UNIFORM_COMPOUND;
-  new->t_disp = *zero_pos;
-  new->t_count = 0;
-  new->r_disp = 0;
-  new->r_count = 0;
   return new;
 }
 
@@ -45,12 +31,9 @@ body* get_compound_head(compound* c) {
 }
 
 int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
-  compound* c = get_owner(b);
-  if (is_compound_uniform(c)) {
-    virt_pos_add(t_disp, &(c->t_disp), &(c->t_disp));
-    c->t_count++;
-    c->r_disp += r_disp;
-    c->r_count++;
+  shared_input* si = get_shared_input(b);
+  if (si != NULL) {
+    add_to_shared_input(t_disp, r_disp, si);
     return 1;
   }
   else {
@@ -61,29 +44,21 @@ int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp)
 void compound_update(spatial_hash_map* map, compound* c) {
   gen_node* n  = NULL;
   body* b = NULL;
-  virt_pos avg_t_disp = *zero_pos;
-  virt_pos orig_offset = *zero_pos;
   virt_pos curr_offset = *zero_pos;
+  virt_pos orig_offset = *zero_pos;
   virt_pos t_disp = *zero_pos;
   polygon* p = NULL;
   polygon* head = get_polygon(get_collider(get_compound_head(c)));
   double r_disp = 0;
-  if (is_compound_uniform(c)) {
-    if (c->t_count != 0) {
-      avg_t_disp.x = c->t_disp.x / c->t_count;
-      avg_t_disp.y = c->t_disp.y / c->t_count;
-      c->t_count = 0;
-      c->t_disp = *zero_pos;
-    }
-    if (c->r_count != 0) {
-      r_disp = c->r_disp / c->r_count;
-      c->r_count = 0;
-      c->r_disp = 0;
-    }
-    //r_disp = 0.003;
-    n = get_bodies(c)->start;
-    while(n != NULL) {
-      b = (body*)n->stored;
+  virt_pos avg_t_disp = *zero_pos;
+  double avg_r_disp = 0;
+  shared_input* si = NULL;
+  n = get_bodies(c)->start;
+  while(n != NULL) {
+    b = (body*)n->stored;
+    si = get_shared_input(b);
+    if (si != NULL)  {
+      get_avg_movement(si, &avg_t_disp, &avg_r_disp);
       orig_offset = *zero_pos;
       curr_offset = get_rotational_offset(b);
       t_disp = *zero_pos;
@@ -99,9 +74,9 @@ void compound_update(spatial_hash_map* map, compound* c) {
 	//no rotation offset, nothing special happens
 	t_disp = avg_t_disp;
       }
-      update(map, b->coll, &t_disp, r_disp);
-      n = n->next;
     }
+    update(map, b->coll, &t_disp, r_disp);
+    n = n->next;
   }
   //non-uniform compounds have body parts handled in body_update
   //else {}
@@ -112,8 +87,10 @@ virt_pos get_rotational_offset(body* b) {
   virt_pos head_center = *zero_pos;
   virt_pos curr_center = *zero_pos;
   virt_pos offset = *zero_pos;
-  if (is_compound_uniform(comp) && comp->bp->start != NULL) {
-    head_center = *get_body_center(get_compound_head(comp));
+  shared_input *si = get_shared_input(b);  
+  if (si != NULL && comp->bp->start != NULL) {
+    //head_center = *get_body_center(get_compound_head(comp));
+    head_center = get_shared_input_origin(si);
     curr_center = *get_body_center(b);
     virt_pos_sub(&head_center, &curr_center, &offset);
   }
@@ -128,7 +105,7 @@ void add_body_to_compound(compound* comp, body* b) {
   b->owner = comp;
   virt_pos offset = *zero_pos;
   polygon* p = NULL;
-  if (is_compound_uniform(comp) && comp->bp->start != NULL) {
+  if (get_shared_input(b) != NULL && comp->bp->start != NULL) {
     p = get_polygon(get_collider((b)));
     offset = get_rotational_offset(b);
     set_rotation_offset(p, &offset);
@@ -198,20 +175,4 @@ gi* get_gi(compound* comp) {
 
 void set_gi(compound* comp, gi* g) {
   comp->compound_intelligence = g;
-}
-
-void make_compound_uniform(compound* c) {
-  c->uniform_flag = UNIFORM_COMPOUND;
-}
-
-int is_compound_uniform(compound* c) {
-  return c->uniform_flag == UNIFORM_COMPOUND;
-}
-
-int get_compound_uniform_flag(compound* c) {
-  return c->uniform_flag;
-}
-
-void set_compound_uniform_flag(compound* c, int v) {
-  c->uniform_flag = v;
 }

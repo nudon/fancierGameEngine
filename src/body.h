@@ -2,6 +2,7 @@
 #define FILE_MYBODY_SEEN
 
 typedef struct body_struct body;
+typedef struct shared_input_struct shared_input;
 
 #include "collider.h"
 #include "physics.h"
@@ -17,9 +18,22 @@ struct body_struct {
   struct compound_struct* owner;
   picture* pic;
   int status;
+  int uniform_flag;
+  shared_input** uniform_input;
   //used for holding ai related events
   gen_list* event_list;
 };
+
+shared_input* create_shared_input();
+shared_input** create_shared_input_ref();
+void free_shared_input(shared_input* rm);
+void free_shared_input_ref(shared_input** rm);
+shared_input* get_shared_input(body* b);
+void set_shared_input(body* b, shared_input** si);
+void add_to_shared_input(virt_pos* t, double r, shared_input* si);
+void get_avg_movement(shared_input* si, virt_pos* t, double* r);
+void set_shared_input_origin(shared_input* si, virt_pos* point);
+virt_pos get_shared_input_origin(shared_input* si);
 
 body* createBody(fizzle* fizz, struct collider_struct* coll);
 body* cloneBody(body* src);

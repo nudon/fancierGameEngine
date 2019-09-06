@@ -19,9 +19,9 @@ char* MAIN_PLANE_NAME = "main";
 
 virt_pos ORIGIN_BEACH_POS = (virt_pos){.x= 345, .y=270};
 
-
+#define TRASHCAN_SPAWN "trashcan_spawn"
 #define BLUE_SLIME_SPAWN "blue_slime_spawn"
-#define TEST_SPAWN "tunctish"
+#define TEST_SPAWN "test_spawn"
 
 struct compound_spawner_struct {
   char* compound_name;
@@ -54,6 +54,9 @@ compound_spawner* create_compound_spawner(char* name, int cap, int x_pos, int y_
   }
   else if (strcmp(name, TEST_SPAWN) == 0) {
     spawn->spawner = &tunctish;
+  }
+  else if (strcmp(name, TRASHCAN_SPAWN) == 0) {
+    spawn->spawner = &makeTrashCan;
   }
   else {
     fprintf(stderr, "warning, unable to find spawner for %s\n", name);
@@ -178,7 +181,6 @@ compound* makeBlockChain(int pos_x, int pos_y, int width, int height, char* pic_
 //also makes compound uniform, meaning bodies rotate and move in sync
 compound* makeBodyChain(body* start, virt_pos* start_pos,  int len, vector_2* dir, double disp) { 
   compound* chain = create_compound();
-  make_compound_uniform(chain);
   body* temp = NULL;
   polygon* p = NULL;
   make_unit_vector(dir, dir);
@@ -336,6 +338,7 @@ compound* makeSlime(int pos_x, int pos_y) {
 
 compound* tunctish(int pos_x, int pos_y) {
   compound* comp = create_compound();
+  shared_input** torso_si = create_shared_input_ref();
   virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
 
   body* torso = makeNormalBody(8, 7);
@@ -346,39 +349,64 @@ compound* tunctish(int pos_x, int pos_y) {
   body* arm1 = makeRectangleBody(9,40);
   body* lure = makeNormalBody(7, 2);
 
+  body* left_eye = makeNormalBody(9, 2);
+  body* right_eye = makeNormalBody(9, 2);
+
+  int torso_bb_width = get_bb_width(get_collider(torso));
+  int torso_bb_height = get_bb_height(get_collider(torso));
+
   set_body_center(torso, center);
-  virt_pos leg_p1, leg_p2, leg_p3, arm_p1;
+  virt_pos leg_p1, leg_p2, leg_p3, arm_p1, left_eye_p, right_eye_p;
   polygon* torso_poly = get_polygon(get_collider(torso));
   get_actual_point(torso_poly, 1, &arm_p1);
   get_actual_point(torso_poly, 2, &leg_p1);
   get_actual_point(torso_poly, 3, &leg_p2);
   get_actual_point(torso_poly, 4, &leg_p3);
+  left_eye_p = *get_center(torso_poly);
+  right_eye_p = *get_center(torso_poly);
 
   set_body_center(arm1, &arm_p1);
   set_body_center(lure, &arm_p1);
   set_body_center(leg1, &leg_p1);
   set_body_center(leg2, &leg_p2);
   set_body_center(leg3, &leg_p3);
+
+  virt_pos eye_offset = (virt_pos){.x = torso_bb_width * -0.5 * 0.3,
+				   .y = torso_bb_width * -0.5 * 0.2};
+  virt_pos_add(&eye_offset, &left_eye_p, &left_eye_p);
+  eye_offset.x *= -1;
+  virt_pos_add(&eye_offset, &right_eye_p, &right_eye_p);
+  set_body_center(left_eye, &left_eye_p);
+  set_body_center(right_eye, &right_eye_p);
   
   tether* lure_tether = tether_bodies(arm1, lure, default_tether);
   add_tether_to_compound(comp, lure_tether);
   
   tile_texture_for_body(lure, BLUE_SLIME_FN, 4,5,4,4);
-  tile_texture_for_body(torso, EYE_FN, 6,6,0,0);
+  tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
   tile_texture_for_body(arm1, DEF_FN, 3,3,0,0);
   tile_texture_for_body(leg1, DEF_FN, 3,3,0,0);
   tile_texture_for_body(leg2, DEF_FN, 3,3,0,0);
   tile_texture_for_body(leg3, DEF_FN, 3,3,0,0);
+  tile_texture_for_body(left_eye, EYE_FN, 3,3,0,0);
+  tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
   
+  set_shared_input_origin(*torso_si, get_center(torso_poly));
+  set_shared_input(torso, torso_si);
   
+  set_shared_input(arm1, torso_si);
+  set_shared_input(leg1, torso_si);
+  set_shared_input(leg2, torso_si);
+  set_shared_input(leg3, torso_si);
   add_body_to_compound(comp, lure);
-  make_compound_uniform(comp);
   add_body_to_compound(comp, torso);
   add_body_to_compound(comp, arm1);
   add_body_to_compound(comp, leg1);
   add_body_to_compound(comp, leg2);
   add_body_to_compound(comp, leg3);
-
+  add_body_to_compound(comp, left_eye);
+  add_body_to_compound(comp, right_eye);
+  
   return comp;
 }
 
@@ -390,7 +418,8 @@ compound* tunctish(int pos_x, int pos_y) {
 compound* makeTrashCan(int pos_x, int pos_y) {
   compound* can = create_compound();
   virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
-  make_compound_uniform(can);
+  shared_input** si = create_shared_input_ref();
+  //make_compound_uniform(can);
   body* bottom = NULL;
   body* lside = NULL;
   body* rside = NULL;
@@ -426,6 +455,10 @@ compound* makeTrashCan(int pos_x, int pos_y) {
   bottom = blankBody(bp);
   lside = blankBody(lp);
   rside = blankBody(rp);
+  set_shared_input_origin(*si, get_center(bp));
+  set_shared_input(bottom, si);
+  set_shared_input(lside, si);
+  set_shared_input(rside, si);
   add_body_to_compound(can, bottom);
   add_body_to_compound(can, lside);
   add_body_to_compound(can, rside);
@@ -522,9 +555,9 @@ map* make_beach_map() {
   
   compound_spawner* slime_spawn = create_compound_spawner(BLUE_SLIME_SPAWN, -1 ,map_width * 2 / 3, map_height / 2);
   add_spawner_to_plane(main, slime_spawn);
-  
-  compound* can = makeTrashCan(ORIGIN_BEACH_POS.x, floor_top);
-  add_compound_to_plane(main, can);
+
+  compound_spawner* trashcan_spawn = create_compound_spawner(TRASHCAN_SPAWN, -1 , ORIGIN_BEACH_POS.x, floor_top);
+  add_spawner_to_plane(main, trashcan_spawn);
   
   compound* floor = makeBlockChain(0, floor_height, M_W, M_H, SAND_FN, 40, HORZ_CHAIN);
   add_compound_to_plane(main, floor);

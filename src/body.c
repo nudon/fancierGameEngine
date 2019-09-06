@@ -1,6 +1,115 @@
 #include "body.h"
 #include <math.h>
 
+enum shared_input_mode{si_add, si_avg};
+
+struct shared_input_struct {
+  virt_pos t_disp;
+  int t_count;
+  double r_disp;
+  int r_count;
+  virt_pos avg_t;
+  double avg_r;
+  virt_pos* shared_input_origin;
+  enum shared_input_mode mode;
+};
+
+shared_input* create_shared_input() {
+  shared_input* new = malloc(sizeof(shared_input));
+  new->t_disp = *zero_pos;
+  new->t_count = 0;
+  new->r_disp = 0;
+  new->r_count = 0;
+  new->avg_t = *zero_pos;
+  new->avg_r = 0;
+  new->mode = si_add;
+  new->shared_input_origin = NULL;
+  return new;
+}
+
+shared_input** create_shared_input_ref() {
+  shared_input** new = malloc(sizeof(char*));
+  shared_input* inner = create_shared_input();
+  *new = inner;
+  return new;
+}
+
+void free_shared_input_ref(shared_input** rm) {
+  if (rm != NULL && *rm != NULL) {
+    free_shared_input(*rm);
+    *rm = NULL;
+  }
+}
+
+void free_shared_input(shared_input* rm) {
+  free(rm);
+}
+
+shared_input* get_shared_input(body* b) {
+  if (b->uniform_input != NULL) {
+    return *b->uniform_input;
+  }
+  return NULL;
+}
+
+void set_shared_input(body* b, shared_input** si) {
+  if (b->uniform_input != NULL) {
+    fprintf(stderr, "warning, overwriting a bodys shared_input");
+  }
+  b->uniform_input = si;
+}
+
+void add_to_shared_input(virt_pos* t, double r, shared_input* si) {
+  if (si->mode == si_avg) {
+    si->avg_t = *zero_pos;
+    si->avg_r = 0;
+    si->mode = si_add;
+  }
+  virt_pos_add(t, &(si->t_disp), &(si->t_disp));
+  si->t_count++;
+  si->r_disp += r;
+  si->r_count++;
+}
+
+void get_avg_movement(shared_input* si, virt_pos* t, double* r) {
+  if (si->mode == si_add) {
+    si->avg_t.x = si->t_disp.x / si->t_count;
+    si->avg_t.y = si->t_disp.y / si->t_count;
+    si->t_disp = *zero_pos;
+    si->t_count = 0;
+    si->avg_r = si->r_disp / si->r_count;
+    si->r_disp = 0;
+    si->r_count = 0;
+    si->mode = si_avg;
+  }
+  if (t != NULL) {
+    *t = si->avg_t;
+  }
+  if (r != NULL) {
+    *r = si->avg_r;
+  }
+}
+
+void set_shared_input_origin(shared_input* si, virt_pos* point) {
+  if (si->shared_input_origin != NULL) {
+    fprintf(stderr, "warning, overwriting shared input origin\n");
+  }
+  si->shared_input_origin = point;
+}
+
+virt_pos get_shared_input_origin(shared_input* si) {
+  virt_pos ret = *zero_pos;
+  if (si != NULL) {
+    if (si->shared_input_origin != NULL) {
+      ret = *si->shared_input_origin;
+    }
+    else {
+      fprintf(stderr, "warning, shared_input_origin not set\n");
+    }
+  }
+  return ret;
+}
+
 body* createBody(fizzle* fizz, struct collider_struct* coll) {
   body* new = malloc(sizeof(body));
   new->fizz = fizz;
@@ -12,6 +121,7 @@ body* createBody(fizzle* fizz, struct collider_struct* coll) {
   new->event_list = createGen_list();
   new->status = 0;
   new->pic = make_picture(NULL);
+  new->uniform_input = NULL;
   return new;
 }
 
@@ -25,12 +135,14 @@ body* cloneBody(body* src) {
   new->pic = src->pic;
   new->event_list = createGen_list();
   new->status = 0;
+  new->uniform_input = NULL;
   return new;
 }
 
 void free_body(body* rm) {
   free_fizzle(rm->fizz);
   free_collider(rm->coll);
+  free_shared_input_ref(rm->uniform_input);
   free(rm);
 }
 
