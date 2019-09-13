@@ -192,7 +192,7 @@ compound* makeBodyChain(body* start, virt_pos* start_pos,  int len, vector_2* di
     vector_2_scale(dir, disp * i, &temp_vec);
     vector_2_to_virt_pos(&temp_vec, &disp_pos);
     virt_pos_add(&disp_pos, start_pos, &disp_pos);
-    virt_pos_add(p->center, &disp_pos, p->center);
+    add_offset_to_center(p, &disp_pos);
     add_body_to_compound(chain, temp);
   }
   return chain;
@@ -223,7 +223,7 @@ compound* makeWalls() {
   double wallMass = INFINITY;
   int xVal, yVal;
   int w, h;
-
+  virt_pos temp = *zero_pos;
   for(int i = 0; i < 4; i++) {
     if (i % 2 == 0) {
       h = getScreenHeight() / 2;
@@ -245,8 +245,9 @@ compound* makeWalls() {
       }
     }
     aWall = createRectangle(w,h);
-    aWall->center->x = xVal;
-    aWall->center->y = yVal;
+    temp.x = xVal;
+    temp.y = yVal;
+    set_center(aWall, &temp);
     generate_normals_for_polygon(aWall);
 
     b = blankBody(aWall);
@@ -288,15 +289,14 @@ compound* makeCrab(int pos_x, int pos_y) {
   body* body;
   virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
   poly = createRectangle(60, 40);
-  
-  *(poly->center) = *center;
+
+  set_center(poly, center);
   coll = make_collider_from_polygon(poly);
   
   fizz = createFizzle();
   init_fizzle(fizz);
   set_bounce(fizz, 0.3);
-  vector_2 g = (vector_2){.v1 = 0, .v2 = 500};
-  set_gravity(fizz, &g);
+  set_gravity(fizz, g);
   body = createBody(fizz, coll);
   add_body_to_compound(centComp, body);
 
@@ -313,8 +313,8 @@ compound* makeSlime(int pos_x, int pos_y) {
   body* slime_body;
   virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
   poly = createRectangle(48, 48);
-  
-  *(poly->center) = *center;
+
+  set_center(poly, center);
   coll = make_collider_from_polygon(poly);
   
   fizz = createFizzle();
@@ -339,6 +339,68 @@ compound* makeSlime(int pos_x, int pos_y) {
 compound* tunctish(int pos_x, int pos_y) {
   compound* comp = create_compound();
   shared_input** torso_si = create_shared_input_ref();
+  virt_pos center = (virt_pos){.x = pos_x, .y = pos_y};
+  
+  body* torso = makeNormalBody(8, 7);
+
+  body* left_eye_anchor = makeNormalBody(3,1);
+  body* right_eye_anchor = makeNormalBody(3,1);
+  body* left_eye = makeNormalBody(9, 2);
+  body* right_eye = makeNormalBody(9, 2);
+
+  int torso_bb_width = get_bb_width(get_collider(torso));
+  //int torso_bb_height = get_bb_height(get_collider(torso));
+
+  set_body_center(torso, &center);
+  virt_pos left_eye_p, right_eye_p;
+  polygon* torso_poly = get_polygon(get_collider(torso));
+  set_rotation(torso_poly, 0);
+  
+  left_eye_p = get_center(torso_poly);
+  right_eye_p = get_center(torso_poly);
+  virt_pos eye_offset = (virt_pos){.x = torso_bb_width * -0.5 * .75,
+				   .y = torso_bb_width * -0.5 * 0.2};
+  virt_pos_add(&eye_offset, &left_eye_p, &left_eye_p);
+  eye_offset.x *= -1;
+  virt_pos_add(&eye_offset, &right_eye_p, &right_eye_p);
+
+  set_body_center(left_eye_anchor, &left_eye_p);
+  set_body_center(right_eye_anchor, &right_eye_p);
+  set_body_center(left_eye, &center);
+  set_body_center(right_eye, &center);
+
+  
+  tether* left_eye_tether = tether_bodies(left_eye_anchor, left_eye, one_way_tether);
+  tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);  
+  add_tether_to_compound(comp, left_eye_tether);
+  add_tether_to_compound(comp, right_eye_tether);
+  
+  tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
+  tile_texture_for_body(left_eye, EYE_FN, 3,3,0,0);
+  tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
+  
+  set_shared_input_origin(*torso_si, read_only_polygon_center(torso_poly));
+  
+  set_shared_input(torso, torso_si);
+  set_shared_input(left_eye_anchor, torso_si);
+  set_shared_input(right_eye_anchor, torso_si);
+
+  add_body_to_compound(comp, torso);
+  add_body_to_compound(comp, left_eye_anchor);
+  add_body_to_compound(comp, right_eye_anchor);
+  add_body_to_compound(comp, left_eye);
+  add_body_to_compound(comp, right_eye);
+
+  set_compound_gravity(comp, g);
+  
+  return comp;
+}
+
+//version with arms and legs
+
+/*
+  compound* comp = create_compound();
+  shared_input** torso_si = create_shared_input_ref();
   virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
 
   body* torso = makeNormalBody(8, 7);
@@ -349,6 +411,8 @@ compound* tunctish(int pos_x, int pos_y) {
   body* arm1 = makeRectangleBody(9,40);
   body* lure = makeNormalBody(7, 2);
 
+  body* left_eye_anchor = makeNormalBody(3,1);
+  body* right_eye_anchor = makeNormalBody(3,1);
   body* left_eye = makeNormalBody(9, 2);
   body* right_eye = makeNormalBody(9, 2);
 
@@ -362,24 +426,31 @@ compound* tunctish(int pos_x, int pos_y) {
   get_actual_point(torso_poly, 2, &leg_p1);
   get_actual_point(torso_poly, 3, &leg_p2);
   get_actual_point(torso_poly, 4, &leg_p3);
+  
   left_eye_p = *get_center(torso_poly);
   right_eye_p = *get_center(torso_poly);
-
-  set_body_center(arm1, &arm_p1);
-  set_body_center(lure, &arm_p1);
-  set_body_center(leg1, &leg_p1);
-  set_body_center(leg2, &leg_p2);
-  set_body_center(leg3, &leg_p3);
-
   virt_pos eye_offset = (virt_pos){.x = torso_bb_width * -0.5 * 0.3,
-				   .y = torso_bb_width * -0.5 * 0.2};
+  .y = torso_bb_width * -0.5 * 0.2};
   virt_pos_add(&eye_offset, &left_eye_p, &left_eye_p);
   eye_offset.x *= -1;
   virt_pos_add(&eye_offset, &right_eye_p, &right_eye_p);
+
+  set_body_center(arm1, &arm_p1);
+  //set_body_center(lure, &arm_p1);
+  set_body_center(lure, &left_eye_p);
+  set_body_center(leg1, &leg_p1);
+  set_body_center(leg2, &leg_p2);
+  set_body_center(leg3, &leg_p3);
+  set_body_center(left_eye_anchor, &left_eye_p);
+  set_body_center(right_eye_anchor, &right_eye_p);
   set_body_center(left_eye, &left_eye_p);
   set_body_center(right_eye, &right_eye_p);
   
+  //tether* left_eye_tether = tether_bodies(left_eye_anchor, left_eye, one_way_tether);
+  //tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);  
   tether* lure_tether = tether_bodies(arm1, lure, default_tether);
+  //add_tether_to_compound(comp, left_eye_tether);
+  //add_tether_to_compound(comp, right_eye_tether);
   add_tether_to_compound(comp, lure_tether);
   
   tile_texture_for_body(lure, BLUE_SLIME_FN, 4,5,4,4);
@@ -392,23 +463,28 @@ compound* tunctish(int pos_x, int pos_y) {
   tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
   
   set_shared_input_origin(*torso_si, get_center(torso_poly));
-  set_shared_input(torso, torso_si);
   
+  set_shared_input(torso, torso_si);
   set_shared_input(arm1, torso_si);
   set_shared_input(leg1, torso_si);
   set_shared_input(leg2, torso_si);
   set_shared_input(leg3, torso_si);
-  add_body_to_compound(comp, lure);
+  //set_shared_input(left_eye_anchor, torso_si);
+  //set_shared_input(right_eye_anchor, torso_si);
+
   add_body_to_compound(comp, torso);
-  add_body_to_compound(comp, arm1);
-  add_body_to_compound(comp, leg1);
-  add_body_to_compound(comp, leg2);
-  add_body_to_compound(comp, leg3);
+  //add_body_to_compound(comp, lure);
+  //add_body_to_compound(comp, arm1);
+  //add_body_to_compound(comp, leg1);
+  //add_body_to_compound(comp, leg2);
+  //add_body_to_compound(comp, leg3);
+  add_body_to_compound(comp, left_eye_anchor);
+  add_body_to_compound(comp, right_eye_anchor);
   add_body_to_compound(comp, left_eye);
   add_body_to_compound(comp, right_eye);
   
   return comp;
-}
+ */
 
 //goal is to make a trashcan like this
 /*
@@ -455,7 +531,7 @@ compound* makeTrashCan(int pos_x, int pos_y) {
   bottom = blankBody(bp);
   lside = blankBody(lp);
   rside = blankBody(rp);
-  set_shared_input_origin(*si, get_center(bp));
+  set_shared_input_origin(*si, read_only_polygon_center(bp));
   set_shared_input(bottom, si);
   set_shared_input(lside, si);
   set_shared_input(rside, si);
@@ -485,10 +561,15 @@ polygon* make_event_poly(polygon* shape) {
 }
 
 void write_maps_to_disk() {
-  map* aMap = make_origin_map();
-  FILE* mapFile = fopen(ORIGIN_MAP_NAME, "w+");
-  xml_write_map(mapFile, aMap);
-  fclose(mapFile);
+  map* aMap = NULL;
+  FILE* mapFile = NULL;
+  
+  /*
+    aMap = make_origin_map();
+    mapFile = fopen(ORIGIN_MAP_NAME, "w+");
+    xml_write_map(mapFile, aMap);
+    fclose(mapFile);
+  */
   
   aMap = make_beach_map();
   mapFile = fopen(BEACH_MAP_NAME, "w+");
@@ -521,7 +602,8 @@ map* make_origin_map() {
   plane* plane = create_plane(map, MAIN_PLANE_NAME);
   virt_pos center = (virt_pos){.x = getScreenWidth() / 2, .y = getScreenHeight() / 2};
 
-  compound* user = makeCrab(center.x, center.y);
+  //compound* user = makeCrab(center.x, center.y);
+  compound* user = tunctish(center.x, center.y);
   compound* walls = makeWalls();
   make_compound_user(user);
   //set_hunter(get_attributes(user), 1);

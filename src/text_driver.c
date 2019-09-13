@@ -29,7 +29,7 @@ int main(int argc, char** args) {
   
   write_maps_to_disk();
   
-  map* map = load_origin_map();
+  map* map = make_origin_map();
   //map* map = make_beach_map();
   
   map_load_create_travel_lists(map);
@@ -108,7 +108,6 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
   body* aBody = NULL;
 
   fizzle* fizz = NULL;
-  vector_2 input = *zero_vec;
   virt_pos trans_disp = *zero_pos;
   double rot_disp = 0;
   while(comp_curr != NULL){
@@ -123,15 +122,9 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       check_events(map, get_body_events(aBody));
       
       trans_disp = *zero_pos;
-      input = *zero_vec;
       rot_disp = 0.0;
-      apply_poltergeist(aBody->polt, aBody, &input, &rot_disp);
-      add_velocity(fizz, &input);
-      add_rotational_velocity(fizz, rot_disp);
-      fizzle_update(fizz);
-      update_pos_with_curr_vel(&trans_disp, fizz);
-      update_rot_with_current_vel(&rot_disp, fizz);
-
+      run_body_poltergeist(aBody);
+      calc_change(fizz, &trans_disp, &rot_disp);
       if (body_update(map, aBody, &trans_disp, rot_disp)) {
 	aBody->status = 1;
       }

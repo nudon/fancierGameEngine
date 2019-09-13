@@ -33,7 +33,7 @@ char* get_lz_to_plane(load_zone* lz);
 virt_pos get_lz_dest(load_zone* lz);
 event* get_lz_event(load_zone* lz);
 
-void trigger_map_change(load_zone* lz, compound* trav);
+int trigger_map_change(load_zone* lz, compound* trav);
 void check_load_triggers(map* map);
 
 #endif

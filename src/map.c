@@ -189,11 +189,16 @@ char* get_lz_to_plane(load_zone* lz) { return lz->to_plane; }
 virt_pos get_lz_dest(load_zone* lz) { return lz->dest; }
 event* get_lz_event(load_zone* lz) { return lz->trigger; }
 
-void trigger_map_change(load_zone* lz, compound* trav) {
+
+#define MAP_NOCHANGE 0
+#define MAP_CHANGE 1
+int trigger_map_change(load_zone* lz, compound* trav) {
   decision_att* att = get_attributes(trav);
   plane* curr_plane = NULL;
   gen_list* move = NULL;
+  int ret = MAP_NOCHANGE;
   if (is_travel(att)) {
+    ret = MAP_CHANGE;
     curr_plane = get_plane_by_name(getMap(), get_lz_from_plane(lz));
     remove_compound_from_plane(curr_plane, trav);
     move = map_load_get_travel_list(get_lz_to_map(lz), get_lz_to_plane(lz));
@@ -209,13 +214,12 @@ void trigger_map_change(load_zone* lz, compound* trav) {
 	newMap = load_map_by_name(lz->to_map);
 	setMap(newMap);
 	trigger_spawners_in_map(newMap);
-	//then flush travel lists to new one
 	flush_travel_list_for_map(newMap);
-	//also generate travel lists for new map
 	map_load_create_travel_lists(newMap);
       }
     }
   }
+  return ret;
 }
 
 void flush_travel_list_for_map(map* map) {
@@ -278,10 +282,12 @@ void check_load_triggers(map* map) {
       while(aHit != NULL) {
 	hit_poly = get_polygon((collider*)(aHit->stored));
 	comp = get_owner(((collider*)aHit->stored)->body);
-	//map change might free aHit, do this before calling
 	aHit = aHit->next;
 	if (do_polygons_intersect(hit_poly, event_poly)) {
-	  trigger_map_change(lz, comp);
+	  if (trigger_map_change(lz, comp) == MAP_CHANGE) {
+	    //list changed, start over to avoid concurrent modification errors
+	    aHit = hits.start;
+	  }
 	}
 	
       }

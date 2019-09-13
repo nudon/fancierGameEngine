@@ -4,6 +4,23 @@
 #include <assert.h>
 #include "geometry.h"
 
+struct polygon_struct {
+  int sides;
+  double scale;
+  double rotation;
+  virt_pos* center;
+  //base corners, which contain relative shape of object but no rotation/scale
+  virt_pos* base_corners;
+  //rotated corners, to store rotated posistions of corners to cut back calculations
+  virt_pos* corners;
+  //normals, haven't considered much about them
+  //having them be unit vectors would be nice
+  //otherwise some way of determining which normal corresponds to which side or pair of corners
+  vector_2* base_normals; 
+  vector_2* normals;
+  virt_pos rotation_offset;
+};
+
 vector_2* zero_vec = &((vector_2){.v1 = 0, .v2 = 0});
 
 virt_pos* zero_pos = &((virt_pos){.x = 0, .y = 0});
@@ -172,6 +189,10 @@ void set_scale(polygon* p, double scale) {
   recalc_corners_and_norms(p);
 }
 
+double get_scale(polygon* p) {
+  return p->scale;
+}
+
 void freePolygon(polygon* poly) {
   free(poly->base_corners);
   free(poly->corners);
@@ -180,8 +201,13 @@ void freePolygon(polygon* poly) {
   free(poly);
 }
 
+int get_sides(polygon* p) {
+  return p->sides;
+}
+
 void get_actual_point(polygon* poly, int i, virt_pos* result) {
-  virt_pos_add(&(poly->corners[i]), poly->center, result);
+  //virt_pos_add(&(poly->corners[i]), poly->center, result);
+  *result = poly->corners[i];
 }
 
 void get_base_point(polygon* poly, int i, virt_pos* result) {
@@ -198,13 +224,23 @@ void get_actual_normal(polygon* poly, int i, vector_2* result) {
   *result = poly->normals[i];
 }
 
-virt_pos* get_center(polygon* poly) {
-  return poly->center;
+virt_pos get_center(polygon* poly) {
+  return *poly->center;
 }
 
 void set_center(polygon* poly, virt_pos* val) {
-  poly->center->x = val->x;
-  poly->center->y = val->y;
+  if (val == NULL) {
+    poly->center = NULL;
+  }
+  else {
+    poly->center->x = val->x;
+    poly->center->y = val->y;
+    recalc_corners(poly);
+  }
+}
+
+void set_center_p(polygon* p, virt_pos* cent_p) {
+  p->center = cent_p;
 }
 
 void set_rotation(polygon* poly, double new) {
@@ -226,6 +262,14 @@ void set_rotation(polygon* poly, double new) {
 }
 
 void recalc_corners_and_norms(polygon* poly) {
+  double ang = poly->rotation;
+  recalc_corners(poly);
+  for (int i = 0; i < poly->sides; i++) {
+    vector_2_rotate(&(poly->base_normals[i]), ang, &(poly->normals[i]));
+  }
+}
+
+void recalc_corners(polygon* poly) {
   virt_pos temp = *zero_pos;
   double ang = poly->rotation;
   for (int i = 0; i < poly->sides; i++) {
@@ -234,10 +278,9 @@ void recalc_corners_and_norms(polygon* poly) {
     temp.y = temp.y * poly->scale;
     
     virt_pos_rotate(&temp, ang, &temp);
+    virt_pos_add(&temp, poly->center, &temp);
     poly->corners[i] = temp;
-
-    vector_2_rotate(&(poly->base_normals[i]), ang, &(poly->normals[i]));
-  }
+  }  
 }
 
 double get_rotation(polygon* poly) {
@@ -246,6 +289,10 @@ double get_rotation(polygon* poly) {
 
 void set_rotation_offset(polygon* poly, virt_pos* offset) {
   poly->rotation_offset = *offset;
+}
+
+virt_pos get_rotation_offset(polygon* p) {
+  return p->rotation_offset;
 }
 
  int do_polygons_intersect(polygon* p1, polygon* p2) {
@@ -495,22 +542,16 @@ double distance_between_points(virt_pos* p1, virt_pos* p2) {
 
 void make_unit_vector(vector_2* op, vector_2* result) {  
   double mag;
-  if (!is_a_unit_vector(op)) {
-    mag = vector_2_magnitude(op);
-    if (mag != 0) {
-      result->v1 = op->v1 / mag;
-      result->v2 = op->v2 / mag;
-      assert(is_a_unit_vector(result) == 1);
-    }
-    else {
-      return;
-      fprintf(stderr, "attempting to make a zero vector a unit vector\n");
-    }
+  mag = vector_2_magnitude(op);
+  if (mag != 0) {
+    result->v1 = op->v1 / mag;
+    result->v2 = op->v2 / mag;
+    assert(is_a_unit_vector(result) == 1);
   }
   else {
-    *result = *op;
+    fprintf(stderr, "attempting to make a zero vector a unit vector\n");
+    exit(3);
   }
-
 }
 
 
@@ -645,5 +686,22 @@ int sign_of(double val) {
   else {
     return 1;
   }
+  
+}
+
+void add_offset_to_center(polygon* p, virt_pos* off) {
+  virt_pos_add(p->center, off, p->center);
+  recalc_corners(p);
+}
+
+void free_polygon_center(polygon* p) {
+  free(p->center);
+}
+
+virt_pos* read_only_polygon_center(polygon* p) {
+  //old version of get_polygon_center, because returning pointer is sometimes needed
+  //no actual enforcing of read only status
+  //soft solution by returning seperate virt_pos* that just gets reassigned to center
+  return p->center;
   
 }

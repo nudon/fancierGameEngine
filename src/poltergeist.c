@@ -95,8 +95,10 @@ void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) 
 
 void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
   static int cam_init = 0;
+  //virt_pos cent = get_body_center(user_body);
+  polygon* p = get_polygon(get_collider(user_body));
   if (!cam_init) {
-    set_camera_center(getCam(), get_body_center(user_body));
+    set_camera_center(getCam(), read_only_polygon_center(p));
     cam_init = 1;
   }
   polygon* poly = user_body->coll->shape;
@@ -108,7 +110,7 @@ void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
 //would add the soft behavior of things gradually aquiring new directions
 //also might want to have some limited speed modes by modifying magnitude of direction. could either add hard-coded tiers/thresholds or take a log of magnitude for nice but sometimes funny stuff
 
-void standard_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) {
+void standard_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
   vector_2 dir = get_curr_dir(get_gi(get_owner(body)));
   //might also take scales from gi
   double t_scale = 1.5;

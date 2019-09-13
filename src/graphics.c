@@ -4,9 +4,6 @@ static void myDrawRect(camera* cam, int x1, int y1, int x2, int y2);
 static void myDrawCirc(int x, int y, int rad);
 static camera* gamgam;
 
-static int SCREEN_WIDTH = 720;
-static int SCREEN_HEIGHT = 480;
-
 static void add_surface(char* fn);
 static void add_texture(char* fn);
 static void init_surfaces();
@@ -16,6 +13,12 @@ SDL_Surface* get_surface_by_name(char* fn);
 SDL_Texture* get_texture_by_name(char* fn);
 
 
+static int SCREEN_WIDTH = 720;
+static int SCREEN_HEIGHT = 480;
+
+double x_virt_to_pixel_scale = 1.0 / 1.5;
+double y_virt_to_pixel_scale = 1.0 / 2;
+
 picture* def_pic = NULL;
 
 static SDL_Window* gWin = NULL;
@@ -23,6 +26,7 @@ static SDL_Window* gWin = NULL;
 static pixel_pos* zero_pix = &((pixel_pos){.x = 0, .y = 0});
 
 static SDL_Surface* pixel_format_holder = NULL;
+
 
 static SDL_PixelFormat* get_pixel_format() {
   if (pixel_format_holder == NULL) {
@@ -138,11 +142,6 @@ void set_picture_texture(picture* pic, SDL_Texture* t) {
   pic->file_name = "MANUALLY_SET";
 }
 
-double x_virt_to_pixel_scale = 2;
-double y_virt_to_pixel_scale = 2;
-//double x_virt_to_pixel_scale = SCREEN_WIDTH / ORIG_SCREEN_WIDTH;
-//double y_virt_to_pixel_scale = SCREEN_HEIGHT / ORIG_SCREEN_HEIGHT;
-
 camera* make_camera() {
   camera* cam = malloc(sizeof(camera));
   cam->rend = NULL;
@@ -174,7 +173,6 @@ void update_corner(camera* cam) {
   cam->corner = temp;
 }
 
-
 int getScreenWidth() {
   return SCREEN_WIDTH;
 }
@@ -182,8 +180,6 @@ int getScreenWidth() {
 int getScreenHeight(){
   return SCREEN_HEIGHT;
 }
-
-
 
 void virt_to_pixel(virt_pos* virt, pixel_pos* result) {
   result->x = virt->x * x_virt_to_pixel_scale;
@@ -211,7 +207,6 @@ void draw_line(camera* cam, virt_pos* start, virt_pos* end) {
 		     t2.x - o.x, t2.y - o.y);
 }
 
-
 void myDrawRect(camera* cam, int x1, int y1, int x2, int y2) {
   SDL_Rect rect;
   rect.x = x1;
@@ -220,7 +215,6 @@ void myDrawRect(camera* cam, int x1, int y1, int x2, int y2) {
   rect.h = y2 - y1;
   SDL_RenderFillRect(getCam()->rend, &rect);
 }
-
 
 void myDrawCirc(int x, int y, int rad) {
   double theta = 0;
@@ -236,9 +230,7 @@ void myDrawCirc(int x, int y, int rad) {
     myDrawRect(getCam(),c1x, c1y, c2x, c2y);
     theta += dTheta;
   }
-
 }
-
 
 //game constructs 
 
@@ -255,8 +247,8 @@ void draw_plane(plane* plane, camera* cam) {
   //draw_hash_map(cam, get_shm(plane)); 
 }
 
-
 void draw_map(camera* cam, map* map) {
+  //printf("cam {.x = %i, .y = %i }\n", cam->center->x, cam->center->y);
   gen_node* curr = get_planes(map)->start;
   plane* p = NULL;
   while(curr != NULL) {
@@ -294,7 +286,6 @@ void draw_events_in_list(camera* cam, gen_list* list) {
     event_node = event_node->next;
   }
 }
-
 
 void draw_load_zones_in_map(camera* cam, map* map) {
   SDL_SetRenderDrawColor(cam->rend, 0, 0, 255, SDL_ALPHA_OPAQUE);
@@ -415,7 +406,7 @@ void draw_compound(compound* c, camera* cam) {
 }
 
 void draw_polygon_outline(camera* cam, polygon* poly) {
-  int size = poly->sides;
+  int size = get_sides(poly);
   virt_pos points[size];
   for (int i = 0; i < size; i++) {
     get_actual_point(poly, i, &(points[i]));
@@ -432,14 +423,15 @@ void draw_polygon_outline(camera* cam, polygon* poly) {
 
 void draw_body_picture(camera* cam, body* body) {
   collider* coll = body->coll;
-  virt_pos cent = *get_center(get_polygon(get_collider(body)));
+  virt_pos cent = get_center(get_polygon(get_collider(body)));
   int x = x_virt_to_pixel_scale * (cent.x - get_bb_width(coll) / 2) - cam->corner.x;
   int y = y_virt_to_pixel_scale * (cent.y - get_bb_height(coll) / 2) - cam->corner.y;
   int w = x_virt_to_pixel_scale * get_bb_width(coll);
   int h = y_virt_to_pixel_scale * get_bb_height(coll);
   SDL_Rect dst = (SDL_Rect){.x = x, .y = y, .w = w, .h = h};
   SDL_RendererFlip flip = SDL_FLIP_NONE;
-  vector_2 vel = *get_velocity(body);
+  vector_2 vel = *zero_vec;
+  get_velocity(get_fizzle(body), &vel);
   if (vel.v1 < 0) {
     //draw picture flipped about y axis
     flip = SDL_FLIP_HORIZONTAL;
@@ -686,9 +678,9 @@ SDL_Surface* polygon_outline(polygon* in, Uint32 interior_val, Uint32 exterior_v
   matrix_index ind;
   double xmin = 0, xmax = 0, ymin = 0, ymax = 0;
   int tot_width, tot_height, shm_cols, shm_rows;
-  
-  extreme_projections_of_polygon(p, p->center, x_axis, &xmin, &xmax);
-  extreme_projections_of_polygon(p, p->center, y_axis, &ymin, &ymax);
+  virt_pos p_center = get_center(p);
+  extreme_projections_of_polygon(p, &p_center, x_axis, &xmin, &xmax);
+  extreme_projections_of_polygon(p, &p_center, y_axis, &ymin, &ymax);
   tot_width = xmax - xmin;
   tot_height = ymax - ymin;
   

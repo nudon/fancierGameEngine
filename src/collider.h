@@ -48,7 +48,6 @@ struct collider_ref_struct{
   vector* old_cells;
   //hash table to be used for making a set of matrix indexes
   hash_table* table;
-  
   //gen nodes to put into various shm cells, points to containing collider list node
   //contains max_ref_amount gen_nodes
   gen_node** active_cell_nodes;

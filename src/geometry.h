@@ -4,6 +4,8 @@
 #define RAD_2_DEG 180 / M_PI
 #define DEG_2_RAD M_PI / 180
 
+typedef struct polygon_struct polygon;
+
 typedef
 struct {
   int x;
@@ -15,24 +17,6 @@ struct {
   double v1;
   double v2;
 } vector_2;
-
-typedef
-struct {
-  int sides;
-  double scale;
-  double rotation;
-  virt_pos* center;
-  //base corners, which contain relative shape of object but no rotation/scale
-  virt_pos* base_corners;
-  //rotated corners, to store rotated posistions of corners to cut back calculations
-  virt_pos* corners;
-  //normals, haven't considered much about them
-  //having them be unit vectors would be nice
-  //otherwise some way of determining which normal corresponds to which side or pair of corners
-  vector_2* base_normals; 
-  vector_2* normals;
-  virt_pos rotation_offset;
-} polygon;
 
 extern vector_2* zero_vec;
 
@@ -58,14 +42,19 @@ void stretch_deform_vert(polygon* poly, double amount);
 void stretch_deform_horz(polygon* poly, double amount);
 
 void set_scale(polygon* p, double scale);
-virt_pos* get_center(polygon* poly);
+double get_scale(polygon* p);
+int get_sides(polygon* p);
+virt_pos get_center(polygon* poly);
 void set_center(polygon* poly, virt_pos* val);
+void set_center_p(polygon* p, virt_pos* cent_p);
 
 void set_rotation(polygon* poly, double new);
 double get_rotation(polygon* poly);
 void set_rotation_offset(polygon* poly, virt_pos* offset);
+virt_pos get_rotation_offset(polygon* p);
 
 void recalc_corners_and_norms(polygon* poly);
+void recalc_corners(polygon* p);
 void get_actual_point(polygon* poly, int i, virt_pos* result);
 void get_base_point(polygon* poly, int i, virt_pos* result);
 void set_base_point(polygon* poly, int i, virt_pos* set);
@@ -119,5 +108,9 @@ void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, doubl
 void exponential_decay(double old, double cur, double* new, double alpha);
 
 int sign_of(double val);
+
+void add_offset_to_center(polygon* p, virt_pos* off);
+void free_polygon_center(polygon* p);
+virt_pos* read_only_polygon_center(polygon* p);
 
 #endif

@@ -2,6 +2,19 @@
 #include "physics.h"
 #include <math.h>
 
+#define LINEAR_DAMP 1.5
+#define ROTATIONAL_DAMP 0.2
+
+vector_2* g = &(vector_2){.v1 = 0, .v2 = 0.5};
+
+//TETHER_BARRIER defines sort of a barrier, pushes objects away if they are closer than td
+//TETHER_SPRING, defines an ideal spring situation, pushes/pulls objects
+//TETHER_ROPE defines a standard rope, pulls objects together if they are farther than td
+
+tether* default_tether = &((tether){.point_1 = NULL, .point_2 = NULL, .fizz_1 = NULL, .fizz_2 = NULL, .weight_1 = .5, .weight_2 = .5, .tether_k = .001, .tether_distance = 30, .tether_type = TETHER_SPRING});
+
+tether* one_way_tether = &((tether){.point_1 = NULL, .point_2 = NULL, .fizz_1 = NULL, .fizz_2 = NULL, .weight_1 = 0, .weight_2 = 1, .tether_k = .45, .tether_distance = 2, .tether_type = TETHER_ROPE});
+
 double timeInMS() {
   struct timespec curr;
   clock_gettime(CLOCK_REALTIME, &curr);
@@ -35,7 +48,6 @@ double get_dT_in_ms() {
 double get_dT() {
   //returning in units of seconds instead of miliseconds
   return dT / 1000;
-  //return 2.34;
 }
 
 void set_dT(double new) {
@@ -66,6 +78,8 @@ void init_fizzle(fizzle* fizz) {
   fizz->rot_acceleration = 0;
   fizz->rot_velocity = 0;
   fizz->bounce = 1;
+  fizz->line_damp = LINEAR_DAMP;
+  fizz->rot_damp = ROTATIONAL_DAMP;
 }
 
 void free_fizzle(fizzle* rm) {
@@ -81,57 +95,22 @@ void add_velocity(fizzle* fizz, vector_2* delta) {
   vector_2_add(delta, result, result); 
 }
 
-void update_net(fizzle* fizz) {
-  //for now, just gravity.
-  vector_2 loc = *zero_vec;
-  vector_2_add(&(fizz->gravity), &loc, &loc);
-  vector_2_add(&(fizz->dampening), &loc, &loc);
-  fizz->net_acceleration = loc;
-}
-
 void get_avg_impact(fizzle* fizz, vector_2* result) {
   if (fizz->impact_count > 0) {
     vector_2_scale(&(fizz->impact), 1.0 / fizz->impact_count, result);
-    //vector_2_scale(&(fizz->impact), 1.0 , result);
   }
   else {
     *result = *zero_vec;
   }
 }
 
-void update_vel(fizzle* fizz) {
-  vector_2 loc = fizz->velocity;
-  vector_2 net = fizz->net_acceleration;
-  vector_2 temp = *zero_vec;
-  vector_2_scale(&net, get_dT(), &net);
-  vector_2_add(&loc, &net, &loc);
-  get_avg_impact(fizz, &temp);
-  vector_2_add(&temp, &loc, &loc);
-  vector_2_add(&(fizz->tether), &loc, &loc);
-  fizz->velocity = loc;
-  fizz->rot_velocity += fizz->rot_acceleration * get_dT();
-}
-
-void update_pos_with_curr_vel(virt_pos* pos, fizzle* fizz) {
-  virt_pos loc_pos = *zero_pos;
-  vector_2 loc_vec = fizz->velocity;
-  vector_2_scale(&loc_vec, get_dT(), &loc_vec);
-  vector_2_to_virt_pos(&loc_vec, &loc_pos);
-  virt_pos_add(pos, &loc_pos, pos);
-}
-
-void update_rot_with_current_vel(double* rot, fizzle* fizz) {
-  *rot += fizz->rot_velocity * get_dT();
-}
-
-void set_fizzle_dampening(fizzle* fizz, double alpha) {
-  //want to rework dampening at some point
+void set_fizzle_dampening(fizzle* fizz) {
   vector_2 vel = fizz->velocity;
-  vector_2 damp;
-  double vel_mag = vector_2_magnitude(&vel), damp_amount;
+  vector_2 damp = *zero_vec;
+  double vel_mag = vector_2_magnitude(&vel), damp_amount = 0;
   if (!isCloseEnoughToZeroVec(&vel)) {
     make_unit_vector(&vel, &vel);
-    damp_amount = vel_mag * vel_mag * alpha;
+    damp_amount = vel_mag * vel_mag * fizz->line_damp;
     vector_2_scale(&vel, -1 * damp_amount, &damp);
     fizz->dampening = damp;
   }
@@ -140,20 +119,50 @@ void set_fizzle_dampening(fizzle* fizz, double alpha) {
   }
 }
 
-void set_fizzle_rot_dampening(fizzle* fizz, double alpha) {
+void set_fizzle_rot_dampening(fizzle* fizz) {
   double rv = fizz->rot_velocity;
-  fizz->rot_acceleration += rv * -1 * alpha;
+  fizz->rot_acceleration += rv * -1 * fizz->rot_damp;
 }
 
-void fizzle_update(fizzle* fizz) {
-  set_fizzle_dampening(fizz, 0.003);
-  set_fizzle_rot_dampening(fizz, 0.3);
-  update_net(fizz);
-  update_vel(fizz);
+void update_net(fizzle* fizz) {
+  vector_2 loc = *zero_vec;
+  set_fizzle_dampening(fizz);
+  set_fizzle_rot_dampening(fizz);
+  get_avg_impact(fizz, &loc);
+  vector_2_add(&(fizz->gravity), &loc, &loc);
+  vector_2_add(&(fizz->dampening), &loc, &loc);
+  vector_2_add(&(fizz->tether), &loc, &loc);
+  fizz->net_acceleration = loc;
   set_impact(fizz, zero_vec);
   set_tether(fizz, zero_vec);
   fizz->rot_acceleration = 0;
   fizz->impact_count = 0;
+}
+
+void calc_change(fizzle* fizz, virt_pos* t_disp, double* r_disp) {
+  vector_2 prev_accel = fizz->net_acceleration;
+  vector_2 new_accel = *zero_vec;
+  vector_2 avg_accel = *zero_vec;
+
+  virt_pos loc_pos = *zero_pos;
+  vector_2 vel_comp = fizz->velocity;
+  vector_2 acl_comp = prev_accel;
+  double dt = get_dT();
+  vector_2_scale(&vel_comp, dT, &vel_comp);
+  vector_2_scale(&acl_comp, 0.5 * dt * dt, &acl_comp);
+  vector_2_add(&vel_comp, &acl_comp, &acl_comp);
+  vector_2_to_virt_pos(&acl_comp, &loc_pos);
+  virt_pos_add(t_disp, &loc_pos, t_disp);
+
+  //potentially carry out an update here
+
+  update_net(fizz);
+  new_accel = fizz->net_acceleration;
+  vector_2_add(&prev_accel, &new_accel, &avg_accel);
+  vector_2_scale(&avg_accel, 0.5 * dt, &avg_accel);
+  vector_2_add(&avg_accel, &fizz->velocity, &fizz->velocity);
+  
+  *r_disp += fizz->rot_acceleration * dt * dt;
 }
 
 void set_gravity(fizzle* fizz, vector_2* newGrav) {
@@ -174,6 +183,10 @@ void set_tether(fizzle* fizz, vector_2* newTF) {
   fizz->tether = *newTF;
 }
 
+double get_mass(fizzle* f) {
+  return f->mass;
+}
+
 void set_mass(fizzle* fizz, double mass) {
   fizz->mass = mass;
 }
@@ -190,19 +203,11 @@ void add_tether(fizzle* fizz, vector_2* addTF) {
   vector_2_add(addTF, &(fizz->tether), &(fizz->tether));
 }
 
-//so, tethers, they define a push/pull between 2 objects
-//standard for tether type or tt
-//-1 defines sort of a barrier, pushes objects away if they are closer than td
-//0, defines an ideal spring situation, pushes/pulls objects
-//1 defines a standard rope, pulls objects together if they are farther than td
-
-tether* default_tether = &((tether){.point_1 = NULL, .point_2 = NULL, .fizz_1 = NULL, .fizz_2 = NULL, .weight_1 = .5, .weight_2 = .5, .tether_strength = 0, .tether_k = .001, .tether_distance = 30, .tether_type = 1});
-
 tether* create_tether_blank(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2) {
-  return create_tether(p1, p2, f1, f2, -1, -1,	-1, -1, -1, -10);
+  return create_tether(p1, p2, f1, f2, -1, -1, -1, -1, -10);
 }
 
-tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,double w2,double ts,double tk, double td,int tt) {
+tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,double w2,double tk, double td,int tt) {
   tether* new = malloc(sizeof(tether));
   double mag = w1 + w2;
   *new = (tether){.point_1 = p1,
@@ -211,7 +216,6 @@ tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,
 		  .fizz_2 = f2,
 		  .weight_1 = w1 / mag,
 		  .weight_2 = w2 / mag,
-		  .tether_strength = ts,
 		  .tether_k = tk,
 		  .tether_distance = td,
 		  .tether_type = tt};
@@ -221,7 +225,6 @@ tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,
 void copy_tether_params(tether* from, tether* to) {
   to->weight_1 = from->weight_1;
   to->weight_2 = from->weight_2;
-  to->tether_strength = from->tether_strength;
   to->tether_k = from->tether_k;
   to->tether_distance = from->tether_distance;
   to->tether_type = from->tether_type;
@@ -236,26 +239,23 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
   double len = teth->tether_distance;
   double diff = 0;
   double mag = 0;
-  double sign = 1;
-  double t1_mag = 0;
-  double t2_mag = 0;
-  vector_2 t1_to_t2;
-  vector_2 t2_to_t1;
+  vector_2 t1_to_t2 = *zero_vec;
+  vector_2 t2_to_t1 = *zero_vec;
   switch (teth->tether_type) {
-  case -1:
+  case TETHER_BARRIER:
     if (d < len) {
       //push away
       diff = d - len;
     }
     break;
-  case 0:
+  case TETHER_SPRING:
     if (d != len) {
       //pull/push as needed
       diff = d - len;
       
     }
     break;
-  case 1:
+  case TETHER_ROPE:
     if (d > len) {
       //pull towards
       diff = d - len;
@@ -266,24 +266,44 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
     break;
   }
   if (diff != 0) {
-    if (diff < 0) {
-      sign = -1;
-    }
-
-    vector_2 temp_1, temp_2;
+    vector_2 temp_1, temp_2, damp_1, damp_2;
     virt_pos_to_vector_2(teth->point_1, &temp_1);
     virt_pos_to_vector_2(teth->point_2, &temp_2);
     vector_2_sub(&temp_1, &temp_2, &t2_to_t1);
     vector_2_sub(&temp_2, &temp_1, &t1_to_t2);
+    if (isZeroVec(&t2_to_t1) || isZeroVec(&t1_to_t2)) {
+      t2_to_t1.v1 = 1;
+      t1_to_t2.v1 = -1;
+    }
+    //hardcode for critically camped system, coef should eventually be a tether field
+    double damp_coef = -70 * pow(teth->tether_k, 0.5);
+    fizzle* f1 = teth->fizz_1;
+    fizzle* f2 = teth->fizz_2;
+    mag = diff * teth->tether_k;
+    damp_1 = *zero_vec;
+    damp_2 = *zero_vec;
+    temp_1 = *zero_vec;
+    temp_2 = *zero_vec;
+
+    //spring force
     make_unit_vector(&t1_to_t2, &t1_to_t2);
     make_unit_vector(&t2_to_t1, &t2_to_t1);
-        
-    mag = diff * teth->tether_k + sign * teth->tether_strength;
+    vector_2_scale(&t1_to_t2, mag, t1);
+    vector_2_scale(&t2_to_t1, mag, t2);
 
-    t1_mag = mag * teth->weight_1;
-    t2_mag = mag - t1_mag;
-    vector_2_scale(&t2_to_t1, t1_mag, t2);
-    vector_2_scale(&t1_to_t2, t2_mag, t1);
+    //dampening
+    temp_1 = f1->velocity;
+    temp_2 = f2->velocity;
+    vector_2_scale(&temp_1, damp_coef, &damp_1);
+    vector_2_scale(&temp_2, damp_coef, &damp_2);
+    
+    vector_2_add(t1, &damp_1, t1);
+    vector_2_add(t2, &damp_2, t2);
+
+    vector_2_scale(t1, teth->weight_1, t1);
+    vector_2_scale(t2, teth->weight_2, t2);
+
+
   }
 }
 
@@ -297,4 +317,22 @@ void apply_tether(tether* teth) {
   //add t1 to f1->tether, t2 to f2->tether
   add_tether(f1, &t1);
   add_tether(f2, &t2);  
+}
+
+
+
+void set_velocity(fizzle* f, vector_2* val) {
+  f->velocity = *val;
+}
+
+void get_velocity(fizzle* f, vector_2* res) {
+  *res = f->velocity;
+}
+
+void set_line_damp(fizzle* f, double val) {
+  f->line_damp = val;
+}
+
+void set_rot_damp(fizzle* f, double val) {
+  f->rot_damp = val;
 }

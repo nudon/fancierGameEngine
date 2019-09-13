@@ -1,6 +1,7 @@
 #ifndef FILE_COMPOUND_SEEN
 #define FILE_COMPOUND_SEEN
 
+typedef struct compound_stats_struct ocompound_stats;
 typedef struct compound_struct compound;
 
 #include "body.h"
@@ -8,6 +9,7 @@ typedef struct compound_struct compound;
 #include "attributes.h"
 #include "gi.h"
 
+void damage_compound(compound* c, double amt);
 
 
 compound* create_compound();
@@ -37,5 +39,7 @@ int get_compound_uniform_flag(compound* c);
 void set_compound_uniform_flag(compound* c, int v);
 
 vector_2 get_dir(compound* comp);
+
+void set_compound_gravity(compound* c, vector_2* grav);
 
 #endif

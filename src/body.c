@@ -1,6 +1,46 @@
 #include "body.h"
 #include <math.h>
 
+struct body_stats_struct {
+  int max_body_health;
+  int body_health;
+  //this scales incoming damage vals
+  double damage_scalar;
+  //after damage scalar, take (1 - (health / max_health)) * damage limiter
+  //0 < x < 1 will have affect of compound taking less damage as body gets more dmage inflicted
+  // 1 < x will have compound take more damapge as body is damaged
+  double damage_limiter;
+};
+
+void damage_body(body* b, double amt) {
+  body_stats* s = b->b_stats;
+  double health_scalar;
+  double limiter;
+  double compound_damage = 0;
+  if (s != NULL) {
+    amt *= s->damage_scalar;
+    health_scalar = ((double)s->body_health / s->max_body_health);
+    limiter = amt * s->damage_limiter;
+    amt = amt * health_scalar + limiter * (1 - health_scalar);
+    amt *= 0.5;
+    
+    if (s->body_health < amt) {
+      compound_damage = s->body_health;
+      s->body_health = 0;
+      //also, potentially disable poltergeist for body
+      //rather then discarding the pointer, just have an additional flag in body
+    }
+    else {
+      compound_damage = amt;
+      s->body_health -= amt;
+    }
+    //apply compound_damge to controlling compound
+    compound* c = get_owner(b);
+    damage_compound(c, compound_damage);
+  }
+}
+  
+  
 enum shared_input_mode{si_add, si_avg};
 
 struct shared_input_struct {
@@ -65,19 +105,27 @@ void add_to_shared_input(virt_pos* t, double r, shared_input* si) {
     si->avg_r = 0;
     si->mode = si_add;
   }
-  virt_pos_add(t, &(si->t_disp), &(si->t_disp));
-  si->t_count++;
-  si->r_disp += r;
-  si->r_count++;
+  if (!isZeroPos(t)) {
+      virt_pos_add(t, &(si->t_disp), &(si->t_disp));
+      si->t_count++;
+  }
+  if (r != 0.0) {
+    si->r_disp += r;
+    si->r_count++;
+  }
 }
 
 void get_avg_movement(shared_input* si, virt_pos* t, double* r) {
   if (si->mode == si_add) {
-    si->avg_t.x = si->t_disp.x / si->t_count;
-    si->avg_t.y = si->t_disp.y / si->t_count;
+    if (si->t_count != 0) {
+      si->avg_t.x = si->t_disp.x / si->t_count;
+      si->avg_t.y = si->t_disp.y / si->t_count;
+    }
     si->t_disp = *zero_pos;
     si->t_count = 0;
-    si->avg_r = si->r_disp / si->r_count;
+    if (si->r_count != 0) {
+      si->avg_r = si->r_disp / si->r_count;
+    }
     si->r_disp = 0;
     si->r_count = 0;
     si->mode = si_avg;
@@ -122,6 +170,7 @@ body* createBody(fizzle* fizz, struct collider_struct* coll) {
   new->status = 0;
   new->pic = make_picture(NULL);
   new->uniform_input = NULL;
+  new->b_stats = NULL;
   return new;
 }
 
@@ -136,6 +185,12 @@ body* cloneBody(body* src) {
   new->event_list = createGen_list();
   new->status = 0;
   new->uniform_input = NULL;
+  if (src->b_stats != NULL) {
+    *new->b_stats = *src->b_stats;
+  }
+  else {
+    new->b_stats = NULL;
+  }
   return new;
 }
 
@@ -158,20 +213,12 @@ fizzle* get_fizzle(body* aBody) {
   return aBody->fizz;
 }
 
-double get_mass(body* aBody) {
-  return aBody->fizz->mass;
-}
-
-vector_2* get_velocity(body* aBody) {
-  return &(aBody->fizz->velocity);
-}
-
-virt_pos* get_body_center(body* b) {
+virt_pos get_body_center(body* b) {
   return get_center(get_polygon(get_collider(b)));
 }
 
 void set_body_center(body* b, virt_pos* vp) {
-  *(get_body_center(b)) = *vp;
+  set_center(get_polygon(get_collider(b)), vp);
 }
 
 picture* get_picture(body* aBody) {
@@ -281,8 +328,8 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   virt_pos b2d = *zero_pos;
   double b1Scale = 1;
   double b2Scale = 1;
-  double b1Mass = get_mass(b1);
-  double b2Mass = get_mass(b2);
+  double b1Mass = get_mass(get_fizzle(b1));
+  double b2Mass = get_mass(get_fizzle(b2));
 
   inv_mass_contribution(b1Mass, b2Mass, &b1Scale, &b2Scale);
 
@@ -303,8 +350,10 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
 
 void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm) {
   double l1, l2;
-  l1 = get_projected_length_pos(get_body_center(body1), normal);
-  l2 = get_projected_length_pos(get_body_center(body2), normal);
+  virt_pos b1c = get_body_center(body1);
+  virt_pos b2c = get_body_center(body2);
+  l1 = get_projected_length_pos(&b1c, normal);
+  l2 = get_projected_length_pos(&b2c, normal);
   *body1_norm = *normal;
   *body2_norm = *body1_norm;
   //mtv faces in positive direction of some axis
@@ -352,18 +401,21 @@ void elastic_reduce(double m1, double m2, double* f1f, double* f2f, double els) 
 
 
 void impact(body* b1, body* b2, vector_2* normal) {
-  double m1 = get_mass(b1), m2 = get_mass(b2);
+  fizzle* f1 = get_fizzle(b1);
+  fizzle* f2 = get_fizzle(b2);
+  double m1 = get_mass(f1), m2 = get_mass(f2);
     
-  vector_2 *b1v = get_velocity(b1) , *b2v = get_velocity(b2);
+  vector_2 b1v = *zero_vec, b2v = *zero_vec;
+  get_velocity(f1, &b1v);
+  get_velocity(f2, &b2v);
   
   double body1i = 0, body2i = 0;
   double body1f = 0, body2f = 0;
   double body1d = 0, body2d = 0;
   double scale = 0;
   vector_2 body1add = *zero_vec, body2add = *zero_vec;
-  fizzle* f1 = get_fizzle(b1), *f2 = get_fizzle(b2);
-  body1i = get_projected_length_vec(b1v, normal);
-  body2i = get_projected_length_vec(b2v, normal);
+  body1i = get_projected_length_vec(&b1v, normal);
+  body2i = get_projected_length_vec(&b2v, normal);
   
 
   
@@ -386,8 +438,74 @@ void impact(body* b1, body* b2, vector_2* normal) {
 }
 
 tether* tether_bodies(body* b1, body* b2, tether* tether_params) {
-  tether* teth = create_tether_blank(get_body_center(b1), get_body_center(b2), get_fizzle(b1), get_fizzle(b2));
+  polygon* p1 = get_polygon(get_collider(b1));
+  polygon* p2 = get_polygon(get_collider(b2));
+  tether* teth = create_tether_blank(read_only_polygon_center(p1), read_only_polygon_center(p2), get_fizzle(b1), get_fizzle(b2));
   copy_tether_params(tether_params, teth);
   return teth;
 }
 
+virt_pos get_rotational_offset(body* b) {
+  virt_pos head_center = *zero_pos;
+  virt_pos curr_center = *zero_pos;
+  virt_pos offset = *zero_pos;
+  shared_input *si = get_shared_input(b);  
+  if (si != NULL) {
+    head_center = get_shared_input_origin(si);
+    curr_center = get_body_center(b);
+    virt_pos_sub(&head_center, &curr_center, &offset);
+  }
+  return offset;
+}
+
+void run_body_poltergeist(body* b) {
+  vector_2 t_input = *zero_vec;
+  double r_input = 0;
+  fizzle* f = get_fizzle(b);
+  body_stats* s = b->b_stats;
+  if (s != NULL && s->body_health == 0) {
+    return;
+  }
+  apply_poltergeist(b->polt, b, &t_input, &r_input);
+  add_velocity(f, &t_input);
+  add_rotational_velocity(f, r_input);
+}
+
+typedef struct hitbox_struct hitbox;
+typedef struct hitbox_collection_struct hitbox_collection;
+
+
+struct hitbox_collection_struct {
+  int size;
+  int cur_index;
+  collider* hitbox_array;
+};
+
+struct hitbox_struct {
+  compound* hitbox_compound;
+  double damage;
+  double up_time;
+  gen_node* node;
+};
+
+hitbox* make_hitbox(compound* c, double dmg, double tu) {
+  hitbox* hb = malloc(sizeof(hitbox));
+  hb->hitbox_compound = c;
+  hb->damage = dmg;
+  hb->up_time = tu;
+  hb->node = createGen_node(hb);
+  return hb;
+}
+
+//set hitbox dir by setting fizzles velocity
+//more complicated projectiles can have a poltergeist(for tracking things
+
+
+
+hitbox_collection* make_hitbox_collection(hitbox* hb, int amount) {
+  hitbox_collection* hbc = malloc(sizeof(hitbox_collection));
+
+  return hbc;
+}
+
+  

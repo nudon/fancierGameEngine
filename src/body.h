@@ -2,6 +2,7 @@
 #define FILE_MYBODY_SEEN
 
 typedef struct body_struct body;
+typedef struct body_stats_struct body_stats;
 typedef struct shared_input_struct shared_input;
 
 #include "collider.h"
@@ -22,6 +23,7 @@ struct body_struct {
   shared_input** uniform_input;
   //used for holding ai related events
   gen_list* event_list;
+  body_stats* b_stats;
 };
 
 shared_input* create_shared_input();
@@ -34,6 +36,7 @@ void add_to_shared_input(virt_pos* t, double r, shared_input* si);
 void get_avg_movement(shared_input* si, virt_pos* t, double* r);
 void set_shared_input_origin(shared_input* si, virt_pos* point);
 virt_pos get_shared_input_origin(shared_input* si);
+virt_pos get_rotational_offset(body* b);
 
 body* createBody(fizzle* fizz, struct collider_struct* coll);
 body* cloneBody(body* src);
@@ -45,9 +48,9 @@ fizzle* get_fizzle(body* body);
 collider * get_collider(body* body);
 compound* get_owner(body* body);
 fizzle* get_fizzle(body* aBody);
-double get_mass(body* aBody);
-vector_2* get_velocity(body* aBody);
-virt_pos* get_body_center(body* b);
+//double get_mass(body* aBody);
+//vector_2* get_velocity(body* aBody);
+virt_pos get_body_center(body* b);
 void set_body_center(body* b, virt_pos* vp);
 picture* get_picture(body* aBody);
 void set_poltergeist(body* b, poltergeist* polt);
@@ -73,4 +76,5 @@ void impact(body* b1, body* b2, vector_2* normal);
 
 tether* tether_bodies(body* b1, body* b2, tether* tether_params);
 
+void run_body_poltergeist(body* b);
 #endif

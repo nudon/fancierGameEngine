@@ -44,17 +44,14 @@ int matrix_index_hash(void* i) {
 
 
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot) {
-  polygon* poly = coll->shape;
+  polygon* poly = get_polygon(coll);
   int change = 0;
-  //doing this to constnatly display shm hashes
-  change = 0;
   if (!isZeroPos(displace)) {
-    virt_pos_add(poly->center, displace, poly->center);
+    add_offset_to_center(poly, displace);
     change++;
   }
   if (rot != 0.0) {
     set_rotation(poly, get_rotation(poly) + rot);
-    //poly->rotation += rot;
     change++;
   }
   if (change > 0) {
@@ -64,7 +61,6 @@ int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot
     add_collider_to_shm_entries(map, cr, cr->old_cells);
     update_refs(coll);
   }
-  //fprintf(stderr, "update returns %d\n", change);
   return change;
 }
 
@@ -78,7 +74,7 @@ void update_refs(collider* coll) {
 }
 
 void fill_bb_dim(polygon* bbox, box* bb_dim) {
-  if (bbox->sides != 4) {
+  if (get_sides(bbox) != 4) {
     fprintf(stderr, "Trying to get bb_dim of a non-rectangle\n");
   }
   virt_pos c0 = *zero_pos, c1 = *zero_pos, c2 = *zero_pos;
@@ -117,13 +113,7 @@ void free_collider(collider* rm) {
     remove_node(cr->active_cell_nodes[i]);
   }
   free_cr(cr);
-  //Collider should have center* reassigned to bbox
-  if (rm->shape->center != rm->bbox->center) {
-    fprintf(stderr, "Some collider didn't get it's center reassigned\n");
-  }
-  else {
-    rm->bbox->center = NULL;
-  }
+  set_center(rm->bbox, NULL);
   freePolygon(rm->shape);
   freePolygon(rm->bbox);
   free(rm);
@@ -245,13 +235,14 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   rots[0] = 0;
   rots[1] = M_PI / 4;
   double rot_threshold = M_PI / 256;
+  virt_pos cent = get_center(poly);
   while(rots[1] - rots[0] > rot_threshold) {
     rots[2] = (rots[1] + rots[0] )/ 2;
     for (int i = 0; i < 3; i++) {
       set_rotation(poly, rots[i]);
-      extreme_projections_of_polygon(poly, poly->center, x_axis, &min, &max);
+      extreme_projections_of_polygon(poly, &cent, x_axis, &min, &max);
       x_len = fabs(max - min);
-      extreme_projections_of_polygon(poly, poly->center, y_axis, &min, &max);
+      extreme_projections_of_polygon(poly, &cent, y_axis, &min, &max);
       y_len = fabs(max - min);
       areas[i] = y_len * x_len;
     }
@@ -266,17 +257,17 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   }
 
   double xmin, xmax, ymin, ymax;
-  if (result->sides == 4) {
+  if (get_sides(result) == 4) {
     set_rotation(result,rots[rot_index]);
-    extreme_projections_of_polygon(poly, poly->center, x_axis, &xmin, &xmax);
-    extreme_projections_of_polygon(poly, poly->center, y_axis, &ymin, &ymax);
+    extreme_projections_of_polygon(poly, &cent, x_axis, &xmin, &xmax);
+    extreme_projections_of_polygon(poly, &cent, y_axis, &ymin, &ymax);
     set_base_point(result, 0, &(virt_pos){.x = xmin, .y = ymin});
     set_base_point(result, 1, &(virt_pos){.x = xmax, .y = ymin});
     set_base_point(result, 2, &(virt_pos){.x = xmax, .y = ymax});
     set_base_point(result, 3, &(virt_pos){.x = xmin, .y = ymax});
     generate_normals_for_polygon(result);
-    free(result->center);
-    result->center = poly->center;
+    free_polygon_center(result);
+    set_center_p(result, read_only_polygon_center(poly));
   }
   else {
     fprintf(stderr, "handed in a not 4 sided thing to find_bound_box\n");
@@ -298,7 +289,7 @@ void entries_for_polygon(spatial_hash_map * map, polygon* p, hash_table* table, 
   int cellW = map->cell_dim.width;
   int cellH = map->cell_dim.height;
   int dest_corner;
-  int sides = p->sides;
+  int sides = get_sides(p);
   virt_pos  curr_pos, dest_pos, avg;
 
   matrix_index curr_ind, dest_ind;
@@ -312,8 +303,8 @@ void entries_for_polygon(spatial_hash_map * map, polygon* p, hash_table* table, 
 
   matrix_index* temp_ind = NULL;
 
-  virt_pos offset_to_dest;
-  virt_pos offset_step;
+  virt_pos offset_to_dest = *zero_pos;
+  virt_pos offset_step = *zero_pos;
   double step_size = 0;
   for (int curr_corner = 0; curr_corner < sides; curr_corner++) {
     dest_corner = (curr_corner + 1) % sides;
@@ -381,12 +372,12 @@ void entries_for_polygon(spatial_hash_map * map, polygon* p, hash_table* table, 
   }
 
   avg = *zero_pos;
-  for (int i = 0; i < p->sides; i++) {
+  for (int i = 0; i < sides; i++) {
     get_actual_point(p, i, &curr_pos);
     virt_pos_add(&curr_pos, &avg, &avg);
   }
-  avg.x /= p->sides;
-  avg.y /= p->sides;
+  avg.x /= sides;
+  avg.y /= sides;
   shm_hash(map, &avg, &curr_ind);
   recursive_fill(table, curr_ind,  result);
 }
@@ -443,7 +434,6 @@ void remove_collider_from_shm_entries(spatial_hash_map* map, collider_ref* node,
   int i = 0;
   spatial_map_cell* cell;
   gen_node* list_node;
-  //again, use vectors!@
   while(i < entries_to_clear->cur_size) {
     cell = get_entry_in_shm(map, elementAt(entries_to_clear,i));
     if (cell  != NULL) {

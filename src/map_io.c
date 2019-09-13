@@ -460,13 +460,17 @@ fizzle* xml_read_fizzle(xmlNodePtr fizzle_node) {
 }
 
 void xml_write_polygon(FILE* file_out, polygon* poly) {
-  fprintf(file_out, "<polygon sides=\"%d\" scale=\"%f\" rotation=\"%f\">\n", poly->sides, poly->scale, poly->rotation);
-  xml_write_virt_pos(file_out, poly->center, "center");
+  int sides = get_sides(poly);
+  fprintf(file_out, "<polygon sides=\"%d\" scale=\"%f\" rotation=\"%f\">\n", sides, get_scale(poly), get_rotation(poly));
+  virt_pos pc = get_center(poly);
+  xml_write_virt_pos(file_out, &pc, "center");
   int buff_size = 16;
   char buff[buff_size];
-  for (int i = 0; i < poly->sides; i++) {
+  virt_pos temp = *zero_pos;
+  for (int i = 0; i < sides; i++) {
+    get_base_point(poly, i, &temp);
     snprintf(buff, buff_size, "%d", i);
-    xml_write_virt_pos(file_out, &(poly->base_corners[i]), buff);
+    xml_write_virt_pos(file_out, &temp, buff);
   }
   fprintf(file_out, "</polygon>\n");
 }
@@ -477,13 +481,13 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
   double val = 0;
   int ival = 0;
 
-  ival = get_int_prop(polygon_node, "sides");
-  poly = createPolygon(ival);
+  int sides = get_int_prop(polygon_node, "sides");
+  poly = createPolygon(sides);
   
   double scale = get_double_prop(polygon_node, "scale");
 
   val = get_double_prop(polygon_node, "rotation");
-  poly->rotation = val;
+  set_rotation(poly, val);
   
   xmlNodePtr child = polygon_node->xmlChildrenNode;
   virt_pos vp;
@@ -492,15 +496,15 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
       xml_read_virt_pos(child, &vp);
       text = xmlGetProp(child, (const xmlChar*)"name");
       if (xmlStrcmp(text, (const xmlChar*)"center") == 0) {
-	*(poly->center) = vp;
+	set_center(poly, &vp);
       }
       else {
 	//should just be corner number
 	ival = atoi((const char*)text);
-	if (val >= poly->sides) {
+	if (val >= sides) {
 	  fprintf(stderr, "xml file contained a corner indexed beyond polygons sides\n");
 	}
-	poly->base_corners[ival] = vp;
+	set_base_point(poly, ival, &vp);
       }
       free(text);
     }
@@ -508,6 +512,7 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
   }
   generate_normals_for_polygon(poly);
   set_scale(poly, scale);
+  recalc_corners_and_norms(poly);
   return poly;
 }
 

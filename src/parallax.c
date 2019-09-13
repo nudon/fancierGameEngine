@@ -28,7 +28,7 @@ void parallax_transform_point(virt_pos* point, virt_pos* vp, double z_level , vi
 
 //for drawing a polygon
 void draw_parallax_polygon(camera* cam, polygon* poly, virt_pos* vp, double z_level) {
-  int sides = poly->sides;
+  int sides = get_sides(poly);
   virt_pos p1, p2;
   for (int i = 0; i < sides; i++) {
     get_actual_point(poly, i, &p1);
