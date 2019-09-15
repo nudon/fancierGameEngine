@@ -17,7 +17,7 @@ static int SCREEN_WIDTH = 720;
 static int SCREEN_HEIGHT = 480;
 
 double x_virt_to_pixel_scale = 1.0 / 1.5;
-double y_virt_to_pixel_scale = 1.0 / 2;
+double y_virt_to_pixel_scale = 1.0 / 1.5;
 
 picture* def_pic = NULL;
 
@@ -191,10 +191,11 @@ void virt_to_pixel(virt_pos* virt, pixel_pos* result) {
 void draw_virt_pos(camera* cam, virt_pos* virt) {
   SDL_SetRenderDrawColor(cam->rend, 0,255,0, SDL_ALPHA_OPAQUE);
   pixel_pos pix;
+  pixel_pos o = cam->corner;
   virt_to_pixel(virt, &pix);
-  myDrawCirc(pix.x, pix.y, 10);
+  myDrawCirc(pix.x - o.x, pix.y - o.y, 4);
   SDL_SetRenderDrawColor(cam->rend, 0,0,255,SDL_ALPHA_OPAQUE);
-  myDrawCirc(pix.x, pix.y, 9);
+  myDrawCirc(pix.x - o.x, pix.y - o.y, 3);
 }
 
 void draw_line(camera* cam, virt_pos* start, virt_pos* end) {

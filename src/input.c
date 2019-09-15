@@ -7,7 +7,7 @@
 int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
-  double mov_delta = 0.8;
+  double mov_delta = 0.4;
   double jump_scale = 4.5;
   double rot_delta = 0.03;
   //double scale_delta = 1;

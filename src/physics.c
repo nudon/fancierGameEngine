@@ -3,7 +3,7 @@
 #include <math.h>
 
 #define LINEAR_DAMP 1.5
-#define ROTATIONAL_DAMP 0.2
+#define ROTATIONAL_DAMP .12
 
 vector_2* g = &(vector_2){.v1 = 0, .v2 = 0.5};
 
@@ -75,11 +75,14 @@ void init_fizzle(fizzle* fizz) {
   fizz->impact_count = 0;
   fizz->tether = *zero_vec;
   fizz->gravity = (vector_2){.v1 = 0, .v2 = 0};
+  fizz->rot_impact = 0;
+  fizz->rot_impact_count = 0;
+  fizz->rot_dampening = 0;
   fizz->rot_acceleration = 0;
   fizz->rot_velocity = 0;
   fizz->bounce = 1;
-  fizz->line_damp = LINEAR_DAMP;
-  fizz->rot_damp = ROTATIONAL_DAMP;
+  fizz->line_damp_val = LINEAR_DAMP;
+  fizz->rot_damp_val = ROTATIONAL_DAMP;
 }
 
 void free_fizzle(fizzle* rm) {
@@ -104,13 +107,21 @@ void get_avg_impact(fizzle* fizz, vector_2* result) {
   }
 }
 
+double get_avg_rot_impact(fizzle* f) {
+  double ret = 0;
+  if (f->rot_impact_count != 0) {
+    ret = f->rot_impact / f->rot_impact_count;
+  }
+  return ret;
+}
+
 void set_fizzle_dampening(fizzle* fizz) {
   vector_2 vel = fizz->velocity;
   vector_2 damp = *zero_vec;
   double vel_mag = vector_2_magnitude(&vel), damp_amount = 0;
   if (!isCloseEnoughToZeroVec(&vel)) {
     make_unit_vector(&vel, &vel);
-    damp_amount = vel_mag * vel_mag * fizz->line_damp;
+    damp_amount = vel_mag * vel_mag * fizz->line_damp_val;
     vector_2_scale(&vel, -1 * damp_amount, &damp);
     fizz->dampening = damp;
   }
@@ -121,48 +132,64 @@ void set_fizzle_dampening(fizzle* fizz) {
 
 void set_fizzle_rot_dampening(fizzle* fizz) {
   double rv = fizz->rot_velocity;
-  fizz->rot_acceleration += rv * -1 * fizz->rot_damp;
-}
-
-void update_net(fizzle* fizz) {
-  vector_2 loc = *zero_vec;
-  set_fizzle_dampening(fizz);
-  set_fizzle_rot_dampening(fizz);
-  get_avg_impact(fizz, &loc);
-  vector_2_add(&(fizz->gravity), &loc, &loc);
-  vector_2_add(&(fizz->dampening), &loc, &loc);
-  vector_2_add(&(fizz->tether), &loc, &loc);
-  fizz->net_acceleration = loc;
-  set_impact(fizz, zero_vec);
-  set_tether(fizz, zero_vec);
-  fizz->rot_acceleration = 0;
-  fizz->impact_count = 0;
+  int sign = sign_of(rv);
+  fizz->rot_dampening = rv * rv * sign * -1 * fizz->rot_damp_val;
 }
 
 void calc_change(fizzle* fizz, virt_pos* t_disp, double* r_disp) {
   vector_2 prev_accel = fizz->net_acceleration;
   vector_2 new_accel = *zero_vec;
   vector_2 avg_accel = *zero_vec;
+  double prev_rot_accel = fizz->rot_acceleration;
+  double new_rot_accel = 0;
+  double avg_rot_accel = 0;
 
   virt_pos loc_pos = *zero_pos;
   vector_2 vel_comp = fizz->velocity;
   vector_2 acl_comp = prev_accel;
   double dt = get_dT();
+
+  //update t_disp
   vector_2_scale(&vel_comp, dT, &vel_comp);
   vector_2_scale(&acl_comp, 0.5 * dt * dt, &acl_comp);
   vector_2_add(&vel_comp, &acl_comp, &acl_comp);
   vector_2_to_virt_pos(&acl_comp, &loc_pos);
   virt_pos_add(t_disp, &loc_pos, t_disp);
 
-  //potentially carry out an update here
-
-  update_net(fizz);
+ 
+  //update net acceleration
+  set_fizzle_dampening(fizz);
+  get_avg_impact(fizz, &fizz->net_acceleration);
+  vector_2_add(&(fizz->gravity), &fizz->net_acceleration, &fizz->net_acceleration);
+  vector_2_add(&(fizz->dampening), &fizz->net_acceleration, &fizz->net_acceleration);
+  vector_2_add(&(fizz->tether), &fizz->net_acceleration, &fizz->net_acceleration);
+  set_impact(fizz, zero_vec);
+  set_tether(fizz, zero_vec);
+  fizz->impact_count = 0;
+  
   new_accel = fizz->net_acceleration;
   vector_2_add(&prev_accel, &new_accel, &avg_accel);
   vector_2_scale(&avg_accel, 0.5 * dt, &avg_accel);
   vector_2_add(&avg_accel, &fizz->velocity, &fizz->velocity);
+
+
+  //update r_disp
+  double rot_delta = 0;
+  rot_delta += fizz->rot_velocity * dt;
+  *r_disp  += rot_delta;
+
+  //update rot acceleration
+  set_fizzle_rot_dampening(fizz);
+  fizz->rot_acceleration = get_avg_rot_impact(fizz);
+  fizz->rot_acceleration += fizz->rot_dampening;
+
+  set_rot_impact(fizz, 0);
+  fizz->rot_impact_count = 0;
   
-  *r_disp += fizz->rot_acceleration * dt * dt;
+  fizz->rot_velocity += fizz->rot_acceleration * dt;
+
+  
+  
 }
 
 void set_gravity(fizzle* fizz, vector_2* newGrav) {
@@ -173,10 +200,18 @@ void set_impact(fizzle* fizz, vector_2* newImp) {
   fizz->impact = *newImp;
 }
 
+void set_rot_impact(fizzle* f, double val) {
+  f->rot_impact = 0;
+}
+
 void add_impact(fizzle* fizz, vector_2* newAdd) {
   vector_2_add(newAdd, &(fizz->impact), &(fizz->impact));
   fizz->impact_count++;
-  
+}
+
+void add_rot_impact(fizzle* f, double val) {
+  f->rot_impact += val;
+  f->rot_impact_count++;
 }
 
 void set_tether(fizzle* fizz, vector_2* newTF) {
@@ -329,10 +364,14 @@ void get_velocity(fizzle* f, vector_2* res) {
   *res = f->velocity;
 }
 
+double get_rot_velocity(fizzle* f) {
+  return f->rot_velocity;
+}
+
 void set_line_damp(fizzle* f, double val) {
-  f->line_damp = val;
+  f->line_damp_val = val;
 }
 
 void set_rot_damp(fizzle* f, double val) {
-  f->rot_damp = val;
+  f->rot_damp_val = val;
 }

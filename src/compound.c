@@ -55,7 +55,7 @@ body* get_compound_head(compound* c) {
   return (body*)c->bp->start->stored;
 }
 
-int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
+int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
   shared_input* si = get_shared_input(b);
   if (si != NULL) {
     add_to_shared_input(t_disp, r_disp, si);
@@ -66,7 +66,7 @@ int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp)
   }
 }
 
-void compound_update(spatial_hash_map* map, compound* c) {
+void move_compound(spatial_hash_map* map, compound* c) {
   gen_node* n  = NULL;
   body* b = NULL;
   virt_pos rot_offset = *zero_pos;
@@ -78,11 +78,12 @@ void compound_update(spatial_hash_map* map, compound* c) {
   virt_pos avg_t_disp = *zero_pos;
   double avg_r_disp = 0;
   shared_input* si = NULL;
-  n = get_bodies(c)->start;
+  n = get_bodies(c)->end;
   while(n != NULL) {
     b = (body*)n->stored;
     si = get_shared_input(b);
     rot_offset = get_rotation_offset(get_polygon(get_collider(b)));
+
     if (si != NULL)  {
       get_avg_movement(si, &avg_t_disp, &avg_r_disp);
       orig_offset = *zero_pos;
@@ -100,9 +101,10 @@ void compound_update(spatial_hash_map* map, compound* c) {
 	t_disp = avg_t_disp;
       }
       r_disp = avg_r_disp;
+
       update(map, b->coll, &t_disp, r_disp);
     }
-    n = n->next;
+    n = n->prev;
   }
 }
 

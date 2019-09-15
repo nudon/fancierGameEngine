@@ -20,8 +20,8 @@ void set_attributes(compound* comp, decision_att* na);
 gi* get_gi(compound* comp);
 void set_gi(compound* comp, gi* g);
 
-int body_update(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
-void compound_update(spatial_hash_map* map, compound* c);
+int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
+void move_compound(spatial_hash_map* map, compound* c);
 
 gen_list* get_bodies(compound* comp);
 

@@ -387,8 +387,66 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
   return ret;  
 }
 
-//including an optional neworigin as a vague stress releif options
-//having fears that floating point arithmatic getting imprecice at higher values could mess up things
+void tmi_points_of_polygon(polygon* check,vector_2* line, virt_pos* min_point, virt_pos* max_point, virt_pos* second_min_point, virt_pos* second_max_point) {
+  double min = 0, max = 0, temp = 0;
+  virt_pos a_point;
+  virt_pos prim_min_point = *zero_pos, sec_min_point = *zero_pos;
+  virt_pos prim_max_point = *zero_pos, sec_max_point = *zero_pos;
+  double sec_min_mag = 0, sec_max_mag = 0;
+  int sec_min_set = 0;
+  int sec_max_set = 0;
+  
+  for (int i = 0; i < check->sides; i++) {
+    get_actual_point(check,i, &a_point);
+    
+    temp = get_projected_length(&a_point, line);
+    if (i == 0 ) {
+      prim_min_point = a_point;
+      prim_max_point = a_point;
+      //sec_max_point = prim_max_point;
+      //sec_min_point = prim_min_point;
+
+      max = temp;
+      min = temp;
+      //sec_max_mag = temp;
+      //sec_min_mag = temp;
+      
+    }
+    else {
+      if (temp > max) {
+	sec_max_mag = max;
+	sec_max_point = prim_max_point;
+	sec_max_set = 1;
+	max = temp;
+	prim_max_point = a_point;
+      }
+      else if (!sec_max_set || temp > sec_max_mag) {
+	sec_max_mag = temp;
+	sec_max_point = a_point;
+	sec_max_set = 1;
+      }
+      if (temp < min) {
+	sec_min_mag = min;
+	sec_min_point = prim_min_point;
+	sec_min_set = 1;
+	min = temp;
+        prim_min_point = a_point;
+      }
+      else if (!sec_min_set || temp < sec_min_mag) {
+	sec_min_mag = temp;
+	sec_min_point = a_point;
+	sec_min_set = 1;
+      }
+
+    }
+  }
+  *min_point = prim_min_point;
+  *max_point = prim_max_point;
+  *second_min_point = sec_min_point;
+  *second_max_point = sec_max_point;
+
+}
+
 void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2* line, double* min_result, double* max_result) {
   double min = 0, max = 0, temp = 0;
   virt_pos relative_point, origin, offset;

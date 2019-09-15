@@ -495,7 +495,6 @@ compound* makeTrashCan(int pos_x, int pos_y) {
   compound* can = create_compound();
   virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
   shared_input** si = create_shared_input_ref();
-  //make_compound_uniform(can);
   body* bottom = NULL;
   body* lside = NULL;
   body* rside = NULL;
@@ -604,9 +603,10 @@ map* make_origin_map() {
 
   //compound* user = makeCrab(center.x, center.y);
   compound* user = tunctish(center.x, center.y);
+  //compound* user = makeTrashCan(center.x, center.y);
   compound* walls = makeWalls();
   make_compound_user(user);
-  //set_hunter(get_attributes(user), 1);
+  set_hunter(get_attributes(user), 1);
   set_prey(get_attributes(user), 1);
   add_compound_to_plane(plane, user);
   add_compound_to_plane(plane, walls);
@@ -645,7 +645,7 @@ map* make_beach_map() {
   add_compound_to_plane(main, floor);
 
   compound_spawner* monster_spawn = create_compound_spawner(TEST_SPAWN, -1, 666, floor_top - 100);
-  add_spawner_to_plane(main, monster_spawn);
+  //add_spawner_to_plane(main, monster_spawn);
   
 
   body* left_wall = quick_tile_block(58, 555, 0, floor_height, EYE_FN);
@@ -673,6 +673,9 @@ map* make_beach_map() {
   
   aTree = quick_block(48,190, 320, floor_top, BEACH_TREE_FN);
   add_body_to_plane(bg, aTree);
+
+  body* long_plat = quick_block(600, 30 , 1300, floor_top - 100, EYE_FN);
+  add_body_to_plane(main, long_plat);
 
   add_plane(beach, bg);
   add_plane(beach, main);

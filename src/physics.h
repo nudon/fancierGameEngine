@@ -20,22 +20,24 @@ extern tether* one_way_tether;
 
 struct fizzle_struct {
   double mass;
-  //velocity components
+  //linear components
   vector_2 velocity;
   vector_2 impact;
   vector_2 tether;
-  //acceleration components
   vector_2 dampening;
   vector_2 gravity;
   vector_2 net_acceleration;
   //rotational components
+  double rot_impact;
+  double rot_dampening;
   double rot_acceleration;
   double rot_velocity;
   //impact components
   int impact_count;
+  int rot_impact_count;
   double bounce;
-  double line_damp;
-  double rot_damp;
+  double line_damp_val;
+  double rot_damp_val;
 };
 
 struct tether_struct{
@@ -67,10 +69,12 @@ void free_tether(tether* rm);
 
 void add_rotational_velocity(fizzle* fizz, double delta);
 void add_velocity(fizzle* fizz, vector_2* delta);
+void add_rot_impact(fizzle* f, double val);
+void set_rot_impact(fizzle* f, double val);
 
 void set_fizzle_dampening(fizzle* fizz);
-void update_net(fizzle* fizz);
 void get_avg_impact(fizzle* fizz, vector_2* result);
+double get_avg_rot_impact(fizzle* f);
 void calc_change(fizzle* fizz, virt_pos* t_disp, double* r_disp);
 
 void set_gravity(fizzle* fizz, vector_2* newGrav);
@@ -101,7 +105,7 @@ void set_dT(double new);
 
 void set_velocity(fizzle* f, vector_2* val);
 void get_velocity(fizzle* f, vector_2* res);
-
+double get_rot_velocity(fizzle* f);
 void set_line_damp(fizzle* f, double val);
 void set_rot_damp(fizzle* f, double val);
 
