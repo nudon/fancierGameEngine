@@ -2,10 +2,10 @@
 #include "physics.h"
 #include <math.h>
 
-#define LINEAR_DAMP 1.5
-#define ROTATIONAL_DAMP .12
+#define LINEAR_DAMP 0.8
+#define ROTATIONAL_DAMP .012
 
-vector_2* g = &(vector_2){.v1 = 0, .v2 = 0.5};
+vector_2* g = &(vector_2){.v1 = 0, .v2 = 0.4};
 
 //TETHER_BARRIER defines sort of a barrier, pushes objects away if they are closer than td
 //TETHER_SPRING, defines an ideal spring situation, pushes/pulls objects
@@ -68,6 +68,7 @@ fizzle* cloneFizzle(fizzle* src) {
 
 void init_fizzle(fizzle* fizz) {
   fizz->mass = 10;
+  fizz->moi = 10;
   fizz->velocity = *zero_vec;
   fizz->dampening = *zero_vec;
   fizz->net_acceleration = *zero_vec;
@@ -140,9 +141,6 @@ void calc_change(fizzle* fizz, virt_pos* t_disp, double* r_disp) {
   vector_2 prev_accel = fizz->net_acceleration;
   vector_2 new_accel = *zero_vec;
   vector_2 avg_accel = *zero_vec;
-  double prev_rot_accel = fizz->rot_acceleration;
-  double new_rot_accel = 0;
-  double avg_rot_accel = 0;
 
   virt_pos loc_pos = *zero_pos;
   vector_2 vel_comp = fizz->velocity;
@@ -224,6 +222,14 @@ double get_mass(fizzle* f) {
 
 void set_mass(fizzle* fizz, double mass) {
   fizz->mass = mass;
+}
+
+double get_moi(fizzle* f) {
+  return f->moi;
+}
+
+void set_moi(fizzle* f, double n) {
+  f->moi = n;
 }
 
 double get_bounce(fizzle* f) {
@@ -374,4 +380,8 @@ void set_line_damp(fizzle* f, double val) {
 
 void set_rot_damp(fizzle* f, double val) {
   f->rot_damp_val = val;
+}
+
+void fizzle_velocity_diff(fizzle* source, fizzle* other, vector_2* result) {
+  vector_2_sub(&other->velocity, &source->velocity, result);
 }

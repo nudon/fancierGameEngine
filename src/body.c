@@ -2,7 +2,7 @@
 #include <math.h>
 
 int calc_contact_point(body* b1, body* b2, vector_2* mtv, virt_pos* result);
-void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, virt_pos* poc, double b1_scale, double b2_scale);
+void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, virt_pos* poc);
 
 struct body_stats_struct {
   int max_body_health;
@@ -301,13 +301,12 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
     get_normals_of_collision(body1, body2, &normal_of_collision, &b1_norm, &b2_norm);
     
     displace_bodies(map,body1, body2, mtv_mag, &b1_norm, &b2_norm);
-    double b1d, b2d;
     virt_pos poc;
-    impact(body1, body2, &b1_norm, &b1d, &b2d);
+    impact(body1, body2, &b1_norm);
 
     if (calc_contact_point(body1, body2, &b1_norm, &poc) > 0) {
       draw_virt_pos(getCam(), &poc);
-      impact_torque(body1, body2, &b1_norm, &b2_norm, &poc, b1d, b2d);
+      impact_torque(body1, body2, &b1_norm, &b2_norm, &poc);
       }
   }
 }
@@ -418,7 +417,7 @@ void elastic_reduce(double m1, double m2, double* f1f, double* f2f, double els) 
 }
 
 
-void impact(body* b1, body* b2, vector_2* normal, double* b1d, double* b2d) {
+void impact(body* b1, body* b2, vector_2* normal) {
   fizzle* f1 = get_fizzle(b1);
   fizzle* f2 = get_fizzle(b2);
   double m1 = get_mass(f1), m2 = get_mass(f2);
@@ -441,13 +440,6 @@ void impact(body* b1, body* b2, vector_2* normal, double* b1d, double* b2d) {
   
   body1d = body1f - body1i;
   body2d = body2f - body2i;
-
-  if (b1d != NULL) {
-    *b1d = body1d;
-  }
-  if (b2d != NULL) {
-    *b2d = body2d;
-  }
 
   scale = (get_bounce(f1) + get_bounce(f2)) / 2.0;
 
@@ -515,80 +507,35 @@ int calc_contact_point(body* b1, body* b2, vector_2* mtv, virt_pos* result) {
   d1 = fabs(get_projected_length(&p1_e, mtv) - get_projected_length(&p1_e_sec, mtv));
   d2 = fabs(get_projected_length(&p2_e, mtv) - get_projected_length(&p2_e_sec, mtv));
   
-  virt_pos sel_prim_p, sel_sec_p, not_prim_p, not_sec_p;
   if (d1 < thresh && d2 < thresh) {
     d1 = distance_between_points(&p1_e, &p1_e_sec);
     d2 = distance_between_points(&p2_e, &p2_e_sec);
     if (d1 < d2) {
       virt_pos_midpoint(&p1_e, &p1_e_sec, &contact_point);
-      sel_prim_p = p1_e;
-      sel_sec_p = p1_e_sec;
-      not_prim_p = p2_e;
-      not_sec_p = p2_e_sec;
     }
     else {
       virt_pos_midpoint(&p2_e, &p2_e_sec, &contact_point);
-      sel_prim_p = p2_e;
-      sel_sec_p = p2_e_sec;
-      not_prim_p = p1_e;
-      not_sec_p = p1_e_sec;
     }
     ret = 1;
   }
   else if (d1 < thresh || d2 < thresh) {
     if (d1 > d2) {
       contact_point = p1_e;
-      sel_prim_p = p1_e;
-      sel_sec_p = p1_e_sec;
-      not_prim_p = p2_e;
-      not_sec_p = p2_e_sec;
     }
     else {
       contact_point = p2_e;
-      sel_prim_p = p2_e;
-      sel_sec_p = p2_e_sec;
-      not_prim_p = p1_e;
-      not_sec_p = p1_e_sec;
     }
     ret = 2;
   }
   else {
-    //unexpected
-    //expecting at least one of the distances to be zero
-    //because I expect mtv to be a normal of a side of a polygon
-    //and the e and e_sec would be the matching endpoints of side with normal = mtv; 
-    printf("this wasn't actually a good solution\n");
-    printf("d1 is %f, d2 is %f\n", d1, d2);
-    //exit(1);
+    //solution failed to find a contact point
     ret = -1;
-  }
-
-  int draw_sel = 0;
-  int draw_not = 0;
-  int print = 0;
-  if (draw_sel) {
-    draw_virt_pos(getCam(), &sel_prim_p);
-    draw_virt_pos(getCam(), &sel_sec_p);
-    if (print) {
-      printf("\n selected \n");
-      print_point(&sel_prim_p);
-      print_point(&sel_sec_p);
-    }
-  }
-  if (draw_not) {
-    draw_virt_pos(getCam(), &not_prim_p);
-    draw_virt_pos(getCam(), &not_sec_p);
-    if (print) {
-      printf("\n notselec \n");
-      print_point(&sel_prim_p);
-      print_point(&sel_sec_p);
-    }
   }
   *result = contact_point;
   return ret;
 }
 
-void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, virt_pos* poc, double b1_scale, double b2_scale) {
+void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, virt_pos* poc) {
   vector_2 b1_line, b2_line;
   vector_2 b1_line_p, b1_line_o, b2_line_p, b2_line_o;
   virt_pos b1_c, b2_c;
@@ -601,36 +548,46 @@ void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, vir
   decompose_vector(&b1_line, b1_norm, &b1_line_p, &b1_line_o);
   decompose_vector(&b2_line, b2_norm, &b2_line_p, &b2_line_o);
 
-  //then, somehow scale norm orthogonols by some mass/velocity contribution
-  //then add some rotational force to bodies
   fizzle* f1 = get_fizzle(b1);
   fizzle* f2 = get_fizzle(b2);
-  double b1Scale = 1;
-  double b2Scale = 1;
-  double b1Mass = get_mass(f1);
-  double b2Mass = get_mass(f2);
-
-  inv_mass_contribution(b1Mass, b2Mass, &b1_scale, &b2_scale);
   
-  double rot_scale = 0.1;
+  vector_2 f1_vel, f2_vel;
+  vector_2 f1_vel_p, f1_vel_o, f2_vel_p, f2_vel_o, diff;
+  get_velocity(f1, &f1_vel);
+  get_velocity(f2, &f2_vel);
+  decompose_vector(&f1_vel, b1_norm, &f1_vel_p, &f1_vel_o);
+  decompose_vector(&f2_vel, b1_norm, &f2_vel_p, &f2_vel_o);
+  
+  vector_2_sub(&f1_vel_p, &f2_vel_p, &diff);
+
+  double vel_diff_scale = vector_2_magnitude(&diff);
+  double b1_scale, b2_scale;
+  inv_mass_contribution(get_moi(f1), get_moi(f2), &b1_scale, &b2_scale);
+  
+  double rot_scale = 0.04 * vel_diff_scale;
   double b1_rot = rot_scale * b1_scale * vector_2_magnitude(&b1_line_o);
   double b2_rot = rot_scale * b2_scale * vector_2_magnitude(&b2_line_o);
   
-  //take b1_line, rotate 90 || M_PI / 4 u, get projected length of b1_norm_o, take sign and use as scale
   vector_2 b1_det, b2_det;
   vector_2_rotate(&b1_line_p, M_PI / 4, &b1_det);
   vector_2_rotate(&b2_line_p, M_PI / 4, &b2_det);
-  //fprintf(stderr, "rot1 is %f rot2 is %f \n", b1_rot, b2_rot);
+  
   if (get_projected_length_vec(&b1_line_o, &b1_det) < 0) {
     b1_rot *= -1;
   }
 
-  
   if (get_projected_length_vec(&b2_line_o, &b2_det) < 0) {
     b2_rot *= -1;
   }
   add_rot_impact(get_fizzle(b1), b1_rot);
   add_rot_impact(get_fizzle(b2), b2_rot);
+}
+
+//so far just calcs value/magnitude of translation
+//args are radius and rotation vals
+void rolling_translation(double r1, double r2, double rot1, double rot2, double* mag1, double* mag2) {
+  *mag1 = -2 * r1 * rot1;
+  *mag2 = -2 * r2 * rot2;
 }
 
 tether* tether_bodies(body* b1, body* b2, tether* tether_params) {

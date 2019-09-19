@@ -264,6 +264,7 @@ body* makeBlock (int width, int height) {
   b = blankBody(p);
   fizzle* f = get_fizzle(b);
   set_mass(f, INFINITY);
+  set_moi(f, INFINITY);
   set_bounce(f, 0.1);
   return b;
 }
@@ -341,7 +342,7 @@ compound* tunctish(int pos_x, int pos_y) {
   shared_input** torso_si = create_shared_input_ref();
   virt_pos center = (virt_pos){.x = pos_x, .y = pos_y};
   
-  body* torso = makeNormalBody(8, 7);
+  body* torso = makeNormalBody(30, 7);
 
   body* left_eye_anchor = makeNormalBody(3,1);
   body* right_eye_anchor = makeNormalBody(3,1);
@@ -396,95 +397,6 @@ compound* tunctish(int pos_x, int pos_y) {
   return comp;
 }
 
-//version with arms and legs
-
-/*
-  compound* comp = create_compound();
-  shared_input** torso_si = create_shared_input_ref();
-  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
-
-  body* torso = makeNormalBody(8, 7);
-  body* leg1 = makeRectangleBody(12,45);
-  body* leg2 = makeRectangleBody(12,45);
-  body* leg3 = makeRectangleBody(12,45);
-
-  body* arm1 = makeRectangleBody(9,40);
-  body* lure = makeNormalBody(7, 2);
-
-  body* left_eye_anchor = makeNormalBody(3,1);
-  body* right_eye_anchor = makeNormalBody(3,1);
-  body* left_eye = makeNormalBody(9, 2);
-  body* right_eye = makeNormalBody(9, 2);
-
-  int torso_bb_width = get_bb_width(get_collider(torso));
-  int torso_bb_height = get_bb_height(get_collider(torso));
-
-  set_body_center(torso, center);
-  virt_pos leg_p1, leg_p2, leg_p3, arm_p1, left_eye_p, right_eye_p;
-  polygon* torso_poly = get_polygon(get_collider(torso));
-  get_actual_point(torso_poly, 1, &arm_p1);
-  get_actual_point(torso_poly, 2, &leg_p1);
-  get_actual_point(torso_poly, 3, &leg_p2);
-  get_actual_point(torso_poly, 4, &leg_p3);
-  
-  left_eye_p = *get_center(torso_poly);
-  right_eye_p = *get_center(torso_poly);
-  virt_pos eye_offset = (virt_pos){.x = torso_bb_width * -0.5 * 0.3,
-  .y = torso_bb_width * -0.5 * 0.2};
-  virt_pos_add(&eye_offset, &left_eye_p, &left_eye_p);
-  eye_offset.x *= -1;
-  virt_pos_add(&eye_offset, &right_eye_p, &right_eye_p);
-
-  set_body_center(arm1, &arm_p1);
-  //set_body_center(lure, &arm_p1);
-  set_body_center(lure, &left_eye_p);
-  set_body_center(leg1, &leg_p1);
-  set_body_center(leg2, &leg_p2);
-  set_body_center(leg3, &leg_p3);
-  set_body_center(left_eye_anchor, &left_eye_p);
-  set_body_center(right_eye_anchor, &right_eye_p);
-  set_body_center(left_eye, &left_eye_p);
-  set_body_center(right_eye, &right_eye_p);
-  
-  //tether* left_eye_tether = tether_bodies(left_eye_anchor, left_eye, one_way_tether);
-  //tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);  
-  tether* lure_tether = tether_bodies(arm1, lure, default_tether);
-  //add_tether_to_compound(comp, left_eye_tether);
-  //add_tether_to_compound(comp, right_eye_tether);
-  add_tether_to_compound(comp, lure_tether);
-  
-  tile_texture_for_body(lure, BLUE_SLIME_FN, 4,5,4,4);
-  tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
-  tile_texture_for_body(arm1, DEF_FN, 3,3,0,0);
-  tile_texture_for_body(leg1, DEF_FN, 3,3,0,0);
-  tile_texture_for_body(leg2, DEF_FN, 3,3,0,0);
-  tile_texture_for_body(leg3, DEF_FN, 3,3,0,0);
-  tile_texture_for_body(left_eye, EYE_FN, 3,3,0,0);
-  tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
-  
-  set_shared_input_origin(*torso_si, get_center(torso_poly));
-  
-  set_shared_input(torso, torso_si);
-  set_shared_input(arm1, torso_si);
-  set_shared_input(leg1, torso_si);
-  set_shared_input(leg2, torso_si);
-  set_shared_input(leg3, torso_si);
-  //set_shared_input(left_eye_anchor, torso_si);
-  //set_shared_input(right_eye_anchor, torso_si);
-
-  add_body_to_compound(comp, torso);
-  //add_body_to_compound(comp, lure);
-  //add_body_to_compound(comp, arm1);
-  //add_body_to_compound(comp, leg1);
-  //add_body_to_compound(comp, leg2);
-  //add_body_to_compound(comp, leg3);
-  add_body_to_compound(comp, left_eye_anchor);
-  add_body_to_compound(comp, right_eye_anchor);
-  add_body_to_compound(comp, left_eye);
-  add_body_to_compound(comp, right_eye);
-  
-  return comp;
- */
 
 //goal is to make a trashcan like this
 /*
@@ -675,6 +587,7 @@ map* make_beach_map() {
   add_body_to_plane(bg, aTree);
 
   body* long_plat = quick_block(600, 30 , 1300, floor_top - 100, EYE_FN);
+  set_moi(get_fizzle(long_plat), 10);
   add_body_to_plane(main, long_plat);
 
   add_plane(beach, bg);

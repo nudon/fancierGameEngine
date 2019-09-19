@@ -20,6 +20,8 @@ extern tether* one_way_tether;
 
 struct fizzle_struct {
   double mass;
+  //moment of inertia
+  double moi;
   //linear components
   vector_2 velocity;
   vector_2 impact;
@@ -83,6 +85,8 @@ void add_impact(fizzle* fizz, vector_2* newAdd);
 void set_tether(fizzle* fizz, vector_2* newTF);
 double get_mass(fizzle* f);
 void set_mass(fizzle* fizz, double mass);
+double get_moi(fizzle* f);
+void set_moi(fizzle* f, double n);
 double get_bounce(fizzle* f);
 void set_bounce(fizzle* f, double b);
 
@@ -108,5 +112,7 @@ void get_velocity(fizzle* f, vector_2* res);
 double get_rot_velocity(fizzle* f);
 void set_line_damp(fizzle* f, double val);
 void set_rot_damp(fizzle* f, double val);
+
+void fizzle_velocity_diff(fizzle* source, fizzle* other, vector_2* result);
 
 #endif

@@ -72,7 +72,7 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
 void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm);
 void solve_for_finals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f);
 void elastic_reduce(double m1, double m2, double* f1f, double* f2f, double els);
-void impact(body* b1, body* b2, vector_2* normal, double* b1d, double* b2d);
+void impact(body* b1, body* b2, vector_2* normal);
 
 tether* tether_bodies(body* b1, body* b2, tether* tether_params);
 

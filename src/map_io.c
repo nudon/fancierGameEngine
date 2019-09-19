@@ -397,7 +397,7 @@ body* xml_read_body(xmlNodePtr body_node) {
 }
 
 void xml_write_fizzle(FILE* file_out, fizzle* fizz) {
-  fprintf(file_out, "<fizzle mass=\"%f\" rot_accel=\"%f\" rot_vel=\"%f\" bounce=\"%f\" >\n", fizz->mass, fizz->rot_acceleration, fizz->rot_velocity, get_bounce(fizz));
+  fprintf(file_out, "<fizzle mass=\"%f\" moi=\"%f\" rot_accel=\"%f\" rot_vel=\"%f\" bounce=\"%f\" >\n", fizz->mass, fizz->moi, fizz->rot_acceleration, fizz->rot_velocity, get_bounce(fizz));
   xml_write_vector_2(file_out, &(fizz->velocity), "velocity");
   xml_write_vector_2(file_out, &(fizz->dampening), "dampening");
   xml_write_vector_2(file_out, &(fizz->impact), "impact");
@@ -417,6 +417,9 @@ fizzle* xml_read_fizzle(xmlNodePtr fizzle_node) {
 
   val = get_double_prop(fizzle_node, "mass");
   set_mass(fizz, val);
+
+  val = get_double_prop(fizzle_node, "moi");
+  set_moi(fizz, val);
 
   val = get_double_prop(fizzle_node, "rot_accel");
   fizz->rot_acceleration = val;
