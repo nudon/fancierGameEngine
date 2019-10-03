@@ -1,7 +1,6 @@
 #ifndef FILE_COMPOUND_SEEN
 #define FILE_COMPOUND_SEEN
 
-typedef struct compound_stats_struct ocompound_stats;
 typedef struct compound_struct compound;
 
 #include "body.h"
@@ -9,16 +8,8 @@ typedef struct compound_struct compound;
 #include "attributes.h"
 #include "gi.h"
 
-void damage_compound(compound* c, double amt);
-
-
 compound* create_compound();
 body* get_compound_head(compound* c);
-
-decision_att* get_attributes(compound* comp);
-void set_attributes(compound* comp, decision_att* na);
-gi* get_gi(compound* comp);
-void set_gi(compound* comp, gi* g);
 
 int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
 void move_compound(spatial_hash_map* map, compound* c);
@@ -41,5 +32,8 @@ void set_compound_uniform_flag(compound* c, int v);
 vector_2 get_dir(compound* comp);
 
 void set_compound_gravity(compound* c, vector_2* grav);
+
+void set_compound_smarts(compound* c, smarts* sm);
+smarts* get_compound_smarts(compound * c);
 
 #endif

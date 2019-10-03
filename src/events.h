@@ -8,18 +8,19 @@ typedef struct event_struct event;
 #include "geometry.h"
 
 
+#define TRIGGER_ARGS event* e, body* b, virt_pos* poc
+
 void init_events();
 char* get_event_name(event* e);
 void set_event_by_name(event* e, char* func);
 
-void printEvent(struct event_struct* not, body* used);
 event* make_event(polygon* poly);
-void set_event(event* e, void (*newTrigger)(struct event_struct* e, body* b));
+void set_event(event* e, void (*newTrigger)(TRIGGER_ARGS));
 collider* get_event_collider(event* e);
 void set_event_body(event* e, body* b);
 body* get_event_body(event* e);
 
-void trigger_event(event* e, body* arg);
+void trigger_event(TRIGGER_ARGS);
 
 //this will be some prototype for activating events
 void check_events(spatial_hash_map* map, gen_list* e);
@@ -29,7 +30,8 @@ void check_event(spatial_hash_map* map, event* e);
 void store_event_triggers(spatial_hash_map* map, event* e, gen_list* hits);
 
 //standard events
-void no_event(event* e, body* b);
-void basic_decide_event(event* e, body* b2);
+void no_event(TRIGGER_ARGS);
+void basic_decide_event(TRIGGER_ARGS);
+void foot_placement(TRIGGER_ARGS);
 
 #endif

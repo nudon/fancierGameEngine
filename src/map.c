@@ -193,7 +193,8 @@ event* get_lz_event(load_zone* lz) { return lz->trigger; }
 #define MAP_NOCHANGE 0
 #define MAP_CHANGE 1
 int trigger_map_change(load_zone* lz, compound* trav) {
-  decision_att* att = get_attributes(trav);
+  att* att = get_comp_attributes(get_compound_smarts(trav));
+  //att* att = get_attributes(trav);
   plane* curr_plane = NULL;
   gen_list* move = NULL;
   int ret = MAP_NOCHANGE;

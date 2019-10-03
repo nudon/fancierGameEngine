@@ -11,19 +11,19 @@ typedef struct shared_input_struct shared_input;
 #include "compound.h"
 #include "graphics.h"
 #include "events.h"
+#include "gi.h"
 
 struct body_struct {
-  struct fizzle_struct* fizz;
-  struct collider_struct* coll;
+  fizzle* fizz;
+  collider* coll;
   poltergeist* polt;
-  struct compound_struct* owner;
+  compound* owner;
   picture* pic;
   int status;
-  int uniform_flag;
   shared_input** uniform_input;
   //used for holding ai related events
   gen_list* event_list;
-  body_stats* b_stats;
+  smarts* smarts;
 };
 
 shared_input* create_shared_input();
@@ -69,7 +69,6 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2);
 void inv_mass_contribution(double m1, double m2, double* m1c, double* m2c);
 void mass_contribution(double m1, double m2, double* m1c, double* m2c);
 void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, vector_2* b1tv_unit, vector_2* b2tv_unit);
-void get_normals_of_collision(body* body1, body* body2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm);
 void solve_for_finals(double m1, double m2, double v1i, double v2i, double* v1f, double* v2f);
 void elastic_reduce(double m1, double m2, double* f1f, double* f2f, double els);
 void impact(body* b1, body* b2, vector_2* normal);
@@ -77,4 +76,7 @@ void impact(body* b1, body* b2, vector_2* normal);
 tether* tether_bodies(body* b1, body* b2, tether* tether_params);
 
 void run_body_poltergeist(body* b);
+
+void set_body_smarts(body* b, smarts* sm);
+smarts* get_body_smarts(body* b);
 #endif

@@ -1,37 +1,44 @@
 #ifndef FILE_GI_SEEN
 #define FILE_GI_SEEN
 
-typedef struct gi_struct gi;
-
+typedef struct smarts_struct smarts;
 
 #include "events.h"
 #include "body.h"
 #include "collider.h"
 #include "attributes.h"
 
+//smarts stuff
+smarts * make_smarts();
+void add_smarts_to_body(body* b);
+void add_smarts_to_comp(compound* b);
+
+//body stuff
+void damage_body(body* b, double amt);
+att* get_body_attributes(smarts* sm);
+void set_body_attributes(smarts* sm, att* atts);
+
+//compound stuff
+
+void damage_compound(compound* c, double amt);
+att* get_comp_attributes(smarts* sm);
+void set_comp_attributes(smarts* sm, att* atts);
+//vector_2 get_comp_movement(smarts* sm);
+
 
 event* make_basic_vision_event(body* b);
-
 polygon* vision_triangle(int base, int depth, double rot_off);
 
-void basic_decide_event(struct event_struct* e, body* b2);
-void basic_decide(body* self, body* triger);
+char* smarts_to_text(smarts* sm);
+smarts*text_to_smarts(char* text);
 
-
-gi* create_gi();
-void free_gi(gi* g);
-
-void add_to_dir(gi* g, vector_2* dir);
-void calc_new_dir(gi* g);
-
-vector_2 get_curr_dir(gi* g);
-void set_curr_dir(gi* g, vector_2* vec);
-vector_2 get_new_dir(gi* g);
-void set_new_dir(gi* g, vector_2* vec);
-decision_att* get_gi_attributes(gi* g);
-void set_gi_attributes(gi* g, decision_att* atts);
-double get_exp_decay_alpha(gi* g);
-void set_exp_decay_alpha(gi* g, double val);
-
+compound* get_smarts_compound(smarts* sm);
+body* get_smarts_body(smarts* sm);
+int get_smarts_comp_max_health(smarts* sm);
+int get_smarts_comp_health(smarts* sm);
+int get_smarts_comp_max_jumps(smarts* sm);
+int get_smarts_comp_jumps(smarts* sm);
 
 #endif
+
+

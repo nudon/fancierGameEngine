@@ -14,16 +14,18 @@
 
 //also have to do some mapping from strings to trigger functions for map loading
 
+void basic_decide(body* self, body* trigger, virt_pos* poc);
+
 typedef struct event_struct {
   collider* coll;
   body* body;
-  void (*onTrigger)( event* e1, body* e2);
+  void (*onTrigger)(TRIGGER_ARGS);
 } event;
 
 
 #define FUNC_LIM 10
 char* func_names[FUNC_LIM];
-void (*func_funcs[FUNC_LIM])(event* e, body* b);
+void (*func_funcs[FUNC_LIM])(TRIGGER_ARGS);
 
 void init_events() {
   null_init_array((void**)func_names, FUNC_LIM);
@@ -54,11 +56,6 @@ void set_event_by_name(event* e, char* func) {
   }
 }
 
-void printEvent(struct event_struct* not, body* used) {
-  fprintf(stderr, "you triggered an event!\n Event addr is %lu, body addr is %lu\n",
-	  (unsigned long)not, (unsigned long)used);
-}
-
 //things to do in here
 //have to take some event shape/range as a poly
 //some pointer to virt_pos to center it to
@@ -71,7 +68,7 @@ event* make_event(polygon* poly) {
   return new;
 }
 
-void set_event(event* e, void (*newTrigger)(struct event_struct* e, body* b)) {
+void set_event(event* e, void (*newTrigger)(TRIGGER_ARGS)) {
   e->onTrigger = newTrigger;
 }
 
@@ -88,8 +85,8 @@ body* get_event_body(event* e) {
   return e->body;
 }
 
-void trigger_event(event* e, body* arg) {
-  e->onTrigger(e, arg);
+void trigger_event(event* e, body* arg, virt_pos* poc) {
+  e->onTrigger(e, arg, poc);
 }
 
 //this will be some prototype for activating events
@@ -116,8 +113,10 @@ void check_event(spatial_hash_map* map, event* e) {
   gen_node* aHit = NULL;
   body* hitBody = NULL;
   polygon* eventPoly = get_polygon(get_event_collider(e));
+  polygon* bodyPoly = NULL;
+  polygon* hitPoly = NULL;
   if (e->body != NULL) {
-    polygon* bodyPoly = get_polygon(get_collider(e->body));
+    bodyPoly = get_polygon(get_collider(e->body));
     virt_pos temp = get_center(bodyPoly);
     set_rotation(eventPoly,get_rotation(bodyPoly));
     set_center(eventPoly, &temp);
@@ -128,8 +127,23 @@ void check_event(spatial_hash_map* map, event* e) {
   aHit = hits.start;
   while(aHit != NULL) {
     hitBody = ((collider*)(aHit->stored))->body;
-    if (do_polygons_intersect(get_polygon(get_collider(hitBody)), eventPoly)) {
-      trigger_event(e, hitBody);
+    //
+    hitPoly = get_polygon(get_collider(hitBody));
+    vector_2 normal_of_collision = *zero_vec;
+    vector_2 b1_norm = *zero_vec;
+    vector_2 b2_norm = *zero_vec;
+    int actual_collision = find_mtv_of_polygons(eventPoly, hitPoly, &normal_of_collision);
+    if (actual_collision != 0) {
+      make_unit_vector(&normal_of_collision, &normal_of_collision);
+      get_normals_of_collision(eventPoly, hitPoly, &normal_of_collision, &b1_norm, &b2_norm);
+      virt_pos poc;
+      if (calc_contact_point(eventPoly, hitPoly, &b1_norm, &poc) > 0) {
+	//you have point of contact, usefull for limb positioning
+	trigger_event(e, hitBody, &poc);
+      }
+      else {
+	trigger_event(e, hitBody, NULL);
+      }
     }
     aHit = aHit->next;
   }
@@ -152,26 +166,25 @@ void store_event_triggers(spatial_hash_map* map, event* e, gen_list* hits) {
   store_unique_colliders_in_list(map, cells, hits);
 }
 
-//standard event
-void no_event(event* e, body* b) {
+void no_event(event* e, body* b, virt_pos* poc) {
 
 }
 
-void basic_decide_event(event* e, body* b2) {
+void basic_decide_event(event* e, body* b2, virt_pos* poc) {
   body* b1 = get_event_body(e);
   if (b1 != NULL) {
-    basic_decide(b1, b2);
+    basic_decide(b1, b2, poc);
   }
 }
 
 //decision process
 //sets direction for compound to move
-void basic_decide(body* self, body* trigger) {
-  //might have some vector_2 as a reference argument to set
-  compound* self_comp = get_owner(self);
-  compound* trigger_comp = get_owner(trigger);
-  gi* si = get_gi(self_comp);
-  gi* ti = get_gi(trigger_comp);
+void basic_decide(body* self, body* trigger, virt_pos* poc) {
+  //compound* self_comp = get_owner(self);
+  //compound* trigger_comp = get_owner(trigger);
+  //comp_int* si = get_comp_int(self_comp);
+  //comp_int* ti = get_comp_int(trigger_comp);
+  /*
   decision_att* sa = get_gi_attributes(si);
   decision_att* ta = get_gi_attributes(ti);
   vector_2 dir = *zero_vec;
@@ -182,13 +195,39 @@ void basic_decide(body* self, body* trigger) {
     vector_between_points(&tc, &sc, &dir);
     add_to_dir(si, &dir);
   }
-    if (is_hunter(sa) && is_prey(ta)) {
+  if (is_hunter(sa) && is_prey(ta)) {
     //then chase
     vector_between_points(&sc, &tc, &dir);
     add_to_dir(si, &dir);
-    }
+  }
+  
+  //dir = get_dir(get_owner(self));
+  */
+    
+}
 
-  dir = get_dir(get_owner(self));
-    
-    
+
+void foot_placement(event* e, body* trigger, virt_pos* poc) {
+  /*
+  body* self = get_event_body(e);
+  compound* self_comp = get_owner(self);
+  compound* trigger_comp = get_owner(trigger);
+  comp_int* si = get_comp_int(self_comp);
+  comp_int* ti = get_comp_int(trigger_comp);
+
+  vector_2 dir = *zero_vec;
+  virt_pos tc = get_body_center(trigger);
+  virt_pos sc = get_body_center(self);
+  //somehow set checks for this
+  //could check if trigger mass is inf, or have some attribute for it
+  if (self_comp != trigger_comp) {
+    if (poc != NULL) {
+      tc = *poc;
+    }
+    vector_between_points(&sc, &tc, &dir);
+    make_unit_vector(&dir, &dir);
+    vector_2_scale(&dir, 0.05, &dir);
+    add_to_dir(si, &dir);
+  }
+  */
 }

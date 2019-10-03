@@ -9,45 +9,19 @@
 #define NONUNIFORM_COMPOUND 0
 #define UNIFORM_COMPOUND 1
 
-typedef struct compound_stats_struct compound_stats;
-
-struct compound_stats_struct {
-  int max_jumps;
-  int jumps_left;
-  int jump_airtime;
-  int max_health;
-  int health;
-};
-
 struct compound_struct {
   //list of bodies in compound
   gen_list* bp;
   gen_list* self_tethers;
-  gi* compound_intelligence;
-  compound_stats* c_stats;
-};
-
-
-
-void damage_compound(compound* c, double amt) {
-  compound_stats* s = c->c_stats;
-  if (s->health < amt) {
-    s->health = 0;
-    //do some on-death logic
-  }
-  else {
-    s->health -= amt;
-  }
-}
-
-  
+  smarts* smarts;
+};  
 
 compound* create_compound() {
   compound* new = malloc(sizeof(compound));
   new->bp = createGen_list();
   new->self_tethers = createGen_list();
-  new->compound_intelligence = create_gi();
-  new->c_stats = NULL;
+  //new->compound_intelligence = create_gi();
+  new->smarts = NULL;
   return new;
 }
 
@@ -121,6 +95,9 @@ void add_body_to_compound(compound* comp, body* b) {
     offset = get_rotational_offset(b);
     set_rotation_offset(p, &offset);
   }
+  if (comp->smarts != NULL) {
+    add_smarts_to_body(b);
+  }
   appendToGen_list(comp->bp, createGen_node(b));
 }
 
@@ -170,28 +147,7 @@ void set_compound_position(compound* comp, virt_pos* np) {
   }
 }
 
-
-vector_2 get_dir(compound* comp) {
-  return get_curr_dir(get_gi(comp));
-}
-
 gen_list* get_bodies(compound* comp) { return comp->bp; }
-
-decision_att* get_attributes(compound* comp) {
-  return get_gi_attributes(get_gi(comp));
-}
-
-void set_attributes(compound* comp, decision_att* na) {
-  copy_atts(na, get_gi_attributes(get_gi(comp)));
-}
-
-gi* get_gi(compound* comp) {
-  return comp->compound_intelligence;
-}
-
-void set_gi(compound* comp, gi* g) {
-  comp->compound_intelligence = g;
-}
 
 void set_compound_gravity(compound* c, vector_2* grav) {
   gen_node* body_node = get_bodies(c)->start;
@@ -201,4 +157,19 @@ void set_compound_gravity(compound* c, vector_2* grav) {
     set_gravity(get_fizzle(aBody), grav);
     body_node = body_node->next;
   }
+}
+
+void set_compound_smarts(compound* c, smarts* sm) {
+  c->smarts = sm;
+}
+
+smarts* get_compound_smarts(compound* c) {
+  return c->smarts;
+}
+
+void make_compound_smart(compound* c) {
+  if (c->smarts != NULL) {
+    fprintf(stderr, "warning, overwriting compound smarts\n");
+  }
+  add_smarts_to_comp(c);
 }

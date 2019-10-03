@@ -14,20 +14,35 @@
 //travel bit because I probably don't want things like walls to traverse maps
 #define TRAVEL_BIT 3
 
-typedef uint8_t att_bits;
 #define NUM_BITS 8
-struct decision_att_struct {
+typedef uint8_t att_bits;
+
+int test_bit(att_bits a, int bit_place);
+
+void set_bit(att_bits *a, int bit_place, int val);
+
+enum att_type {compound_atts, body_atts, not_set};
+
+struct att_struct {
+  enum att_type mode;
   att_bits flag_atts;
 };
 
-
-
-decision_att* make_decision_att() {
-  decision_att* new = calloc(1,sizeof(decision_att));
+att* make_attributes() {
+  att* new = calloc(1,sizeof(att));
+  new->mode = not_set;
   return new;
 }
 
-void free_decision_att(decision_att* rm) {
+void set_body_attribute(att* a) {
+  a->mode = body_atts;
+}
+
+void set_comp_attribute(att* a) {
+  a->mode = compound_atts;
+}
+
+void free_attributes(att* rm) {
   free(rm);
 }
 
@@ -43,52 +58,55 @@ void set_bit(att_bits *a, int bit_place, int val) {
   *a = temp | bit;  
 }
 
-int is_prey(decision_att *a) {
+int is_prey(att *a) {
   return test_bit(a->flag_atts, PREY_BIT);
 }
-void set_prey(decision_att *a, int val) {
+void set_prey(att *a, int val) {
   set_bit(&(a->flag_atts), PREY_BIT, val);
 }
 
-int is_hunter(decision_att *a) {
+int is_hunter(att *a) {
   return test_bit(a->flag_atts, HUNTER_BIT);
 }
-void set_hunter(decision_att *a, int val) {
+void set_hunter(att *a, int val) {
   set_bit(&(a->flag_atts), HUNTER_BIT, val);
 }
 
-int is_user(decision_att *a) {
+int is_user(att *a) {
   return test_bit(a->flag_atts, USER_BIT);
 }
-void set_user(decision_att *a, int val) {
+void set_user(att *a, int val) {
   set_bit(&(a->flag_atts), USER_BIT, val);
 }
 
-int is_travel(decision_att *a) {
+int is_travel(att *a) {
   return test_bit(a->flag_atts, TRAVEL_BIT);
 }
-void set_travel(decision_att *a, int val) {
+void set_travel(att *a, int val) {
   set_bit(&(a->flag_atts), TRAVEL_BIT, val);
 }
 
+void copy_attributes(att* src, att* dst) {
+  if (src->mode != dst->mode) {
+    fprintf(stderr, "warning, attribute type not set\n");
+  }
+  dst->flag_atts = dst->flag_atts;
+}
 
-char* atts_to_text(decision_att* att) {
+
+char* atts_to_text(att* att) {
   char* text = malloc(sizeof(char*) * (NUM_BITS + 1)) ;
   snprintf(text, NUM_BITS, "%d", att->flag_atts);
   return text;
 }
 
-decision_att* text_to_atts(char* text) {
+att* text_to_atts(char* text) {
   long val = atoi(text);
-  if (val > pow(2, NUM_BITS)) {
+  if (val > pow(2, NUM_BITS) - 1) {
     fprintf(stderr, "Warning, bit val is larger than attribute data type can hold\n");
   }
   att_bits temp = (att_bits)val;
-  decision_att* att = make_decision_att();
+  att* att = make_attributes();
   att->flag_atts = temp;
   return att;
-}
-    
-void copy_atts(decision_att* src, decision_att* dst) {
-  dst->flag_atts = src->flag_atts;
 }

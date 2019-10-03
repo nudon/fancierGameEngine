@@ -68,6 +68,8 @@ tether* create_tether_blank(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2);
 tether* create_tether(virt_pos* p1,virt_pos* p2,fizzle* f1,fizzle* f2,double w1,double w2,double tk, double td,int tt);
 void copy_tether_params(tether* from, tether* to);
 void free_tether(tether* rm);
+void set_tether_distance(tether* t, double d);
+void set_tether_k(tether* t, double k);
 
 void add_rotational_velocity(fizzle* fizz, double delta);
 void add_velocity(fizzle* fizz, vector_2* delta);

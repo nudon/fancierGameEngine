@@ -275,6 +275,14 @@ void free_tether(tether* rm) {
   free(rm);
 }
 
+void set_tether_distance(tether* t, double d) {
+  t->tether_distance = d;
+}
+
+void set_tether_k(tether* t, double k) {
+  t->tether_k = k;
+}
+
 void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
   double d  = distance_between_points(teth->point_1, teth->point_2);
   double len = teth->tether_distance;

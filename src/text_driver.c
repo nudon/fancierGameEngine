@@ -113,7 +113,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
   while(comp_curr != NULL){
     aCompound = (compound*)comp_curr->stored;
     update_tethers(get_compound_tethers(aCompound));
-    calc_new_dir(get_gi(aCompound));
+    //calc_new_dir(get_gi(aCompound));
     body_curr = get_bodies(aCompound)->start;
     while (body_curr != NULL) { 
       aBody = (body*)body_curr->stored;

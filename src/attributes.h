@@ -1,27 +1,30 @@
 #ifndef FILE_SEEN_ATTRIBUTES
 #define FILE_SEEN_ATTRIBUTES
 
-typedef struct decision_att_struct decision_att;
+typedef struct att_struct att;
 
-decision_att* make_decision_att();
-void free_decision_att(decision_att* rm);
+att* make_attributes();
+void set_body_attribute(att* a);
+void set_comp_attribute(att* a);
 
+void free_attributes(att* rm);
 
-int is_prey(decision_att *a);
-void set_prey(decision_att *a, int val);
+int is_prey(att *a);
+void set_prey(att *a, int val);
 
-int is_hunter(decision_att *a);
-void set_hunter(decision_att *a, int val);
+int is_hunter(att *a);
+void set_hunter(att *a, int val);
 
-int is_user(decision_att *a);
-void set_user(decision_att *a, int val);
+int is_user(att *a);
+void set_user(att *a, int val);
 
-int is_travel(decision_att *a);
-void set_travel(decision_att *a, int val);
+int is_travel(att *a);
+void set_travel(att *a, int val);
 
+void copy_attributes(att* src, att* dst);
 
-char* atts_to_text(decision_att* att);
-decision_att* text_to_atts(char* text);
+char* atts_to_text(att* att);
+att* text_to_atts(char* text);
+    
 
-void copy_atts(decision_att* src, decision_att* dst);
 #endif

@@ -129,7 +129,6 @@ void generate_normals_for_polygon(polygon* poly) {
     make_unit_vector(&temp, &temp);
     poly->base_normals[i] = temp;
   }
-  //initializes rotated and normal corners for poly
   recalc_corners_and_norms(poly);
 }
 
@@ -181,8 +180,6 @@ void stretch_deform_horz(polygon* poly, double amount) {
     set_base_point(poly, i, &temp);
   }
 }
-
-//could do stretch deform for arbitrary lines. just need to project each point onto line, get orth and parrallell components, scale the parllell components and add to orthogonal.
 
 void set_scale(polygon* p, double scale) {
   p->scale = scale;
@@ -257,7 +254,6 @@ void set_rotation(polygon* poly, double new) {
     }
   }
   poly->rotation = ang;
-  //also need to recalculate normals and corners
   recalc_corners_and_norms(poly);
 }
 
@@ -334,8 +330,6 @@ virt_pos get_rotation_offset(polygon* p) {
 int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
   //returns 1 if the polygons intersect and mtv is filled with minimum translation vector to solve collisions
   //returns 0 if no collision
-  //basically same thing as do_polygons_intersect
-  //though this will find all intersecting sides and supply an mtv
 
   double p1_min, p1_max, p2_min, p2_max;
   vector_2 normal_vector;
@@ -387,6 +381,83 @@ int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
   return ret;  
 }
 
+void get_normals_of_collision(polygon* p1, polygon* p2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm) {
+  double l1, l2;
+  virt_pos b1c = get_center(p1);
+  virt_pos b2c = get_center(p2);
+  l1 = get_projected_length_pos(&b1c, normal);
+  l2 = get_projected_length_pos(&b2c, normal);
+  *body1_norm = *normal;
+  *body2_norm = *body1_norm;
+  if (l1 < l2) {
+    vector_2_scale(body1_norm, -1, body1_norm);
+  }
+  else {
+    vector_2_scale(body2_norm, -1, body2_norm);
+  }
+}
+
+
+int calc_contact_point(polygon* p1, polygon* p2, vector_2* mtv, virt_pos* result) {
+  virt_pos p1_min, p1_max, p1_sec_min, p1_sec_max, p2_min, p2_max, p2_sec_min, p2_sec_max;
+  virt_pos p1_e, p1_e_sec, p2_e, p2_e_sec;
+  double d1, d2;
+
+  double thresh = 1.5;
+  virt_pos contact_point = *zero_pos;
+  int ret = 0;
+  
+  tmi_points_of_polygon(p1, mtv, &p1_min, &p1_max, &p1_sec_min, &p1_sec_max);
+  tmi_points_of_polygon(p2, mtv, &p2_min, &p2_max, &p2_sec_min, &p2_sec_max);
+  
+  d1 = fabs(get_projected_length(&p1_min, mtv) - get_projected_length(&p2_max, mtv));
+  d2 = fabs(get_projected_length(&p2_min, mtv) - get_projected_length(&p1_max, mtv));
+
+  if (d1 < d2) {
+    p1_e = p1_min;
+    p1_e_sec = p1_sec_min;
+    p2_e = p2_max;
+    p2_e_sec = p2_sec_max;
+  }
+  else {
+    p1_e = p1_max;
+    p1_e_sec = p1_sec_max;
+    p2_e = p2_min;
+    p2_e_sec = p2_sec_min;    
+  }
+
+  d1 = fabs(get_projected_length(&p1_e, mtv) - get_projected_length(&p1_e_sec, mtv));
+  d2 = fabs(get_projected_length(&p2_e, mtv) - get_projected_length(&p2_e_sec, mtv));
+  
+  if (d1 < thresh && d2 < thresh) {
+    d1 = distance_between_points(&p1_e, &p1_e_sec);
+    d2 = distance_between_points(&p2_e, &p2_e_sec);
+    if (d1 < d2) {
+      virt_pos_midpoint(&p1_e, &p1_e_sec, &contact_point);
+    }
+    else {
+      virt_pos_midpoint(&p2_e, &p2_e_sec, &contact_point);
+    }
+    ret = 1;
+  }
+  else if (d1 < thresh || d2 < thresh) {
+    if (d1 > d2) {
+      contact_point = p1_e;
+    }
+    else {
+      contact_point = p2_e;
+    }
+    ret = 2;
+  }
+  else {
+    //solution failed to find a contact point
+    ret = -1;
+  }
+  *result = contact_point;
+  return ret;
+}
+
+
 void tmi_points_of_polygon(polygon* check,vector_2* line, virt_pos* min_point, virt_pos* max_point, virt_pos* second_min_point, virt_pos* second_max_point) {
   double min = 0, max = 0, temp = 0;
   virt_pos a_point;
@@ -403,13 +474,8 @@ void tmi_points_of_polygon(polygon* check,vector_2* line, virt_pos* min_point, v
     if (i == 0 ) {
       prim_min_point = a_point;
       prim_max_point = a_point;
-      //sec_max_point = prim_max_point;
-      //sec_min_point = prim_min_point;
-
       max = temp;
       min = temp;
-      //sec_max_mag = temp;
-      //sec_min_mag = temp;
       
     }
     else {
@@ -762,4 +828,27 @@ virt_pos* read_only_polygon_center(polygon* p) {
   //soft solution by returning seperate virt_pos* that just gets reassigned to center
   return p->center;
   
+}
+
+ad_vec* create_ad_vec(double alpha) {
+  ad_vec* new = malloc(sizeof(ad_vec));
+  init_ad_vec(new, zero_vec, alpha);
+  return new;
+}
+
+void init_ad_vec(ad_vec* v, vector_2* v_set, double alpha_set) {
+  v->vec = *v_set;
+  v->alpha = alpha_set;
+}
+
+void free_ad_vec(ad_vec* rm) {
+  free(rm);
+}
+
+void add_to_ad_vec(ad_vec* d, vector_2* v) {
+  exponential_decay_vector(&(d->vec), v, &(d->vec), d->alpha);
+}
+
+vector_2 get_ad_vec(ad_vec* v) {
+  return v->vec;
 }

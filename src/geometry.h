@@ -18,6 +18,18 @@ struct {
   double v2;
 } vector_2;
 
+typedef struct ad_vec_struct {
+  vector_2 vec;
+  double alpha;
+} ad_vec;
+
+ad_vec* create_ad_vec(double alpha);
+void init_ad_vec(ad_vec* v, vector_2* v_set, double alpha_set);
+void free_ad_vec(ad_vec* rm);
+void add_to_ad_vec(ad_vec* d, vector_2* v);
+vector_2 get_ad_vec(ad_vec* v);
+
+
 extern vector_2* zero_vec;
 
 extern virt_pos* zero_pos;
@@ -62,6 +74,8 @@ void get_actual_normal(polygon* poly, int i, vector_2* result);
 
 int do_polygons_intersect(polygon* p1, polygon* p2);
 int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv);
+void get_normals_of_collision(polygon* p1, polygon* p2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm);
+int calc_contact_point(polygon* p1, polygon* p2, vector_2* mtv, virt_pos* result);
 void tmi_points_of_polygon(polygon* check,vector_2* line, virt_pos* min_point, virt_pos* max_point, virt_pos* sec_min_point, virt_pos* sec_max_point);
 void extreme_projections_of_polygon(polygon* check,virt_pos* new_origin,vector_2* line, double* min_result, double* max_result);
 

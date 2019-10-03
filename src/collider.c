@@ -214,14 +214,14 @@ int calc_max_cell_span(double boxW, double boxH, double cellW, double cellH) {
   //so take box-dim / 2, divide by cell-dim, take ciel, gives # of cells spanned by half of dim
   //do same along other dim, multiply, have cells spanned by quarter of box
   //multiply by 4 to find cells spanned by entire thing
-  //in actuality, there's a bit of a kink since in  the max_spanning setup
-  //the box dim only has to be greater than half the cell dim to clear the first cell
-  //after that though the box dim has to grow by full cell dim amount to clear later cells
-  //I could either work some weird math to account for that, or just add 1
-  int size = ceil(boxW / 2 / cellW + 1) * ceil(boxH / 2 / cellH + 1) * 4;
+  //since cell size can very and things can rotate, use the min of cellW, cellH
+  double cellD = fmin(cellW, cellH);
+  int size = ceil((boxW / 2) / cellD + 1) * ceil((boxH / 2) / cellD + 1) * 4 * 1.5;
+  /*
   if (size < 4) {
     size = 4;
   }
+  */
   return size;
 }
 

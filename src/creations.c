@@ -331,7 +331,7 @@ compound* makeSlime(int pos_x, int pos_y) {
   poltergeist* p = make_poltergeist();
   give_standard_poltergeist(p);
   set_poltergeist(slime_body, p);
-  set_hunter(get_attributes(centComp), 1);
+  //set_hunter(get_attributes(centComp), 1);
   make_basic_vision_event(slime_body);
 
   return centComp;
@@ -339,6 +339,7 @@ compound* makeSlime(int pos_x, int pos_y) {
 
 compound* tunctish(int pos_x, int pos_y) {
   compound* comp = create_compound();
+  add_smarts_to_comp(comp);
   shared_input** torso_si = create_shared_input_ref();
   virt_pos center = (virt_pos){.x = pos_x, .y = pos_y};
   
@@ -348,6 +349,17 @@ compound* tunctish(int pos_x, int pos_y) {
   body* right_eye_anchor = makeNormalBody(3,1);
   body* left_eye = makeNormalBody(9, 2);
   body* right_eye = makeNormalBody(9, 2);
+
+  body* foot_end = makeNormalBody(9,1);
+  polygon* foot_range = createNormalPolygon(5);
+  set_scale(foot_range, 5);
+  event* foot_snap = make_event(foot_range);
+  set_event(foot_snap, &foot_placement);
+  add_event_to_body(foot_end, foot_snap);
+  poltergeist* p = make_poltergeist();
+  give_standard_poltergeist(p);
+  set_poltergeist(foot_end, p);
+  //set_exp_decay_alpha(get_gi(comp), 0.95);
 
   int torso_bb_width = get_bb_width(get_collider(torso));
   //int torso_bb_height = get_bb_height(get_collider(torso));
@@ -372,9 +384,13 @@ compound* tunctish(int pos_x, int pos_y) {
 
   
   tether* left_eye_tether = tether_bodies(left_eye_anchor, left_eye, one_way_tether);
-  tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);  
+  tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);
+  tether* foot_tether = tether_bodies(torso, foot_end, one_way_tether);
+  set_tether_distance(foot_tether,145);
+  
   add_tether_to_compound(comp, left_eye_tether);
   add_tether_to_compound(comp, right_eye_tether);
+  add_tether_to_compound(comp, foot_tether);
   
   tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
   tile_texture_for_body(left_eye, EYE_FN, 3,3,0,0);
@@ -391,18 +407,16 @@ compound* tunctish(int pos_x, int pos_y) {
   add_body_to_compound(comp, right_eye_anchor);
   add_body_to_compound(comp, left_eye);
   add_body_to_compound(comp, right_eye);
+  add_body_to_compound(comp, foot_end);
 
   set_compound_gravity(comp, g);
+
+
   
   return comp;
 }
 
 
-//goal is to make a trashcan like this
-/*
-  |  | 
-  |__|
- */
 compound* makeTrashCan(int pos_x, int pos_y) {
   compound* can = create_compound();
   virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
@@ -458,10 +472,12 @@ compound* makeTrashCan(int pos_x, int pos_y) {
 void make_compound_user(compound* comp) {
   body* head = (body*)get_bodies(comp)->start->stored;
   poltergeist* polt = make_poltergeist();
+  smarts * sm = get_compound_smarts(comp);
+  att* comp_att = get_comp_attributes(sm);
   give_user_poltergeist(polt);
   head->polt = polt;
-  set_user(get_attributes(comp), 1);
-  set_travel(get_attributes(comp), 1);
+  set_user(comp_att, 1);
+  set_travel(comp_att, 1);
 }
 
 //just some standard map transitions, 
@@ -518,8 +534,6 @@ map* make_origin_map() {
   //compound* user = makeTrashCan(center.x, center.y);
   compound* walls = makeWalls();
   make_compound_user(user);
-  set_hunter(get_attributes(user), 1);
-  set_prey(get_attributes(user), 1);
   add_compound_to_plane(plane, user);
   add_compound_to_plane(plane, walls);
   
