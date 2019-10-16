@@ -4,6 +4,7 @@
 #include "attributes.h"
 #include "map.h"
 //temp folder for game intelligence stuff
+typedef struct stam_struct stam;
 
 typedef struct body_memory_struct body_memory;
 typedef struct body_stats_struct body_stats;
@@ -11,15 +12,20 @@ typedef struct body_stats_struct body_stats;
 typedef struct compound_stats_struct comp_stats;
 typedef struct compound_memory_struct comp_memory;
 
+void init_stam(stam* st);
+void update_stam(stam* st);
+
 body_stats* create_body_stats(int health, double dmg_scale, double dmg_limit);
 void free_body_stats(body_stats* rm);
 body_memory* make_body_memory();
 void free_body_memory(body_memory* rm);
+void update_body_memory(body_memory* b_mem);
 
 comp_stats* create_comp_stats(int jumps, int health, double dmg_scale, double dmg_limit);
 void free_comp_stats(comp_stats* rm);
 comp_memory* make_comp_memory();
 void free_comp_memory(comp_memory* rm);
+void update_comp_memory(comp_memory* c_mem);
 
 //alpha decay vec, just stores a vector and alpha decay params
 #define BODY_MOVE_ALPHA 0.05
@@ -43,23 +49,35 @@ struct body_memory_struct {
   ad_vec movement;
 };
 
+//regen rate is in terms of stamina per second
+struct stam_struct {
+  int max_stamina;
+  int stamina;
+  double regen_rate;
+};
+
 struct body_stats_struct {
   int max_health;
   int health;
+  double action_cooldown;
   //this scales incoming damage vals
   double damage_scalar;
   //after damage scalar, take (1 - (health / max_health)) * damage limiter
   //0 < x < 1 will have affect of compound taking less damage as body gets more dmage inflicted
   // 1 < x will have compound take more damapge as body is damaged
   double damage_limiter;
+  stam actions;
 };
 
 struct compound_stats_struct {
   int max_jumps;
   int jumps_left;
-  int jump_airtime;
+  double max_jump_airtime;
+  double jump_airtime;
+  double jump_airtime_scale;
   int max_health;
   int health;
+  stam actions;
 };
 
 struct compound_memory_struct{
@@ -71,9 +89,11 @@ struct compound_memory_struct{
 //smarts stuff
 smarts * make_smarts() {
   smarts * new = malloc(sizeof(smarts));
+  new->c = NULL;
   new->c_mem = NULL;
   new->c_stats = NULL;
   new->c_atts = NULL;
+  new->b = NULL;
   new->b_mem = NULL;
   new->b_stats = NULL;
   new->b_atts = NULL;
@@ -89,6 +109,9 @@ void add_smarts_to_body(body* b) {
     sm->b_mem = make_body_memory();
     sm->b_atts = make_attributes();
     set_body_attribute(sm->b_atts);
+  }
+  else if (sm->b_mem == NULL) {
+    sm->b_mem = make_body_memory();
   }
   sm->b = b;
 
@@ -111,7 +134,42 @@ void add_smarts_to_comp(compound* c) {
     sm->c_atts = make_attributes();
     set_comp_attribute(sm->c_atts);
   }
+  else if (sm->c_mem == NULL) {
+    sm->c_mem = make_comp_memory();
+  }
   sm->c = c;
+}
+
+void update_smarts(smarts* sm) {
+  if (sm == NULL) {
+    return;
+  }
+  if (sm->b != NULL) {
+    update_body_memory(sm->b_mem);
+    update_stam(&sm->b_stats->actions);
+  }
+  else if (sm->c != NULL) {
+    update_comp_memory(sm->c_mem);
+    update_stam(&sm->c_stats->actions);
+  }
+}
+
+void init_stam(stam* st) {
+  st->max_stamina = 100;
+  st->stamina = 0;
+  st->regen_rate = 33;
+}
+
+void update_stam(stam* st) {
+  double dt = get_dT();
+  double t = st->stamina;
+  t = t + t * dt;
+  if (t > st->max_stamina) {
+    st->stamina = st->max_stamina;
+  }
+  else {
+    st->stamina = t;
+  }
 }
 
 //body stuff
@@ -122,6 +180,7 @@ body_stats* create_body_stats(int health, double dmg_scale, double dmg_limit) {
   new->health = health;
   new->damage_scalar = dmg_scale;
   new->damage_limiter = dmg_limit;
+  init_stam(&new->actions);
   return new;
 }
 
@@ -137,6 +196,11 @@ body_memory* make_body_memory() {
 
 void free_body_memory(body_memory* rm) {
   free(rm);
+}
+
+void update_body_memory(body_memory* b_mem) {
+  double dt_scale = get_dT() * FPS;
+  timed_calc_ad_vec(&b_mem->movement, dt_scale);
 }
 
 void damage_body(body* b, double amt) {
@@ -190,8 +254,12 @@ comp_stats* create_comp_stats(int jumps, int health, double dmg_scale, double dm
   comp_stats* new = malloc(sizeof(comp_stats));
   new->max_jumps = jumps;
   new->jumps_left = jumps;
+  new->max_jump_airtime = 1;
+  new->jump_airtime = 0;
+  new->jump_airtime_scale = 0.5;
   new->max_health = health;
   new->health = health;
+  init_stam(&new->actions);
   return new;
 }
 
@@ -209,6 +277,13 @@ comp_memory* make_comp_memory() {
 
 void free_comp_memory(comp_memory* rm) {
   free(rm);
+}
+
+void update_comp_memory(comp_memory* c_mem) {
+  double dt_scale = get_dT() * FPS;
+  timed_calc_ad_vec(&c_mem->movement, dt_scale);
+  timed_calc_ad_vec(&c_mem->helpfull, dt_scale);
+  timed_calc_ad_vec(&c_mem->danger, dt_scale);
 }
 
 void damage_compound(compound* c, double amt) {
@@ -246,11 +321,61 @@ event* make_basic_vision_event(body* b) {
   return e;  
 }
 
+//side vision, event should prioritize fast moving things, result is rotating body towards thing
+event* make_side_vision_event(body* b) {
+  polygon* event_area = vision_cone(150, 110, 5, 0);
+  event* e = make_event(event_area);
+  //set_event(e, basic_decide_event);
+  add_event_to_body(b,e);
+  return e;  
+}
+
+//main vision, event should prioritize the closest thing in range, result is anaylzing thing in range and ?
+event* make_main_vision_event(body* b) {
+  polygon* event_area = vision_cone(220, 20, 2, 0);
+  event* e = make_event(event_area);
+  //set_event(e, basic_decide_event);
+  add_event_to_body(b,e);
+  return e;  
+}
+
+//hearing, should behave like side vision by noticing things that are moving quickly
+event* make_hearing_event(body* b) {
+  polygon* event_area = createNormalPolygon(9);
+  set_scale(event_area, 20);
+  event* e = make_event(event_area);
+  //set_event(e, basic_decide_event);
+  add_event_to_body(b,e);
+  return e;  
+}
+
+
 //visual systmes
 
 //making the cones of vision
 //just make an isosolece triangle of base_width and height
 //make an event out of it and attach to a body
+
+polygon* vision_cone(int radius, double theta_deg, int steps, double rot_off) {
+  double theta = theta_deg * DEG_2_RAD;
+  if (theta > M_PI) {
+    fprintf(stderr, "warning, theta for vision cone would be concave, capping it to a cemi-circle\n");
+    theta = M_PI;
+  }
+  polygon* cone = createPolygon(steps);
+  virt_pos point = *zero_pos;
+  double theta_step = theta / steps;
+  rot_off -= theta / 2.0;
+  for (int i = 0; i < steps; i++) {
+    point = (virt_pos){.x = radius, .y = 0};
+    virt_pos_rotate(&point, i * theta_step + rot_off, &point);
+    set_base_point(cone, i, &point);
+  }
+  generate_normals_for_polygon(cone);
+  return cone;
+  
+}
+
 polygon* vision_triangle(int base, int depth, double rot_off) {
   polygon* tri = createPolygon(3);
   virt_pos point = *zero_pos;
@@ -263,4 +388,65 @@ polygon* vision_triangle(int base, int depth, double rot_off) {
   set_base_point(tri, 2, &point);
   generate_normals_for_polygon(tri);
   return tri;
+}
+
+void add_to_smarts_movement(smarts* sm, vector_2* add) {
+  if (sm->b != NULL) {
+    add_to_ad_vec(&sm->b_mem->movement, add);
+  }
+  else if (sm->c != NULL) {
+    add_to_ad_vec(&sm->c_mem->movement, add);
+  }
+}
+
+vector_2 get_smarts_movement(smarts* sm) {
+  if (sm->b != NULL) {
+    return get_ad_vec(&sm->b_mem->movement);
+  }
+  else if (sm->c != NULL) {
+    return get_ad_vec(&sm->c_mem->movement);
+  }
+  return *zero_vec;
+}
+
+void jump_action(compound* c) {
+  smarts* sm = get_compound_smarts(c);
+  comp_stats* c_stats = sm->c_stats;
+  body* aBody = NULL;
+  fizzle* fizz = NULL;
+  vector_2 jump_force = *g;
+  double jump_mag = 50;
+  if (c_stats->jump_airtime == -1) {
+    if (c_stats->jumps_left > 0) {
+      c_stats->jumps_left--;
+      c_stats->jump_airtime = 0;
+    }
+    else {
+      return;
+    }
+  }
+  jump_mag *= (1 - (c_stats->jump_airtime / c_stats->max_jump_airtime));
+  fprintf(stderr,"jumping with mag = %f, air_t = %f and max air_t = %f\n", jump_mag, c_stats->jump_airtime, c_stats->max_jump_airtime);
+  fprintf(stderr, "dt is %f\n", get_dT());
+  vector_2_scale(&jump_force, -1 * jump_mag ,&jump_force);
+  body* b = get_compound_head(c);
+  add_tether(get_fizzle(b), &jump_force);
+  /*
+  for (gen_node* curr = get_bodies(c)->start; curr != NULL; curr = curr->next) {
+    aBody = (body*)curr->stored;
+    fizz = get_fizzle(aBody);
+    add_tether(fizz, &jump_force);
+  }
+  */
+  c_stats->jump_airtime += get_dT();
+  if (c_stats->jump_airtime > c_stats->max_jump_airtime) {
+    c_stats->jump_airtime = -1;
+  }
+}
+
+void jump_action_reset(compound* c) {
+  smarts* sm = get_compound_smarts(c);
+  comp_stats* c_stats = sm->c_stats;
+  c_stats->jumps_left = c_stats->max_jumps;
+  c_stats->jump_airtime = -1;
 }

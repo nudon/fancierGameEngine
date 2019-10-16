@@ -33,5 +33,6 @@ void store_event_triggers(spatial_hash_map* map, event* e, gen_list* hits);
 void no_event(TRIGGER_ARGS);
 void basic_decide_event(TRIGGER_ARGS);
 void foot_placement(TRIGGER_ARGS);
+void foot_step(TRIGGER_ARGS);
 
 #endif

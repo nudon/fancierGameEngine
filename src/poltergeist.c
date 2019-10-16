@@ -101,8 +101,7 @@ void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
     set_camera_center(getCam(), read_only_polygon_center(p));
     cam_init = 1;
   }
-  polygon* poly = user_body->coll->shape;
-  get_input_for_polygon(poly, t_disp, r_disp);
+  get_input_for_body(user_body, t_disp, r_disp);
 }
 //given a compound and dir, move all bodies in that dir
 //should be adding a force
@@ -111,10 +110,13 @@ void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
 //also might want to have some limited speed modes by modifying magnitude of direction. could either add hard-coded tiers/thresholds or take a log of magnitude for nice but sometimes funny stuff
 
 void standard_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
-  //vector_2 dir = get_curr_dir(get_gi(get_owner(body)));
-  vector_2 dir = *zero_vec;
-  //might also take scales from gi
-  double t_scale = .5;
+  if (get_body_smarts(body) == NULL) {
+    return;
+  }
+  vector_2 b_dir = get_smarts_movement(get_body_smarts(body));
+  vector_2 c_dir = get_smarts_movement(get_compound_smarts(get_owner(body)));
+  vector_2 dir = b_dir;
+  double t_scale = .0005;
   double r_scale = 0.004;
   double mag = vector_2_magnitude(&dir);
   if (mag > 0) {
@@ -131,11 +133,9 @@ void standard_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
 
   if (abs(diff) > M_PI) {
     if (diff > 0) {
-      //fprintf(stderr, "1diff is %f\n", diff);
       diff = diff - 2 * M_PI;
     }
     else {
-      //fprintf(stderr, "2diff is %f\n", diff);
       diff = diff + 2 * M_PI;
     }
 

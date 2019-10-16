@@ -208,13 +208,10 @@ void basic_decide(body* self, body* trigger, virt_pos* poc) {
 
 
 void foot_placement(event* e, body* trigger, virt_pos* poc) {
-  /*
   body* self = get_event_body(e);
   compound* self_comp = get_owner(self);
   compound* trigger_comp = get_owner(trigger);
-  comp_int* si = get_comp_int(self_comp);
-  comp_int* ti = get_comp_int(trigger_comp);
-
+  
   vector_2 dir = *zero_vec;
   virt_pos tc = get_body_center(trigger);
   virt_pos sc = get_body_center(self);
@@ -225,9 +222,29 @@ void foot_placement(event* e, body* trigger, virt_pos* poc) {
       tc = *poc;
     }
     vector_between_points(&sc, &tc, &dir);
-    make_unit_vector(&dir, &dir);
-    vector_2_scale(&dir, 0.05, &dir);
-    add_to_dir(si, &dir);
+    if (!isZeroVec(&dir)) {
+      make_unit_vector(&dir, &dir);
+      smarts* b_sm = get_body_smarts(self);
+      add_to_smarts_movement(b_sm, &dir);
+    }
   }
-  */
+}
+
+void foot_step(event* e, body* trigger, virt_pos* poc) {
+  body* self = get_event_body(e);
+  compound* self_comp = get_owner(self);
+  compound* trigger_comp = get_owner(trigger);
+  
+  //somehow set checks for this
+  //could check if trigger mass is inf, or have some attribute for it
+  if (self_comp != trigger_comp) {
+    jump_action_reset(self_comp);
+  }
+
+  //to be triggered when a foot is on ground
+  //thinking, add to main body and maybe also foot
+  //for foot, add -1 * gravity
+  //for body, probably add -1 / 2 * gravity
+  //issue is how to determine what is the main body/torso
+  //could implicity take head of body part list
 }

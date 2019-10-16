@@ -32,6 +32,7 @@ void free_shared_input(shared_input* rm);
 void free_shared_input_ref(shared_input** rm);
 shared_input* get_shared_input(body* b);
 void set_shared_input(body* b, shared_input** si);
+//void add_to_shared_input(virt_pos* t, double r, shared_input* si);
 void add_to_shared_input(virt_pos* t, double r, shared_input* si);
 void get_avg_movement(shared_input* si, virt_pos* t, double* r);
 void set_shared_input_origin(shared_input* si, virt_pos* point);

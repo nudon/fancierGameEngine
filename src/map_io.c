@@ -173,30 +173,15 @@ load_zone* xml_read_load_zone(xmlNodePtr lz_node) {
   virt_pos vp = *zero_pos;
   event* e = NULL;
   
-  fm = (char*)xmlGetProp(lz_node, (const xmlChar*)"from_map");
-  tm = (char*)xmlGetProp(lz_node, (const xmlChar*)"to_map");
-  fp = (char*)xmlGetProp(lz_node, (const xmlChar*)"from_plane");
-  tp = (char*)xmlGetProp(lz_node, (const xmlChar*)"to_plane");
+  fm = get_charp_prop(lz_node, "from_map");
+  tm = get_charp_prop(lz_node, "to_map");
+  fp = get_charp_prop(lz_node, "from_plane");
+  tp = get_charp_prop(lz_node, "to_plane");
   xmlNodePtr child = lz_node->xmlChildrenNode;
   child = get_child_by_name_and_id(lz_node, "virt_pos", "dest");
   xml_read_virt_pos(child, &vp);
   child = get_child_by_name(lz_node, "event");
   e = xml_read_event(child);
-  /*
-  while(child != NULL) {
-    if (xmlStrcmp(child->name, (const xmlChar*)"virt_pos") == 0) {
-      text = (char*)xmlGetProp(child, (const xmlChar*)"id");
-      if (strcmp(text, "dest") == 0) {
-	xml_read_virt_pos(child, &vp);
-      }
-      free(text);
-    }
-    else if (xmlStrcmp(child->name, (const xmlChar*)"event") == 0) {
-      e = xml_read_event(child);
-    }
-    child = child->next;
-  }
-  */
   load_zone* lz = make_load_zone(fm, tm, fp, tp, &vp, e);
   free(fm);
   free(tm);
@@ -216,14 +201,9 @@ void xml_write_event(FILE* file_out, event* e) {
 event* xml_read_event(xmlNodePtr event_node) {
   char* text = NULL;
   polygon* poly = NULL;
-  text = (char*)xmlGetProp(event_node, (const xmlChar*)"func");
-  xmlNodePtr child = event_node->xmlChildrenNode;
-  while(child != NULL) {
-    if (xmlStrcmp(child->name, (const xmlChar*)"polygon") == 0) {
-      poly = xml_read_polygon(child);
-    }
-    child = child->next;
-  }
+  text = get_charp_prop(event_node, "func");
+  xmlNodePtr child = get_child_by_name(event_node, "polygon");
+  poly = xml_read_polygon(child);
   event* e = make_event(poly);
   set_event_by_name(e, text);
   free(text);
@@ -242,13 +222,8 @@ compound_spawner* xml_read_spawner(xmlNodePtr spawn_node) {
   char* spawn_name = get_charp_prop(spawn_node, "compound_name");
   int cap = get_int_prop(spawn_node, "spawn_cap");
   virt_pos spawn_pos = *zero_pos;
-  xmlNodePtr child =  spawn_node->xmlChildrenNode;
-  while(child != NULL) {
-    if (xmlStrcmp(child->name, (const xmlChar*)"virt_pos") == 0) {
-      xml_read_virt_pos(child, &spawn_pos);
-    }
-    child = child->next;
-  }
+  xmlNodePtr child = get_child_by_name(spawn_node, "virt_pos");
+  xml_read_virt_pos(child, &spawn_pos);
   compound_spawner* spawn = create_compound_spawner(spawn_name, cap, spawn_pos.x, spawn_pos.y);
   free(spawn_name);
   return spawn;
@@ -318,28 +293,17 @@ body* xml_read_body(xmlNodePtr body_node) {
   free(text);
   xmlNodePtr child = get_child_by_name(body_node, "smarts");
   smarts* sm = xml_read_smarts(child);
+  child = get_child_by_name(body_node, "fizzle");
+  fizz = xml_read_fizzle(child);
+  child = get_child_by_name(body_node, "polygon");
+  poly = xml_read_polygon(child);
+  coll = make_collider_from_polygon(poly);
+  child = get_child_by_name(body_node, "picture");
+  pic = xml_read_picture(child);
   child = body_node->xmlChildrenNode;
+  
   while(child != NULL) {
-    if (xmlStrcmp(child->name, (const xmlChar*)"fizzle") == 0) {
-      if (fizz != NULL) {
-	fprintf(stderr, "xml body has > 1 fizzle children\n");
-      }
-      fizz = xml_read_fizzle(child);
-    }
-    else if (xmlStrcmp(child->name, (const xmlChar*)"polygon") == 0) {
-      if (coll != NULL) {
-	fprintf(stderr, "xml body has > 1 collider children\n");
-      }
-      poly = xml_read_polygon(child);
-      coll = make_collider_from_polygon(poly);
-    }
-    else if (xmlStrcmp(child->name, (const xmlChar*)"picture") == 0) {
-      if (pic != NULL) {
-	fprintf(stderr, "xml body has > 1 picture children\n");
-      }
-      pic = xml_read_picture(child);
-    }
-    else if (xmlStrcmp(child->name, (const xmlChar*)"event") == 0) {
+    if (xmlStrcmp(child->name, (const xmlChar*)"event") == 0) {
       e = xml_read_event(child);
       prependToGen_list(temp_event_list, createGen_node(e));
     }
@@ -393,9 +357,8 @@ fizzle* xml_read_fizzle(xmlNodePtr fizzle_node) {
   val = get_double_prop(fizzle_node, "bounce");
   set_bounce(fizz, val);
   
-
-
   xmlNodePtr child = fizzle_node->xmlChildrenNode;
+  
   while(child != NULL) {
     if (xmlStrcmp(child->name, (const xmlChar*)"vector_2") == 0) {
       xml_read_vector_2(child, &vec);
@@ -465,7 +428,6 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
 	set_center(poly, &vp);
       }
       else {
-	//should just be corner number
 	ival = atoi((const char*)text);
 	if (val >= sides) {
 	  fprintf(stderr, "xml file contained a corner indexed beyond polygons sides\n");
@@ -494,11 +456,6 @@ picture* xml_read_picture(xmlNodePtr pic_node) {
   free(fn);
   return pic;
 }
-
-//serialization
-//to text
-//if body is null, then write compound stuff (also write in a flag
-//else write body stuff
 
 void xml_write_smarts(FILE* file_out, smarts* sm) {
   if (sm == NULL) {

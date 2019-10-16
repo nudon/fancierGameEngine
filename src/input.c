@@ -54,7 +54,64 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
 	default:
 
 	  break;
-	    
+	}
+      }
+    }
+  }
+  setQuit(quit);
+  return quit;
+}
+
+
+
+int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
+  int quit = 0;
+  SDL_Event e;
+  double mov_delta = 0.4;
+  double jump_scale = 4.5;
+  double rot_delta = 0.03;
+  compound* comp = get_owner(b);
+  while (SDL_PollEvent(&e) != 0 ) {
+    if (e.type == SDL_QUIT) {
+      quit = 1;
+    }
+    else if (e.type == SDL_KEYDOWN) {
+      if ((SDL_GetModState() & KMOD_CTRL)) {
+	switch(e.key.keysym.sym) {
+	case SDLK_UP:
+	  
+	  break;
+	case SDLK_DOWN:
+	  
+	  break;
+	case SDLK_RIGHT:
+	  *rot_disp += rot_delta;
+	  break;
+	case SDLK_LEFT:
+	  *rot_disp -= rot_delta;
+	  break;
+	default:
+
+	  break;
+	}
+      }
+      else {
+	switch(e.key.keysym.sym) {
+	case SDLK_UP:
+	  jump_action(comp);
+	  break;
+	case SDLK_DOWN:
+	  trans_disp->v2 += mov_delta;
+	  break;
+	case SDLK_RIGHT:
+	  trans_disp->v1 += mov_delta;
+	  break;
+	case SDLK_LEFT:
+	  trans_disp->v1 -= mov_delta;
+	  break;
+	default:
+
+	  break;
 	}
       }
     }

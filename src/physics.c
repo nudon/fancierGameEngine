@@ -2,8 +2,14 @@
 #include "physics.h"
 #include <math.h>
 
-#define LINEAR_DAMP 0.8
+#define LINEAR_DAMP 5.2
 #define ROTATIONAL_DAMP .012
+
+static int frame_count = 0;
+
+void inc_physics_frame() {
+  frame_count++;
+}
 
 vector_2* g = &(vector_2){.v1 = 0, .v2 = 0.4};
 
@@ -84,6 +90,7 @@ void init_fizzle(fizzle* fizz) {
   fizz->bounce = 1;
   fizz->line_damp_val = LINEAR_DAMP;
   fizz->rot_damp_val = ROTATIONAL_DAMP;
+  fizz->frame_count = 0;
 }
 
 void free_fizzle(fizzle* rm) {
@@ -153,41 +160,39 @@ void calc_change(fizzle* fizz, virt_pos* t_disp, double* r_disp) {
   vector_2_add(&vel_comp, &acl_comp, &acl_comp);
   vector_2_to_virt_pos(&acl_comp, &loc_pos);
   virt_pos_add(t_disp, &loc_pos, t_disp);
-
- 
-  //update net acceleration
-  set_fizzle_dampening(fizz);
-  get_avg_impact(fizz, &fizz->net_acceleration);
-  vector_2_add(&(fizz->gravity), &fizz->net_acceleration, &fizz->net_acceleration);
-  vector_2_add(&(fizz->dampening), &fizz->net_acceleration, &fizz->net_acceleration);
-  vector_2_add(&(fizz->tether), &fizz->net_acceleration, &fizz->net_acceleration);
-  set_impact(fizz, zero_vec);
-  set_tether(fizz, zero_vec);
-  fizz->impact_count = 0;
   
-  new_accel = fizz->net_acceleration;
-  vector_2_add(&prev_accel, &new_accel, &avg_accel);
-  vector_2_scale(&avg_accel, 0.5 * dt, &avg_accel);
-  vector_2_add(&avg_accel, &fizz->velocity, &fizz->velocity);
-
-
   //update r_disp
   double rot_delta = 0;
   rot_delta += fizz->rot_velocity * dt;
   *r_disp  += rot_delta;
-
-  //update rot acceleration
-  set_fizzle_rot_dampening(fizz);
-  fizz->rot_acceleration = get_avg_rot_impact(fizz);
-  fizz->rot_acceleration += fizz->rot_dampening;
-
-  set_rot_impact(fizz, 0);
-  fizz->rot_impact_count = 0;
+ 
+  //update net acceleration
+  if (fizz->frame_count != frame_count) {
+    fizz->frame_count = frame_count;
+    set_fizzle_dampening(fizz);
+    get_avg_impact(fizz, &fizz->net_acceleration);
+    vector_2_add(&(fizz->gravity), &fizz->net_acceleration, &fizz->net_acceleration);
+    vector_2_add(&(fizz->dampening), &fizz->net_acceleration, &fizz->net_acceleration);
+    vector_2_add(&(fizz->tether), &fizz->net_acceleration, &fizz->net_acceleration);
+    set_impact(fizz, zero_vec);
+    set_tether(fizz, zero_vec);
+    fizz->impact_count = 0;
   
-  fizz->rot_velocity += fizz->rot_acceleration * dt;
+    new_accel = fizz->net_acceleration;
+    vector_2_add(&prev_accel, &new_accel, &avg_accel);
+    vector_2_scale(&avg_accel, 0.5 * dt, &avg_accel);
+    vector_2_add(&avg_accel, &fizz->velocity, &fizz->velocity);
 
+    //update rot acceleration
+    set_fizzle_rot_dampening(fizz);
+    fizz->rot_acceleration = get_avg_rot_impact(fizz);
+    fizz->rot_acceleration += fizz->rot_dampening;
+
+    set_rot_impact(fizz, 0);
+    fizz->rot_impact_count = 0;
   
-  
+    fizz->rot_velocity += fizz->rot_acceleration * dt;
+  }
 }
 
 void set_gravity(fizzle* fizz, vector_2* newGrav) {
@@ -376,6 +381,10 @@ void set_velocity(fizzle* f, vector_2* val) {
 
 void get_velocity(fizzle* f, vector_2* res) {
   *res = f->velocity;
+}
+
+void set_rot_velocity(fizzle* f, double val) {
+  f->rot_velocity = val;
 }
 
 double get_rot_velocity(fizzle* f) {

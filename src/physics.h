@@ -40,6 +40,7 @@ struct fizzle_struct {
   double bounce;
   double line_damp_val;
   double rot_damp_val;
+  int frame_count;
 };
 
 struct tether_struct{
@@ -111,6 +112,7 @@ void set_dT(double new);
 
 void set_velocity(fizzle* f, vector_2* val);
 void get_velocity(fizzle* f, vector_2* res);
+void set_rot_velocity(fizzle* f, double val);
 double get_rot_velocity(fizzle* f);
 void set_line_damp(fizzle* f, double val);
 void set_rot_damp(fizzle* f, double val);

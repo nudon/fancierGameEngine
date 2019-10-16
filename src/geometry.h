@@ -19,16 +19,10 @@ struct {
 } vector_2;
 
 typedef struct ad_vec_struct {
+  vector_2 add;
   vector_2 vec;
   double alpha;
 } ad_vec;
-
-ad_vec* create_ad_vec(double alpha);
-void init_ad_vec(ad_vec* v, vector_2* v_set, double alpha_set);
-void free_ad_vec(ad_vec* rm);
-void add_to_ad_vec(ad_vec* d, vector_2* v);
-vector_2 get_ad_vec(ad_vec* v);
-
 
 extern vector_2* zero_vec;
 
@@ -119,8 +113,19 @@ void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result);
 void print_vector(vector_2* vec);
 void print_point(virt_pos* pos);
 
+
+ad_vec* create_ad_vec(double alpha);
+void init_ad_vec(ad_vec* v, vector_2* v_set, double alpha_set);
+void free_ad_vec(ad_vec* rm);
+void add_to_ad_vec(ad_vec* d, vector_2* v);
+void calc_ad_vec(ad_vec* d);
+void timed_calc_ad_vec(ad_vec* d, double dt_scale);
+vector_2 get_ad_vec(ad_vec* v);
+
 void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha);
 void exponential_decay(double old, double cur, double* new, double alpha);
+void timed_exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha, double dt_scale);
+void timed_exponential_decay(double old, double cur, double* new, double alpha, double dt_scale);
 
 int sign_of(double val);
 

@@ -16,6 +16,8 @@ SDL_Texture* get_texture_by_name(char* fn);
 static int SCREEN_WIDTH = 720;
 static int SCREEN_HEIGHT = 480;
 
+int FPS = 60;
+
 double x_virt_to_pixel_scale = 1.0 / 1.5;
 double y_virt_to_pixel_scale = 1.0 / 1.5;
 

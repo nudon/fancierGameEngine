@@ -53,11 +53,11 @@ void move_compound(spatial_hash_map* map, compound* c) {
   double avg_r_disp = 0;
   shared_input* si = NULL;
   n = get_bodies(c)->end;
+  //printf("\n");
   while(n != NULL) {
     b = (body*)n->stored;
     si = get_shared_input(b);
     rot_offset = get_rotation_offset(get_polygon(get_collider(b)));
-
     if (si != NULL)  {
       get_avg_movement(si, &avg_t_disp, &avg_r_disp);
       orig_offset = *zero_pos;
@@ -75,7 +75,6 @@ void move_compound(spatial_hash_map* map, compound* c) {
 	t_disp = avg_t_disp;
       }
       r_disp = avg_r_disp;
-
       update(map, b->coll, &t_disp, r_disp);
     }
     n = n->prev;

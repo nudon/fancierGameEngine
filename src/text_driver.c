@@ -22,8 +22,6 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list);
 
 //Globals
 
-static int FPS_CAP = 60;
-
 int main(int argc, char** args) {
   init_graphics();
   
@@ -42,7 +40,7 @@ int main(int argc, char** args) {
 
 
 void main_loop() {
-  double ms_per_frame = 1000.0 / FPS_CAP;
+  double ms_per_frame = 1000.0 / FPS;
   int update_wait;      
   camera* cam = getCam();
   map* map = getMap();
@@ -57,9 +55,9 @@ void main_loop() {
     update_map(map);
     update_corner(cam);
     //printf("loop tick\n");
+    inc_physics_frame();
     draw_map(cam, map);
-    
-    update_wait = ms_per_frame - get_dT_in_ms();	
+    update_wait = ms_per_frame - time_since_update();	
     if (update_wait > 0) {
       SDL_Delay(update_wait);
     }
@@ -120,6 +118,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       fizz = aBody->fizz;
       
       check_events(map, get_body_events(aBody));
+      update_smarts(get_body_smarts(aBody));
       
       trans_disp = *zero_pos;
       rot_disp = 0.0;
@@ -130,6 +129,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       }
       body_curr = body_curr->next;
     }
+    update_smarts(get_compound_smarts(aCompound));
     move_compound(map, aCompound);
     comp_curr = comp_curr->next;
   }

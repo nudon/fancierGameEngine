@@ -13,6 +13,7 @@ struct shared_input_struct {
   virt_pos avg_t;
   double avg_r;
   virt_pos* shared_input_origin;
+  fizzle* shared_fizzle;
   enum shared_input_mode mode;
 };
 
@@ -26,6 +27,7 @@ shared_input* create_shared_input() {
   new->avg_r = 0;
   new->mode = si_add;
   new->shared_input_origin = NULL;
+  new->shared_fizzle = NULL;
   return new;
 }
 
@@ -55,41 +57,65 @@ shared_input* get_shared_input(body* b) {
 }
 
 void set_shared_input(body* b, shared_input** si) {
+  fizzle* si_f = NULL, *f = NULL;
+  f = b->fizz;
   if (b->uniform_input != NULL) {
     fprintf(stderr, "warning, overwriting a bodys shared_input");
   }
+  if ((*si)->shared_fizzle == NULL) {
+    si_f = cloneFizzle(f);
+    (*si)->shared_fizzle = si_f;
+  }
+  else {
+    si_f = (*si)->shared_fizzle;
+    set_mass(si_f, get_mass(si_f) + get_mass(f));
+    //might not be a good idea
+    set_mass(si_f, get_moi(si_f) + get_moi(f));
+  }
   b->uniform_input = si;
+  free_fizzle(f);
+  b->fizz = si_f;
+  
 }
 
 void add_to_shared_input(virt_pos* t, double r, shared_input* si) {
   if (si->mode == si_avg) {
-    si->avg_t = *zero_pos;
-    si->avg_r = 0;
+    si->t_disp = *zero_pos;
+    si->t_count = 0;
+    si->r_disp = 0;
+    si->r_count = 0;
     si->mode = si_add;
   }
-  if (!isZeroPos(t)) {
-      virt_pos_add(t, &(si->t_disp), &(si->t_disp));
-      si->t_count++;
+  if (1 || !isZeroPos(t)) {
+    virt_pos_add(t, &(si->t_disp), &(si->t_disp));
+    si->t_count++;
   }
-  if (r != 0.0) {
+  if (r != r) {
     si->r_disp += r;
     si->r_count++;
   }
 }
 
+
+void calc_si_avg(shared_input* si) {
+  if (si->t_count != 0) {
+    si->avg_t.x = si->t_disp.x / si->t_count;
+    si->avg_t.y = si->t_disp.y / si->t_count;
+  }
+  else {
+    si->avg_t = *zero_pos;
+  }
+  if (si->r_count != 0) {
+    si->avg_r = si->r_disp / si->r_count;
+  }
+  else {
+    si->avg_r = 0;
+  }
+}
+
 void get_avg_movement(shared_input* si, virt_pos* t, double* r) {
   if (si->mode == si_add) {
-    if (si->t_count != 0) {
-      si->avg_t.x = si->t_disp.x / si->t_count;
-      si->avg_t.y = si->t_disp.y / si->t_count;
-    }
-    if (si->r_count != 0) {
-      si->avg_r = si->r_disp / si->r_count;
-    }
-    si->t_disp = *zero_pos;
-    si->t_count = 0;
-    si->r_disp = 0;
-    si->r_count = 0;
+    calc_si_avg(si);
     si->mode = si_avg;
   }
   if (t != NULL) {

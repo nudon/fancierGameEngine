@@ -800,6 +800,19 @@ void exponential_decay(double old, double cur, double* new, double alpha) {
   *new = alpha * cur + (1 - alpha) * old;
 }
 
+void timed_exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha, double dt_scale) {
+  timed_exponential_decay(old->v1, cur->v1, &(new->v1), alpha, dt_scale);
+  timed_exponential_decay(old->v2, cur->v2, &(new->v2), alpha, dt_scale);
+}
+
+//dt_scale is, given a framerate r, get_dT() * r
+void timed_exponential_decay(double old, double cur, double* new, double alpha, double dt_scale) {
+  alpha = 1 - alpha;
+  double old_alpha = pow(alpha, dt_scale);
+  double cur_alpha = 1 - old_alpha;
+  *new = cur_alpha * cur + old_alpha * old;
+}
+
 int sign_of(double val) {
   if (val == 0) {
     return 0;
@@ -837,6 +850,7 @@ ad_vec* create_ad_vec(double alpha) {
 }
 
 void init_ad_vec(ad_vec* v, vector_2* v_set, double alpha_set) {
+  v->add = *zero_vec;
   v->vec = *v_set;
   v->alpha = alpha_set;
 }
@@ -846,8 +860,19 @@ void free_ad_vec(ad_vec* rm) {
 }
 
 void add_to_ad_vec(ad_vec* d, vector_2* v) {
-  exponential_decay_vector(&(d->vec), v, &(d->vec), d->alpha);
+  vector_2_add(&d->add, v, &d->add);
 }
+
+void calc_ad_vec(ad_vec* d) {
+  exponential_decay_vector(&d->vec, &d->add, &d->vec, d->alpha);
+  d->add = *zero_vec;
+}
+
+void timed_calc_ad_vec(ad_vec* d, double dt_scale) {
+  timed_exponential_decay_vector(&d->vec, &d->add, &d->vec, d->alpha, dt_scale);
+  d->add = *zero_vec;
+}
+
 
 vector_2 get_ad_vec(ad_vec* v) {
   return v->vec;

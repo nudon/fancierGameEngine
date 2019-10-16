@@ -32,6 +32,8 @@ struct picture_struct {
   char* file_name;
 };
 
+extern int FPS;
+
 picture* make_picture(char* fn);
 void free_picture(picture* rm);
 void set_picture_texture(picture* pic, SDL_Texture* t);

@@ -10,6 +10,7 @@ typedef struct smarts_struct smarts;
 
 //smarts stuff
 smarts * make_smarts();
+void update_smarts(smarts* sm);
 void add_smarts_to_body(body* b);
 void add_smarts_to_comp(compound* b);
 
@@ -27,7 +28,10 @@ void set_comp_attributes(smarts* sm, att* atts);
 
 
 event* make_basic_vision_event(body* b);
+
+polygon* vision_cone(int radius, double theta_deg, int steps, double rot_off);
 polygon* vision_triangle(int base, int depth, double rot_off);
+
 
 char* smarts_to_text(smarts* sm);
 smarts*text_to_smarts(char* text);
@@ -38,6 +42,13 @@ int get_smarts_comp_max_health(smarts* sm);
 int get_smarts_comp_health(smarts* sm);
 int get_smarts_comp_max_jumps(smarts* sm);
 int get_smarts_comp_jumps(smarts* sm);
+
+void add_to_smarts_movement(smarts* sm, vector_2* add);
+vector_2 get_smarts_movement(smarts* sm);
+
+void jump_action(compound* c);
+void jump_action_reset(compound* c);
+
 
 #endif
 
