@@ -7,6 +7,11 @@
 #include "graphics.h"
 #include "gi.h"
 #include "map_io.h"
+#include "sizes.h"
+
+body* quick_nopic_block(int width, int height);
+body* quick_block(int width, int height, char* fn);
+body* quick_tile_block(int width, int height, char* fn);
 
 
 #define MAP_DIR "./maps/"
@@ -23,11 +28,97 @@ virt_pos ORIGIN_BEACH_POS = (virt_pos){.x= 345, .y=270};
 #define BLUE_SLIME_SPAWN "blue_slime_spawn"
 #define TEST_SPAWN "test_spawn"
 
+typedef struct room_struct room;
+struct room_struct {
+  virt_pos cent;
+  int length;
+  int height;
+};
+
+void init_room(room* r, virt_pos* cent, int len, int height) {
+  r->cent = *cent;
+  r->length = len;
+  r->height = height;
+}
+
+//rel len, -1 is left wall of room, +1 is right wall of room
+//rel height, -1 is bottom of room, 1 is top of room
+virt_pos calc_room_offset(room* r, double rel_len, double rel_height) {
+  virt_pos offset = r->cent;
+  offset.x += r->length * 0.5 * rel_len;
+  offset.y -= r->height * 0.5 * rel_height;
+  return offset;
+}
+
+void offset_body(body* b, virt_pos* offset) {
+  virt_pos cent;
+  cent = get_body_center(b);
+  virt_pos_add(&cent, offset, &cent);
+  set_body_center(b, &cent);
+}
+
+void offset_compound(compound* c, virt_pos* offset) {
+  gen_node* curr = get_bodies(c)->start;
+  body* b = NULL;
+  while(curr != NULL) {
+    b = (body*)curr->stored;
+    offset_body(b, offset);
+    
+    curr = curr->next;
+  }
+}
+
+void add_compound_to_room(compound* c, room* r, double rel_len, double rel_height) {
+  virt_pos offset = calc_room_offset(r, rel_len, rel_height);
+  offset_compound(c, &offset);
+}
+
+#define ROOM_WALL_LEFT 1
+#define ROOM_WALL_RIGHT 2
+#define ROOM_WALL_TOP 3
+#define ROOM_WALL_BOTTOM 4
+
+
+body* add_wall_to_room(room* r, int wall_type, double rel_start, double rel_end) {
+  body* wall = NULL;
+  int width = -1, height = -1;
+  virt_pos cent = *zero_pos;
+  if (wall_type == ROOM_WALL_LEFT || wall_type == ROOM_WALL_RIGHT) {
+    width = M_W;
+    height = (abs(rel_start) + abs(rel_end)) * 0.5 * r->height;
+    wall = quick_block(width, height, DEF_FN);
+    if (wall_type == ROOM_WALL_LEFT) {
+      cent = calc_room_offset(r, -1, (rel_start + rel_end) * 0.5);
+      cent.x -= width;
+    }
+    else {
+      cent = calc_room_offset(r, 1, (rel_start + rel_end) * 0.5);
+      cent.x += width;
+    }
+    offset_body(wall, &cent);
+  }
+  else if (wall_type == ROOM_WALL_TOP || wall_type == ROOM_WALL_BOTTOM) {
+    width = (abs(rel_start) + abs(rel_end)) * 0.5 * r->length;
+    height = M_H;
+    wall = quick_block(width, height, DEF_FN);
+    if (wall_type == ROOM_WALL_TOP) {
+      cent = calc_room_offset(r, (rel_start + rel_end) * 0.5, 1);
+      cent.y += height * 0.5;
+    }
+    else {
+      cent = calc_room_offset(r, (rel_start + rel_end) * 0.5, -1);
+      cent.y -= height * 0.5;
+    }
+    offset_body(wall, &cent);
+  }
+  return wall;
+}
+
 struct compound_spawner_struct {
   char* compound_name;
   int spawn_cap;
   virt_pos spawn_center;
-  compound* (*spawner) (int x_pos, int y_pos);
+  compound* (*spawner) (void);
 };
 
 char* get_spawner_name(compound_spawner* spawn) {
@@ -47,7 +138,6 @@ compound_spawner* create_compound_spawner(char* name, int cap, int x_pos, int y_
   spawn->compound_name = strdup(name);
   spawn->spawn_cap = cap;
   spawn->spawn_center = (virt_pos){.x = x_pos, .y = y_pos};
-  
   //then look at name and find / set spawner func
   if (strcmp(name, BLUE_SLIME_SPAWN) == 0) {
     spawn->spawner = &makeSlime;
@@ -89,23 +179,13 @@ void trigger_spawner(compound_spawner* spawn, plane* insert) {
       spawn->spawn_cap--;
     }
     get_spawner_pos(spawn, &pos);
-    spawned = spawn->spawner(pos.x, pos.y);
+    spawned = spawn->spawner();
+    offset_compound(spawned, &pos);
     add_compound_to_plane(insert, spawned);
   }
 }
 
 
-
-
-
-
-double BLOCK_W_H_RATIO = 50.0 / 31;
-#define M_W 51
-#define M_H M_W / BLOCK_W_H_RATIO
-#define S_W 30
-#define S_H S_W / BLOCK_W_H_RATIO
-#define L_W 77
-#define L_H L_W / BLOCK_W_H_RATIO
 
 //handles initial setup
 body* blankBody(polygon* base) {
@@ -132,21 +212,19 @@ body* makeRectangleBody(int width, int height) {
   return b;
 }
 
-body* quick_nopic_block(int width, int height, int x_pos, int y_pos) {
+body* quick_nopic_block(int width, int height) {
   body* b = makeBlock(width, height);
-  virt_pos p = (virt_pos){.x = x_pos, .y = y_pos};
-  set_body_center(b,&p);
   return b;
 }
 
-body* quick_block(int width, int height, int x_pos, int y_pos, char* fn) {
-  body* b = quick_nopic_block(width, height, x_pos, y_pos);
+body* quick_block(int width, int height, char* fn) {
+  body* b = quick_nopic_block(width, height);
   set_picture_by_name(b, fn);
   return b;
 }
 
-body* quick_tile_block(int width, int height, int x_pos, int y_pos, char* fn) {
-  body* b = quick_nopic_block(width, height, x_pos, y_pos);
+body* quick_tile_block(int width, int height, char* fn) {
+  body* b = quick_nopic_block(width, height);
   tile_texture_for_body(b, fn, 3,3,0,0);
   return b;
 }
@@ -269,10 +347,10 @@ body* makeBlock (int width, int height) {
   return b;
 }
 
-compound* makeCentipede(int segments, int pos_x, int pos_y) {
+compound* makeCentipede(int segments) {
   compound* centComp = create_compound();
   body* body;
-  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
+  virt_pos* center = &(virt_pos){.x = 0, .y = 0};
   for (int i = 0; i < segments; i++) {
     body = makeNormalBody(8, 2);
     set_center(get_polygon(get_collider(body)), center);
@@ -282,13 +360,13 @@ compound* makeCentipede(int segments, int pos_x, int pos_y) {
   return centComp;
 }
 
-compound* makeCrab(int pos_x, int pos_y) {
+compound* makeCrab() {
   compound* centComp = create_compound();
   polygon* poly;
   collider* coll;
   fizzle* fizz;
   body* body;
-  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
+  virt_pos* center = &(virt_pos){.x = 0, .y = 0};
   poly = createRectangle(60, 40);
 
   set_center(poly, center);
@@ -306,13 +384,14 @@ compound* makeCrab(int pos_x, int pos_y) {
   return centComp;
 }
 
-compound* makeSlime(int pos_x, int pos_y) {
+compound* makeSlime() {
   compound* centComp = create_compound();
+  add_smarts_to_comp(centComp);
   polygon* poly;
   collider* coll;
   fizzle* fizz;
   body* slime_body;
-  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
+  virt_pos* center = &(virt_pos){.x = 0, .y = 0};
   poly = createRectangle(48, 48);
 
   set_center(poly, center);
@@ -321,8 +400,7 @@ compound* makeSlime(int pos_x, int pos_y) {
   fizz = createFizzle();
   init_fizzle(fizz);
   set_bounce(fizz, 3.3);
-  vector_2 g = (vector_2){.v1 = 0, .v2 = 400};
-  set_gravity(fizz, &g);
+  set_gravity(fizz, g);
   slime_body = createBody(fizz, coll);
   add_body_to_compound(centComp, slime_body);
 
@@ -333,15 +411,16 @@ compound* makeSlime(int pos_x, int pos_y) {
   set_poltergeist(slime_body, p);
   //set_hunter(get_attributes(centComp), 1);
   make_basic_vision_event(slime_body);
+  set_contact_damage(slime_body, 5);
 
   return centComp;
 }
 
-compound* tunctish(int pos_x, int pos_y) {
+compound* tunctish() {
   compound* comp = create_compound();
   add_smarts_to_comp(comp);
   shared_input** torso_si = create_shared_input_ref();
-  virt_pos center = (virt_pos){.x = pos_x, .y = pos_y};
+  virt_pos center = (virt_pos){.x = 0, .y = 0};
   
   body* torso = makeNormalBody(30, 7);
 
@@ -398,8 +477,8 @@ compound* tunctish(int pos_x, int pos_y) {
   tether* foot_tether = tether_bodies(torso, foot_end, one_way_tether);
   set_tether_distance(foot_tether,65);
   
-  //add_tether_to_compound(comp, left_eye_tether);
-  //add_tether_to_compound(comp, right_eye_tether);
+  add_tether_to_compound(comp, left_eye_tether);
+  add_tether_to_compound(comp, right_eye_tether);
   //add_tether_to_compound(comp, foot_tether);
   
   tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
@@ -416,12 +495,11 @@ compound* tunctish(int pos_x, int pos_y) {
 
   add_body_to_compound(comp, left_eye_anchor);
   add_body_to_compound(comp, right_eye_anchor);
-  /*
+  
   add_body_to_compound(comp, left_eye);
   add_body_to_compound(comp, right_eye);
-  add_body_to_compound(comp, foot_end);
-  */
-
+  //add_body_to_compound(comp, foot_end);
+  
   set_compound_gravity(comp, g);
 
 
@@ -430,9 +508,9 @@ compound* tunctish(int pos_x, int pos_y) {
 }
 
 
-compound* makeTrashCan(int pos_x, int pos_y) {
+compound* makeTrashCan() {
   compound* can = create_compound();
-  virt_pos* center = &(virt_pos){.x = pos_x, .y = pos_y};
+  virt_pos* center = &(virt_pos){.x = 0, .y = 0};
   shared_input** si = create_shared_input_ref();
   body* bottom = NULL;
   body* lside = NULL;
@@ -481,7 +559,6 @@ compound* makeTrashCan(int pos_x, int pos_y) {
 
 /// special things
 
-//compound takes user input
 void make_compound_user(compound* comp) {
   body* head = (body*)get_bodies(comp)->start->stored;
   poltergeist* polt = make_poltergeist();
@@ -533,8 +610,8 @@ map* load_map_by_name(char* name) {
 map* make_origin_map() {
   map* origin_map = create_map(ORIGIN_MAP_NAME);
   
-  int cols = 4;
-  int rows = 4;
+  int cols = 1;
+  int rows = 1;
   int width = getScreenWidth() / cols;
   int height = getScreenHeight() / rows;
   spatial_hash_map* map = create_shm(width, height, cols, rows);
@@ -543,13 +620,11 @@ map* make_origin_map() {
   virt_pos center = (virt_pos){.x = getScreenWidth() / 2, .y = getScreenHeight() / 2};
 
   //compound* user = makeCrab(center.x, center.y);
-  compound* user = tunctish(center.x, center.y);
+  compound* user = tunctish();
   //compound* user = makeTrashCan(center.x, center.y);
-  compound* walls = makeWalls();
   make_compound_user(user);
   add_compound_to_plane(plane, user);
-  add_compound_to_plane(plane, walls);
-  
+  offset_compound(user, &center);
 
   insert_load_zone_into_plane(ORIGIN_MAP_NAME, BEACH_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
   add_plane(origin_map, plane);
@@ -561,61 +636,88 @@ map* make_beach_map() {
 
   int map_width = getScreenWidth() * 3.5;
   int map_height = getScreenHeight() * 1.5;
+  virt_pos cent = (virt_pos){.x = map_width * 0.5, .y = map_height * 0.5};
+  room starting_room;
+  init_room(&starting_room, &cent, map_width * 0.8, map_height * 0.8);
   int cols = 20;
   int rows = 14;
   int width = map_width / cols;
   int height = map_height / rows;
 
-  double floor_height = map_height * 0.8;
-  double floor_top = floor_height - M_W / 2.0;
   spatial_hash_map* map = create_shm(width, height, cols, rows);
 
   plane* bg = create_plane(map, BACKGROUND_PLANE_NAME);
   plane* main = create_plane(map, MAIN_PLANE_NAME);
   plane* fg = create_plane(map, FOREGROUND_PLANE_NAME);
-  
-  compound_spawner* slime_spawn = create_compound_spawner(BLUE_SLIME_SPAWN, -1 ,map_width * 2 / 3, map_height / 2);
+
+  virt_pos slime_offset = calc_room_offset(&starting_room, 0.5, -0.9);
+  compound_spawner* slime_spawn = create_compound_spawner(BLUE_SLIME_SPAWN, -1 , slime_offset.x, slime_offset.y);
   add_spawner_to_plane(main, slime_spawn);
 
-  compound_spawner* trashcan_spawn = create_compound_spawner(TRASHCAN_SPAWN, -1 , ORIGIN_BEACH_POS.x, floor_top);
-  //add_spawner_to_plane(main, trashcan_spawn);
-  
-  compound* floor = makeBlockChain(0, floor_height, M_W, M_H, SAND_FN, 40, HORZ_CHAIN);
+  virt_pos trashcan_offset = calc_room_offset(&starting_room, 0, -0.9);
+  trashcan_offset.x = ORIGIN_BEACH_POS.x;
+  print_point(&trashcan_offset);
+  compound_spawner* trashcan_spawn = create_compound_spawner(TRASHCAN_SPAWN, -1 , trashcan_offset.x, trashcan_offset.y);
+  add_spawner_to_plane(main, trashcan_spawn);
+
+  virt_pos floor_offset = calc_room_offset(&starting_room, -1, -1);
+  compound* floor = makeBlockChain(0, 0, M_W, M_H, SAND_FN, 44, HORZ_CHAIN);
+  offset_compound(floor, &floor_offset);
   add_compound_to_plane(main, floor);
 
-  compound_spawner* monster_spawn = create_compound_spawner(TEST_SPAWN, -1, 666, floor_top - 100);
-  //add_spawner_to_plane(main, monster_spawn);
+  virt_pos monster_offset = calc_room_offset(&starting_room,-0.5, -0.9);
+  compound_spawner* monster_spawn = create_compound_spawner(TEST_SPAWN, -1, monster_offset.x, monster_offset.y);
+  add_spawner_to_plane(main, monster_spawn);
   
-
-  body* left_wall = quick_tile_block(58, 555, 0, floor_height, EYE_FN);
-  body* right_wall = quick_tile_block(58, 555, map_width, floor_height, EYE_FN);
+  
+  body* left_wall = add_wall_to_room(&starting_room, ROOM_WALL_LEFT, -1,1);
+  body* right_wall = add_wall_to_room(&starting_room, ROOM_WALL_RIGHT, -1,1);
   
   compound* wall_comp = create_compound();
   add_body_to_compound(wall_comp, left_wall);
   add_body_to_compound(wall_comp, right_wall);
   add_compound_to_plane(main, wall_comp);
-
+  
   
   body* aTree = NULL;
-  floor_top = floor_height - 190 / 2.0;
-  aTree = quick_block(48,190, 700, floor_top, BEACH_TREE_FN);
-  add_body_to_plane(bg, aTree);
-  
-  aTree = quick_block(48,190,70, floor_top, BEACH_TREE_FN);
-  add_body_to_plane(fg, aTree);
-  
-  aTree = quick_block(48,190, 600, floor_top, BEACH_TREE_FN);
-  add_body_to_plane(bg, aTree);
-  
-  aTree = quick_block(48,190, 300, floor_top, BEACH_TREE_FN);
-  add_body_to_plane(fg, aTree);
-  
-  aTree = quick_block(48,190, 320, floor_top, BEACH_TREE_FN);
-  add_body_to_plane(bg, aTree);
+  virt_pos tree_offset = *zero_pos;
+  int tree_width = 48;
+  int tree_height = 190;
+  aTree = quick_block(tree_width,tree_height, BEACH_TREE_FN);
+  tree_offset = calc_room_offset(&starting_room, -0.8, -1);
+  tree_offset.y -= tree_height * 0.5;
+  offset_body(aTree, &tree_offset);
+  add_compound_to_plane(bg, mono_compound(aTree));
 
-  body* long_plat = quick_block(600, 30 , 1300, floor_top - 100, EYE_FN);
+  aTree = quick_block(tree_width,tree_height, BEACH_TREE_FN);
+  tree_offset = calc_room_offset(&starting_room, -0.6, -1);
+  tree_offset.y -= tree_height * 0.5;
+  offset_body(aTree, &tree_offset);
+  add_compound_to_plane(bg, mono_compound(aTree));
+
+  aTree = quick_block(tree_width,tree_height, BEACH_TREE_FN);
+  tree_offset = calc_room_offset(&starting_room, -0.3, -1);
+  tree_offset.y -= tree_height * 0.5;
+  offset_body(aTree, &tree_offset);
+  add_compound_to_plane(bg, mono_compound(aTree));
+
+  aTree = quick_block(tree_width,tree_height, BEACH_TREE_FN);
+  tree_offset = calc_room_offset(&starting_room, 0.2, -1);
+  tree_offset.y -= tree_height * 0.5;
+  offset_body(aTree, &tree_offset);
+  add_compound_to_plane(bg, mono_compound(aTree));
+
+  aTree = quick_block(tree_width,tree_height, BEACH_TREE_FN);
+  tree_offset = calc_room_offset(&starting_room, 0.6, -1);
+  tree_offset.y -= tree_height * 0.5;
+  offset_body(aTree, &tree_offset);
+  add_compound_to_plane(bg, mono_compound(aTree));
+  
+  body* long_plat = quick_block(600, 30 , EYE_FN);
+  virt_pos long_plat_offset = calc_room_offset(&starting_room, 0.5, -0.5);
+  offset_body(long_plat, &long_plat_offset);
   set_moi(get_fizzle(long_plat), 10);
-  add_body_to_plane(main, long_plat);
+  add_compound_to_plane(main, mono_compound(long_plat));
 
   add_plane(beach, bg);
   add_plane(beach, main);

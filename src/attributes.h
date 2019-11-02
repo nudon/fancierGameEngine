@@ -9,6 +9,13 @@ void set_comp_attribute(att* a);
 
 void free_attributes(att* rm);
 
+int is_invuln(att* a);
+void set_invuln(att *a, int val);
+
+int is_damager(att* a);
+void set_damager(att *a, int val);
+
+
 int is_prey(att *a);
 void set_prey(att *a, int val);
 

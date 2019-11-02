@@ -15,6 +15,8 @@ void add_smarts_to_body(body* b);
 void add_smarts_to_comp(compound* b);
 
 //body stuff
+void contact_damage(body* b1, body* b2);
+void set_contact_damage(body* b, int val);
 void damage_body(body* b, double amt);
 att* get_body_attributes(smarts* sm);
 void set_body_attributes(smarts* sm, att* atts);
@@ -47,6 +49,7 @@ void add_to_smarts_movement(smarts* sm, vector_2* add);
 vector_2 get_smarts_movement(smarts* sm);
 
 void jump_action(compound* c);
+void end_jump(compound* c);
 void jump_action_reset(compound* c);
 
 

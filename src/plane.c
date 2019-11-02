@@ -62,12 +62,6 @@ void set_z_level(plane* plane, double nz) {
   plane->z_level = nz;
 }
 
-void add_body_to_plane(plane* plane, body* b) {
-  compound* comp = create_compound();
-  add_body_to_compound(comp, b);
-  add_compound_to_plane(plane, comp);
-}
-
 void add_compound_to_plane(plane* plane, compound* comp) {
   prependToGen_list(get_compounds(plane), createGen_node(comp));
   insert_compound_in_shm(plane->map, comp);

@@ -282,7 +282,8 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
   int actual_collision = find_mtv_of_polygons(p1, p2, &normal_of_collision);
   double mtv_mag = vector_2_magnitude(&normal_of_collision);
   //potentially theres' no actual collision since everything has been coarse grain at this point
-  if (actual_collision != 0) {
+  if (actual_collision) {
+    contact_damage(body1, body2);
     make_unit_vector(&normal_of_collision, &normal_of_collision);
     get_normals_of_collision(p1, p2, &normal_of_collision, &b1_norm, &b2_norm);
     

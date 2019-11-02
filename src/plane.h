@@ -24,7 +24,6 @@ char* get_plane_name(plane* p);
 double get_z_level(plane* plane);
 void set_z_level(plane* plane, double nz);
 
-void add_body_to_plane(plane* plane, body* b);
 void add_compound_to_plane(plane* plane, compound* comp);
 int remove_compound_from_plane(plane* plane, compound* comp);
 

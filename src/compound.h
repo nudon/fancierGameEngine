@@ -10,6 +10,7 @@ typedef struct compound_struct compound;
 
 compound* create_compound();
 body* get_compound_head(compound* c);
+compound* mono_compound(body* b);
 
 int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
 void move_compound(spatial_hash_map* map, compound* c);

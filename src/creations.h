@@ -39,9 +39,9 @@ map* load_map_by_name(char* name);
 void write_maps_to_disk();
 
 //headers for compound spawners
-compound* makeCrab(int pos_x, int pos_y);
-compound* makeSlime(int pos_x, int pos_y);
-compound* tunctish(int pos_x, int pos_y);
-compound* makeTrashCan(int pos_x, int pos_y);
+compound* makeCrab();
+compound* makeSlime();
+compound* tunctish();
+compound* makeTrashCan();
 
 #endif

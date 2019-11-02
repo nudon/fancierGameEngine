@@ -7,12 +7,17 @@
 
 //pair bits, prey run from hunters
 //should probably make hunters chase prey
-#define PREY_BIT 0
-#define HUNTER_BIT 1
+#define COMP_PREY 0
+#define COMP_HUNTER 1
 //designated to mark the user so user only events like camera/map transitions happen
-#define USER_BIT 2
+#define COMP_USER 2
 //travel bit because I probably don't want things like walls to traverse maps
-#define TRAVEL_BIT 3
+#define COMP_TRAVEL 3
+
+//sets whether the body is immune to damage
+#define BODY_INVULN 0
+//sets whether the body can deal damage
+#define BODY_DAMAGER 1
 
 #define NUM_BITS 8
 typedef uint8_t att_bits;
@@ -58,32 +63,48 @@ void set_bit(att_bits *a, int bit_place, int val) {
   *a = temp | bit;  
 }
 
+int is_invuln(att* a) {
+  return test_bit(a->flag_atts, BODY_INVULN);
+}
+
+void set_invuln(att *a, int val) {
+  set_bit(&(a->flag_atts), BODY_INVULN, val);
+}
+
+int is_damager(att* a) {
+  return test_bit(a->flag_atts, BODY_DAMAGER);
+}
+
+void set_damager(att *a, int val) {
+  set_bit(&(a->flag_atts), BODY_DAMAGER, val);
+}
+
 int is_prey(att *a) {
-  return test_bit(a->flag_atts, PREY_BIT);
+  return test_bit(a->flag_atts, COMP_PREY);
 }
 void set_prey(att *a, int val) {
-  set_bit(&(a->flag_atts), PREY_BIT, val);
+  set_bit(&(a->flag_atts), COMP_PREY, val);
 }
 
 int is_hunter(att *a) {
-  return test_bit(a->flag_atts, HUNTER_BIT);
+  return test_bit(a->flag_atts, COMP_HUNTER);
 }
 void set_hunter(att *a, int val) {
-  set_bit(&(a->flag_atts), HUNTER_BIT, val);
+  set_bit(&(a->flag_atts), COMP_HUNTER, val);
 }
 
 int is_user(att *a) {
-  return test_bit(a->flag_atts, USER_BIT);
+  return test_bit(a->flag_atts, COMP_USER);
 }
 void set_user(att *a, int val) {
-  set_bit(&(a->flag_atts), USER_BIT, val);
+  set_bit(&(a->flag_atts), COMP_USER, val);
 }
 
 int is_travel(att *a) {
-  return test_bit(a->flag_atts, TRAVEL_BIT);
+  return test_bit(a->flag_atts, COMP_TRAVEL);
 }
 void set_travel(att *a, int val) {
-  set_bit(&(a->flag_atts), TRAVEL_BIT, val);
+  set_bit(&(a->flag_atts), COMP_TRAVEL, val);
 }
 
 void copy_attributes(att* src, att* dst) {

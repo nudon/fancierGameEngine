@@ -58,6 +58,7 @@ struct tether_struct{
   int tether_type;
 };
 
+void inc_physics_frame();
 
 fizzle* createFizzle();
 fizzle* cloneFizzle(fizzle* src);

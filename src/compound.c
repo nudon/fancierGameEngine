@@ -29,6 +29,12 @@ body* get_compound_head(compound* c) {
   return (body*)c->bp->start->stored;
 }
 
+compound* mono_compound(body* b) {
+  compound* c = create_compound();
+  add_body_to_compound(c, b);
+  return c;
+}
+
 int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
   shared_input* si = get_shared_input(b);
   if (si != NULL) {

@@ -15,7 +15,7 @@ typedef struct compound_memory_struct comp_memory;
 void init_stam(stam* st);
 void update_stam(stam* st);
 
-body_stats* create_body_stats(int health, double dmg_scale, double dmg_limit);
+body_stats* create_body_stats(int health, double dmg_scale, double dmg_limit, int damage);
 void free_body_stats(body_stats* rm);
 body_memory* make_body_memory();
 void free_body_memory(body_memory* rm);
@@ -30,7 +30,11 @@ void update_comp_memory(comp_memory* c_mem);
 //alpha decay vec, just stores a vector and alpha decay params
 #define BODY_MOVE_ALPHA 0.05
 #define COMP_MOVE_ALPHA 0.05
-
+//10, 1,1
+#define BODY_HEALTH 10
+#define BODY_DMG_SCALE 1
+#define BODY_DMG_LIMIT 1
+#define BODY_DMG 2
 //SMARTS
 //spatial memory and reasonable thinking system
 struct smarts_struct {
@@ -66,6 +70,7 @@ struct body_stats_struct {
   //0 < x < 1 will have affect of compound taking less damage as body gets more dmage inflicted
   // 1 < x will have compound take more damapge as body is damaged
   double damage_limiter;
+  int contact_damage;
   stam actions;
 };
 
@@ -105,7 +110,7 @@ void add_smarts_to_body(body* b) {
   if (sm == NULL) {
     sm = make_smarts();
     set_body_smarts(b, sm);
-    sm->b_stats = create_body_stats(10,1,1);
+    sm->b_stats = create_body_stats(BODY_HEALTH,BODY_DMG_SCALE, BODY_DMG_LIMIT, BODY_DMG);
     sm->b_mem = make_body_memory();
     sm->b_atts = make_attributes();
     set_body_attribute(sm->b_atts);
@@ -174,12 +179,13 @@ void update_stam(stam* st) {
 
 //body stuff
 
-body_stats* create_body_stats(int health, double dmg_scale, double dmg_limit) {
+body_stats* create_body_stats(int health, double dmg_scale, double dmg_limit, int damage) {
   body_stats* new = malloc(sizeof(body_stats));
   new->max_health = health;
   new->health = health;
   new->damage_scalar = dmg_scale;
   new->damage_limiter = dmg_limit;
+  new->contact_damage = damage;
   init_stam(&new->actions);
   return new;
 }
@@ -203,6 +209,29 @@ void update_body_memory(body_memory* b_mem) {
   timed_calc_ad_vec(&b_mem->movement, dt_scale);
 }
 
+void contact_damage(body* b1, body* b2) {
+  smarts* sm1 = get_body_smarts(b1);
+  smarts* sm2 = get_body_smarts(b2);
+  if (sm1 == NULL || sm2 == NULL) {
+    return;
+  }
+  if (is_damager(sm1->b_atts) && !is_invuln(sm2->b_atts)) {
+    damage_body(b2, sm1->b_stats->contact_damage);
+  }
+  if (is_damager(sm2->b_atts) && !is_invuln(sm1->b_atts)) {
+    damage_body(b1, sm2->b_stats->contact_damage);
+  }
+}
+
+void set_contact_damage(body* b, int val) {
+  if (val == -1) {
+    val = BODY_DMG;
+  }
+  if (val > 0) {
+    get_body_smarts(b)->b_stats->contact_damage = val;
+  }
+}
+
 void damage_body(body* b, double amt) {
   smarts* sm = NULL;
   body_stats* s = sm->b_stats;
@@ -215,10 +244,11 @@ void damage_body(body* b, double amt) {
     limiter = amt * s->damage_limiter;
     amt = amt * health_scalar + limiter * (1 - health_scalar);
     amt *= 0.5;
-    
+    fprintf(stderr, "something got hurt!\n");
     if (s->health < amt) {
       compound_damage = s->health;
       s->health = 0;
+      fprintf(stderr, "something died!\n");
       //also, potentially disable poltergeist for body
       //rather then discarding the pointer, just have an additional flag in body
     }
@@ -254,7 +284,7 @@ comp_stats* create_comp_stats(int jumps, int health, double dmg_scale, double dm
   comp_stats* new = malloc(sizeof(comp_stats));
   new->max_jumps = jumps;
   new->jumps_left = jumps;
-  new->max_jump_airtime = 1;
+  new->max_jump_airtime = 0.33;
   new->jump_airtime = 0;
   new->jump_airtime_scale = 0.5;
   new->max_health = health;
@@ -415,6 +445,7 @@ void jump_action(compound* c) {
   body* aBody = NULL;
   fizzle* fizz = NULL;
   vector_2 jump_force = *g;
+  vector_2_scale(&jump_force, 0.25, &jump_force);
   double jump_mag = 50;
   if (c_stats->jump_airtime == -1) {
     if (c_stats->jumps_left > 0) {
@@ -426,8 +457,8 @@ void jump_action(compound* c) {
     }
   }
   jump_mag *= (1 - (c_stats->jump_airtime / c_stats->max_jump_airtime));
-  fprintf(stderr,"jumping with mag = %f, air_t = %f and max air_t = %f\n", jump_mag, c_stats->jump_airtime, c_stats->max_jump_airtime);
-  fprintf(stderr, "dt is %f\n", get_dT());
+  //fprintf(stderr,"jumping with mag = %f, air_t = %f and max air_t = %f\n", jump_mag, c_stats->jump_airtime, c_stats->max_jump_airtime);
+  //fprintf(stderr, "dt is %f\n", get_dT());
   vector_2_scale(&jump_force, -1 * jump_mag ,&jump_force);
   body* b = get_compound_head(c);
   add_tether(get_fizzle(b), &jump_force);
@@ -440,6 +471,15 @@ void jump_action(compound* c) {
   */
   c_stats->jump_airtime += get_dT();
   if (c_stats->jump_airtime > c_stats->max_jump_airtime) {
+    c_stats->jump_airtime = -1;
+  }
+}
+
+void end_jump(compound* c) {
+  smarts* sm = get_compound_smarts(c);
+  comp_stats* c_stats = sm->c_stats;
+  if (c_stats->jump_airtime != -1) {
+    c_stats->jumps_left--;
     c_stats->jump_airtime = -1;
   }
 }

@@ -67,10 +67,11 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
 int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
-  double mov_delta = 0.4;
-  double jump_scale = 4.5;
+  double mov_delta = 0.1;
   double rot_delta = 0.03;
   compound* comp = get_owner(b);
+  int jumped = 0;
+  int up = 0, down = 0, left = 0, right = 0;
   while (SDL_PollEvent(&e) != 0 ) {
     if (e.type == SDL_QUIT) {
       quit = 1;
@@ -78,12 +79,6 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
     else if (e.type == SDL_KEYDOWN) {
       if ((SDL_GetModState() & KMOD_CTRL)) {
 	switch(e.key.keysym.sym) {
-	case SDLK_UP:
-	  
-	  break;
-	case SDLK_DOWN:
-	  
-	  break;
 	case SDLK_RIGHT:
 	  *rot_disp += rot_delta;
 	  break;
@@ -98,23 +93,55 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
       else {
 	switch(e.key.keysym.sym) {
 	case SDLK_UP:
-	  jump_action(comp);
-	  break;
+	  up = 1;
+     	  break;
 	case SDLK_DOWN:
-	  trans_disp->v2 += mov_delta;
+	  down = 1;
 	  break;
 	case SDLK_RIGHT:
-	  trans_disp->v1 += mov_delta;
+	  right = 1;
 	  break;
 	case SDLK_LEFT:
-	  trans_disp->v1 -= mov_delta;
+	  left = 1;
 	  break;
 	default:
-
 	  break;
 	}
       }
     }
+  }
+
+  const Uint8 *state = SDL_GetKeyboardState(NULL);
+  if (state[SDL_SCANCODE_UP]) {
+    up = 1;
+  }
+  if (state[SDL_SCANCODE_RIGHT]) {
+    right = 1;
+  }
+  if (state[SDL_SCANCODE_DOWN]) {
+    down = 1;
+  }
+  if (state[SDL_SCANCODE_LEFT]) {
+    left = 1;
+  }
+
+  if (up) {
+    jump_action(comp);
+    jumped = 1;
+  }
+  if (down) {
+    trans_disp->v2 += mov_delta;
+  }
+  if (left) {
+    trans_disp->v1 -= mov_delta;    
+  }
+  if (right) {
+    trans_disp->v1 += mov_delta;
+  }
+  
+
+  if (!jumped) {
+    end_jump(get_owner(b));
   }
   setQuit(quit);
   return quit;
