@@ -428,28 +428,14 @@ compound* tunctish() {
   body* right_eye_anchor = makeNormalBody(3,1);
   body* left_eye = makeNormalBody(9, 2);
   body* right_eye = makeNormalBody(9, 2);
+  body* hand = makeNormalBody(3,3);
 
-  body* foot_end = makeNormalBody(9,1);
-  
-  polygon* foot_range = createNormalPolygon(5);
-  set_scale(foot_range, 5);
-  event* foot_range_event = make_event(foot_range);
-  set_event(foot_range_event, &foot_placement);
-  add_event_to_body(foot_end, foot_range_event);
-
-  polygon* foot_step_range = createNormalPolygon(9);
-  set_scale(foot_step_range, 7.1);
-  event* foot_step_event = make_event(foot_step_range);
+  polygon* range = createNormalPolygon(9);
+  set_scale(range, 7.1);
+  event* foot_step_event = make_event(range);
   set_event(foot_step_event, &foot_step);
-  //add_event_to_body(foot_end, foot_step_event);
   add_event_to_body(torso, foot_step_event);
-  
-  poltergeist* p = make_poltergeist();
-  give_standard_poltergeist(p);
-  set_poltergeist(foot_end, p);
-
-  
-
+ 
   int torso_bb_width = get_bb_width(get_collider(torso));
   //int torso_bb_height = get_bb_height(get_collider(torso));
 
@@ -471,19 +457,23 @@ compound* tunctish() {
   set_body_center(left_eye, &center);
   set_body_center(right_eye, &center);
 
+  poltergeist* hand_polt = make_poltergeist();
+  set_polt_by_name(hand_polt, "hand_polt");
+  set_poltergeist(hand, hand_polt);
+
   
   tether* left_eye_tether = tether_bodies(left_eye_anchor, left_eye, one_way_tether);
   tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);
-  tether* foot_tether = tether_bodies(torso, foot_end, one_way_tether);
-  set_tether_distance(foot_tether,65);
+  tether* hand_tether = tether_bodies(torso, hand, one_way_tether);
   
   add_tether_to_compound(comp, left_eye_tether);
   add_tether_to_compound(comp, right_eye_tether);
-  //add_tether_to_compound(comp, foot_tether);
+  add_tether_to_compound(comp, hand_tether);
   
   tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
   tile_texture_for_body(left_eye, EYE_FN, 3,3,0,0);
   tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
+  tile_texture_for_body(hand, BEACH_TREE_FN, 3,3,0,0);
   
   set_shared_input_origin(*torso_si, read_only_polygon_center(torso_poly));
   
@@ -498,7 +488,8 @@ compound* tunctish() {
   
   add_body_to_compound(comp, left_eye);
   add_body_to_compound(comp, right_eye);
-  //add_body_to_compound(comp, foot_end);
+
+  add_body_to_compound(comp, hand);
   
   set_compound_gravity(comp, g);
 
@@ -565,7 +556,7 @@ void make_compound_user(compound* comp) {
   smarts * sm = get_compound_smarts(comp);
   att* comp_att = get_comp_attributes(sm);
   give_user_poltergeist(polt);
-  head->polt = polt;
+  set_poltergeist(head, polt);
   set_user(comp_att, 1);
   set_travel(comp_att, 1);
 }
@@ -656,7 +647,6 @@ map* make_beach_map() {
 
   virt_pos trashcan_offset = calc_room_offset(&starting_room, 0, -0.9);
   trashcan_offset.x = ORIGIN_BEACH_POS.x;
-  print_point(&trashcan_offset);
   compound_spawner* trashcan_spawn = create_compound_spawner(TRASHCAN_SPAWN, -1 , trashcan_offset.x, trashcan_offset.y);
   add_spawner_to_plane(main, trashcan_spawn);
 

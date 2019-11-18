@@ -8,5 +8,6 @@
 #define BLUE_SLIME_FN MEDIA_FOLDER"slime.png"
 #define BEACH_TREE_FN MEDIA_FOLDER"tree.png"
 #define DEF_FN MEDIA_FOLDER"def.png"
+#define DEAD_FN MEDIA_FOLDER"dead.png"
 
 #endif

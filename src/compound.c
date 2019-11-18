@@ -42,7 +42,7 @@ int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
     return 1;
   }
   else {
-    return update(map, b->coll, t_disp, r_disp);
+    return update(map, get_collider(b), t_disp, r_disp);
   }
 }
 
@@ -81,7 +81,7 @@ void move_compound(spatial_hash_map* map, compound* c) {
 	t_disp = avg_t_disp;
       }
       r_disp = avg_r_disp;
-      update(map, b->coll, &t_disp, r_disp);
+      update(map, get_collider(b), &t_disp, r_disp);
     }
     n = n->prev;
   }
@@ -89,10 +89,10 @@ void move_compound(spatial_hash_map* map, compound* c) {
 
 void add_body_to_compound(compound* comp, body* b) {
   //probably do some check to make sure body isn't already linked to a compound
-  if (b->owner != NULL) {
+  if (get_owner(b) != NULL) {
     fprintf(stderr, "warning, overwriting compound owner of a body\n");
   }
-  b->owner = comp;
+  set_owner(b, comp);
   virt_pos offset = *zero_pos;
   polygon* p = NULL;
   if (get_shared_input(b) != NULL && comp->bp->start != NULL) {
@@ -104,6 +104,31 @@ void add_body_to_compound(compound* comp, body* b) {
     add_smarts_to_body(b);
   }
   appendToGen_list(comp->bp, createGen_node(b));
+}
+
+//delete any shared inputs or tether forces stored within compound
+void cut_compound(compound* c) {
+  gen_node* curr = get_bodies(c)->start;
+  gen_node* prev = NULL;
+  body* b = NULL;
+  tether* teth = NULL;
+  while(curr != NULL) {
+    b = (body*)curr->stored;
+    un_set_shared_input(b);
+    curr = curr->next;
+  }
+  
+  curr = get_compound_tethers(c)->start;
+  while(curr != NULL) {
+    teth = (tether*)curr->stored;
+    //compound tethers only tether within the compound, should be safe to free
+    free_tether(teth);
+    prev = curr;
+    curr = curr->next;
+    remove_node(prev);
+    freeGen_node(prev);
+  }
+  //initGen_list(get_compound_tethers(c));
 }
 
 //join together bodies of comp
@@ -160,6 +185,7 @@ void set_compound_gravity(compound* c, vector_2* grav) {
   while(body_node != NULL) {
     aBody = (body*)body_node->stored;
     set_gravity(get_fizzle(aBody), grav);
+    set_gravity(get_base_fizzle(aBody), grav);    
     body_node = body_node->next;
   }
 }

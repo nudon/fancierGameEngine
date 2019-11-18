@@ -147,7 +147,7 @@ void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
   collider* coll = NULL;
   gen_node* curr = get_bodies(comp)->start;
   while(curr != NULL) {
-    coll = ((body*)curr->stored)->coll;
+    coll = get_collider((body*)curr->stored);
     insert_collider_in_shm(map, coll);
     curr = curr->next;
   }

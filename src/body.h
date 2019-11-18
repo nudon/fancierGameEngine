@@ -13,26 +13,13 @@ typedef struct shared_input_struct shared_input;
 #include "events.h"
 #include "gi.h"
 
-struct body_struct {
-  fizzle* fizz;
-  collider* coll;
-  poltergeist* polt;
-  compound* owner;
-  picture* pic;
-  int status;
-  shared_input** uniform_input;
-  //used for holding ai related events
-  gen_list* event_list;
-  smarts* smarts;
-};
-
 shared_input* create_shared_input();
 shared_input** create_shared_input_ref();
 void free_shared_input(shared_input* rm);
 void free_shared_input_ref(shared_input** rm);
 shared_input* get_shared_input(body* b);
 void set_shared_input(body* b, shared_input** si);
-//void add_to_shared_input(virt_pos* t, double r, shared_input* si);
+void un_set_shared_input(body* b);
 void add_to_shared_input(virt_pos* t, double r, shared_input* si);
 void get_avg_movement(shared_input* si, virt_pos* t, double* r);
 void set_shared_input_origin(shared_input* si, virt_pos* point);
@@ -45,9 +32,13 @@ void free_body(body* rm);
 
 
 
+int get_move_status(body* b);
+void set_move_status(body* b, int val);
 fizzle* get_fizzle(body* body);
+fizzle* get_base_fizzle(body* b);
 collider * get_collider(body* body);
 compound* get_owner(body* body);
+void set_owner(body* b, compound* o);
 fizzle* get_fizzle(body* aBody);
 //double get_mass(body* aBody);
 //vector_2* get_velocity(body* aBody);

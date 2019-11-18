@@ -19,6 +19,8 @@ struct polygon_struct {
   vector_2* base_normals; 
   vector_2* normals;
   virt_pos rotation_offset;
+  int x_reflection;
+  int y_reflection;
 };
 
 vector_2* zero_vec = &((vector_2){.v1 = 0, .v2 = 0});
@@ -49,6 +51,8 @@ polygon* createPolygon(int sides) {
   new->base_corners = malloc(sizeof(virt_pos) * sides);
   new->normals = malloc(sizeof(vector_2) * sides);
   new->base_normals = malloc(sizeof(vector_2) * sides);
+  new->x_reflection = 1;
+  new->y_reflection = 1;
   init_point(new->center);
   for (int i = 0; i < sides; i++) {
     init_point(&(new->corners[i]));
@@ -72,6 +76,8 @@ polygon* clonePolygon(polygon* src) {
   new->base_corners = malloc(sizeof(virt_pos) * sides);
   new->normals = malloc(sizeof(vector_2) * sides);
   new->base_normals = malloc(sizeof(vector_2) * sides);
+  new->x_reflection = src->x_reflection;
+  new->y_reflection = src->y_reflection;
   init_point(new->center);
   for (int i = 0; i < sides; i++) {
     new->corners[i] = src->corners[i];
@@ -212,6 +218,16 @@ void get_base_point(polygon* poly, int i, virt_pos* result) {
   result->y = poly->base_corners[i].y;
 }
 
+void set_reflection(polygon* p, int x_r, int y_r) {
+  if (x_r * x_r != 1 || y_r * y_r != 1) {
+    fprintf(stderr, "error, cant set x and y reflections to %d and %d, vals may only be -1 or 1\n", x_r, y_r);
+  }
+  else {
+    p->x_reflection = x_r;
+    p->y_reflection = y_r;
+  }
+}
+
 void set_base_point(polygon* poly, int i, virt_pos* set) {
   poly->base_corners[i].x = set->x;
   poly->base_corners[i].y = set->y;
@@ -241,18 +257,7 @@ void set_center_p(polygon* p, virt_pos* cent_p) {
 }
 
 void set_rotation(polygon* poly, double new) {
-  double ang = new;
-  double r = 0;
-  if (ang > 2 * M_PI || ang < 0) {
-    r = (ang / (2 * M_PI));
-    if (ang > 2 * M_PI) {
-      ang = 2 * M_PI * (r - (int)r);
-    }
-    else {
-      r *= -1;
-      ang = 2 * M_PI * (1 - (r - (int)r));
-    }
-  }
+  double ang = clamp_rotation(new);
   poly->rotation = ang;
   recalc_corners_and_norms(poly);
 }
@@ -274,6 +279,8 @@ void recalc_corners(polygon* poly) {
     temp.y = temp.y * poly->scale;
     
     virt_pos_rotate(&temp, ang, &temp);
+    temp.x *= poly->x_reflection;
+    temp.y *= poly->y_reflection;
     virt_pos_add(&temp, poly->center, &temp);
     poly->corners[i] = temp;
   }  
@@ -791,28 +798,6 @@ void print_point(virt_pos* pos) {
 }
 
 
-void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha) {
-  exponential_decay(old->v1, cur->v1, &(new->v1), alpha);
-  exponential_decay(old->v2, cur->v2, &(new->v2), alpha);
-}
-
-void exponential_decay(double old, double cur, double* new, double alpha) {
-  *new = alpha * cur + (1 - alpha) * old;
-}
-
-void timed_exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha, double dt_scale) {
-  timed_exponential_decay(old->v1, cur->v1, &(new->v1), alpha, dt_scale);
-  timed_exponential_decay(old->v2, cur->v2, &(new->v2), alpha, dt_scale);
-}
-
-//dt_scale is, given a framerate r, get_dT() * r
-void timed_exponential_decay(double old, double cur, double* new, double alpha, double dt_scale) {
-  alpha = 1 - alpha;
-  double old_alpha = pow(alpha, dt_scale);
-  double cur_alpha = 1 - old_alpha;
-  *new = cur_alpha * cur + old_alpha * old;
-}
-
 int sign_of(double val) {
   if (val == 0) {
     return 0;
@@ -824,6 +809,35 @@ int sign_of(double val) {
     return 1;
   }
   
+}
+
+//clamps angle between 0 and 2pi
+double clamp_rotation(double ang) {
+  double r = 0;
+  if (ang > 2 * M_PI || ang < 0) {
+    r = (ang / (2 * M_PI));
+    if (ang > 2 * M_PI) {
+      ang = 2 * M_PI * (r - (int)r);
+    }
+    else {
+      r *= -1;
+      ang = 2 * M_PI * (1 - (r - (int)r));
+    }
+  }
+  return ang;
+}
+
+double angle_of_vector(vector_2* vec) {
+  return atan2(-1 * vec->v2, vec->v1);
+}
+
+//from d1 to d2, in radians
+double difference_of_radians(double r1, double r2) {
+  double diff = clamp_rotation(r2 - r1);
+  if (diff > (M_PI)) {
+    diff = 2 * M_PI - diff;
+  }
+  return diff;
 }
 
 void add_offset_to_center(polygon* p, virt_pos* off) {
@@ -866,6 +880,28 @@ void add_to_ad_vec(ad_vec* d, vector_2* v) {
 void calc_ad_vec(ad_vec* d) {
   exponential_decay_vector(&d->vec, &d->add, &d->vec, d->alpha);
   d->add = *zero_vec;
+}
+
+void exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha) {
+  exponential_decay(old->v1, cur->v1, &(new->v1), alpha);
+  exponential_decay(old->v2, cur->v2, &(new->v2), alpha);
+}
+
+void exponential_decay(double old, double cur, double* new, double alpha) {
+  *new = alpha * cur + (1 - alpha) * old;
+}
+
+void timed_exponential_decay_vector(vector_2* old, vector_2* cur, vector_2* new, double alpha, double dt_scale) {
+  timed_exponential_decay(old->v1, cur->v1, &(new->v1), alpha, dt_scale);
+  timed_exponential_decay(old->v2, cur->v2, &(new->v2), alpha, dt_scale);
+}
+
+//dt_scale is, given a framerate r, get_dT() * r
+void timed_exponential_decay(double old, double cur, double* new, double alpha, double dt_scale) {
+  alpha = 1 - alpha;
+  double old_alpha = pow(alpha, dt_scale);
+  double cur_alpha = 1 - old_alpha;
+  *new = cur_alpha * cur + old_alpha * old;
 }
 
 void timed_calc_ad_vec(ad_vec* d, double dt_scale) {

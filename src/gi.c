@@ -224,16 +224,24 @@ void contact_damage(body* b1, body* b2) {
 }
 
 void set_contact_damage(body* b, int val) {
+  smarts* sm = NULL;
   if (val == -1) {
     val = BODY_DMG;
   }
   if (val > 0) {
-    get_body_smarts(b)->b_stats->contact_damage = val;
+    sm = get_body_smarts(b);
+    sm->b_stats->contact_damage = val;
+    if (val != 0) {
+      set_damager(sm->b_atts, 1);
+    }
+    else {
+      set_damager(sm->b_atts, 0);
+    }
   }
 }
 
 void damage_body(body* b, double amt) {
-  smarts* sm = NULL;
+  smarts* sm = get_body_smarts(b);
   body_stats* s = sm->b_stats;
   double health_scalar;
   double limiter;
@@ -244,13 +252,13 @@ void damage_body(body* b, double amt) {
     limiter = amt * s->damage_limiter;
     amt = amt * health_scalar + limiter * (1 - health_scalar);
     amt *= 0.5;
-    fprintf(stderr, "something got hurt!\n");
-    if (s->health < amt) {
+    if (s->health > 0 && s->health <= amt) {
       compound_damage = s->health;
       s->health = 0;
       fprintf(stderr, "something died!\n");
       //also, potentially disable poltergeist for body
       //rather then discarding the pointer, just have an additional flag in body
+      set_picture(b, make_picture(DEAD_FN));
     }
     else {
       compound_damage = amt;
@@ -317,7 +325,7 @@ void update_comp_memory(comp_memory* c_mem) {
 }
 
 void damage_compound(compound* c, double amt) {
-  smarts* sm = NULL;
+  smarts* sm = get_compound_smarts(c);
   comp_stats* s = sm->c_stats;
   if (s->health < amt) {
     s->health = 0;

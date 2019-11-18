@@ -2,6 +2,20 @@
 #include <math.h>
 
 void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, virt_pos* poc);
+
+struct body_struct {
+  fizzle* fizz;
+  collider* coll;
+  poltergeist* polt;
+  compound* owner;
+  picture* pic;
+  int status;
+  shared_input** uniform_input;
+  //used for holding ai related events
+  gen_list* event_list;
+  smarts* smarts;
+};
+
  
 enum shared_input_mode{si_add, si_avg};
 
@@ -58,6 +72,8 @@ shared_input* get_shared_input(body* b) {
 
 void set_shared_input(body* b, shared_input** si) {
   fizzle* si_f = NULL, *f = NULL;
+  vector_2 v, si_v;
+  double base_scale, si_scale;
   f = b->fizz;
   if (b->uniform_input != NULL) {
     fprintf(stderr, "warning, overwriting a bodys shared_input");
@@ -68,14 +84,38 @@ void set_shared_input(body* b, shared_input** si) {
   }
   else {
     si_f = (*si)->shared_fizzle;
+    get_velocity(si_f, &si_v);
+    get_velocity(f, &v);
+    mass_contribution(get_mass(si_f), get_mass(f), &si_scale, &base_scale);
+    vector_2_scale(&si_v, si_scale, &si_v);
+    vector_2_scale(&v, base_scale, &v);
+    vector_2_add(&v, &si_v, &si_v);
+    set_velocity(si_f, &si_v);
     set_mass(si_f, get_mass(si_f) + get_mass(f));
     //might not be a good idea
     set_mass(si_f, get_moi(si_f) + get_moi(f));
   }
   b->uniform_input = si;
+  /*
   free_fizzle(f);
   b->fizz = si_f;
-  
+  */
+}
+
+void un_set_shared_input(body* b) {
+  shared_input* si = get_shared_input(b);
+  if (si == NULL) {
+    return;
+  }
+  fizzle* fizz = b->fizz;
+  fizzle* si_fizz = si->shared_fizzle;
+  vector_2 v;
+  //undo whatever set_shared_input does
+  set_mass(si_fizz, get_mass(si_fizz) - get_mass(fizz));
+  set_mass(si_fizz, get_moi(si_fizz) - get_moi(fizz));
+  get_velocity(si_fizz, &v);
+  set_velocity(fizz, &v);
+  b->uniform_input = NULL;
 }
 
 void add_to_shared_input(virt_pos* t, double r, shared_input* si) {
@@ -198,6 +238,14 @@ void free_body(body* rm) {
   free(rm);
 }
 
+int get_move_status(body* b) {
+  return b->status;
+}
+
+void set_move_status(body* b, int val) {
+  b->status = val;
+}
+
 collider * get_collider(body* body) {
   return body->coll;
 }
@@ -206,8 +254,22 @@ compound* get_owner(body* body) {
   return body->owner;
 }
 
-fizzle* get_fizzle(body* aBody) {
-  return aBody->fizz;
+void set_owner(body* b, compound* o) {
+  b->owner = o;
+}
+
+fizzle* get_fizzle(body* b) {
+  shared_input* si = get_shared_input(b);
+  if (si != NULL) {
+    return si->shared_fizzle;
+  }
+  else {
+    return b->fizz;
+  }
+}
+
+fizzle* get_base_fizzle(body* b) {
+  return b->fizz;
 }
 
 virt_pos get_body_center(body* b) {
@@ -295,32 +357,6 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
       draw_virt_pos(getCam(), &poc);
       impact_torque(body1, body2, &b1_norm, &b2_norm, &poc);
     }
-  }
-}
-
-
-void inv_mass_contribution(double m1, double m2, double* m1c, double* m2c) {
-  mass_contribution(m1, m2, m2c, m1c);
-}
-
-void mass_contribution(double m1, double m2, double* m1c, double* m2c) {
-  double sum;
-  if (isinf(m1) && isinf(m2)) {
-    *m1c = 0;
-    *m2c = 0;
-  }
-  else if (isinf(m1) || isinf(m2)) {
-    *m1c = 1;
-    *m2c = 0;
-    if (isinf(m2)) {
-    *m1c = 0;
-    *m2c = 1;
-    }
-  }
-  else {
-    sum = m1 + m2;
-    *m1c = m1 / sum;
-    *m2c = m2 / sum;
   }
 }
 

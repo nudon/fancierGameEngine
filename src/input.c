@@ -72,6 +72,7 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   compound* comp = get_owner(b);
   int jumped = 0;
   int up = 0, down = 0, left = 0, right = 0;
+  vector_2 dir = *zero_vec;
   while (SDL_PollEvent(&e) != 0 ) {
     if (e.type == SDL_QUIT) {
       quit = 1;
@@ -104,6 +105,8 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
 	case SDLK_LEFT:
 	  left = 1;
 	  break;
+	case SDLK_SPACE:
+	  cut_compound(get_owner(b));
 	default:
 	  break;
 	}
@@ -128,21 +131,26 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   if (up) {
     jump_action(comp);
     jumped = 1;
+    dir.v2 -= 1;
   }
   if (down) {
     trans_disp->v2 += mov_delta;
+    dir.v2 += 1;
   }
   if (left) {
-    trans_disp->v1 -= mov_delta;    
+    trans_disp->v1 -= mov_delta;
+    dir.v1 -= 1;
   }
   if (right) {
     trans_disp->v1 += mov_delta;
+    dir.v1 += 1;
   }
   
 
   if (!jumped) {
-    end_jump(get_owner(b));
+    end_jump(comp);
   }
+  add_to_smarts_movement(get_compound_smarts(comp), &dir);
   setQuit(quit);
   return quit;
 }

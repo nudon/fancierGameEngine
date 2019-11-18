@@ -261,7 +261,7 @@ compound* xml_read_compound(xmlNodePtr comp_node) {
 }
 
 void xml_write_body(FILE* file_out, body* body) {
-  fprintf(file_out, "<body poltergeist=\"%s\" >\n", get_polt_name(body->polt));
+  fprintf(file_out, "<body poltergeist=\"%s\" >\n", get_polt_name(get_poltergeist(body)));
   xml_write_fizzle(file_out, get_fizzle(body));
   xml_write_polygon(file_out, get_polygon(get_collider(body)));
   xml_write_picture(file_out, get_picture(body));
@@ -311,7 +311,7 @@ body* xml_read_body(xmlNodePtr body_node) {
   }
   body = createBody(fizz, coll);
   set_picture(body, pic);
-  body->polt = polt;
+  set_poltergeist(body, polt);
   set_body_smarts(body, sm);
   gen_node* curr = temp_event_list->start;
   while(curr != NULL) {

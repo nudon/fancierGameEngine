@@ -129,8 +129,16 @@ void timed_exponential_decay(double old, double cur, double* new, double alpha, 
 
 int sign_of(double val);
 
+//clamps angle between 0 and 2pi
+double clamp_rotation(double ang);
+double angle_of_vector(vector_2* vec);
+//from d1 to d2, in radians
+double difference_of_radians(double r1, double r2);
+
 void add_offset_to_center(polygon* p, virt_pos* off);
 void free_polygon_center(polygon* p);
 virt_pos* read_only_polygon_center(polygon* p);
+
+void set_reflection(polygon* p, int x_r, int y_r);
 
 #endif

@@ -259,6 +259,7 @@ void draw_map(camera* cam, map* map) {
     draw_plane(p, cam);
     curr = curr->next;
   }
+  SDL_SetRenderDrawColor(cam->rend, 0, 0, 255, SDL_ALPHA_OPAQUE);
   draw_events_in_map(cam, map);
   draw_load_zones_in_map(cam, map);
 }
@@ -275,8 +276,6 @@ void draw_events_in_map(camera* cam, map* map) {
 }
 
 void draw_events_in_list(camera* cam, gen_list* list) {
-  SDL_SetRenderDrawColor(cam->rend, 0, 255, 0, SDL_ALPHA_OPAQUE);
-  
   event* e = NULL;
   polygon* p = NULL;
   gen_node* event_node = NULL;
@@ -390,6 +389,7 @@ void drawWallIndication(camera* cam, SDL_Rect* rect) {
 }
 
 void draw_compound(compound* c, camera* cam) {
+  SDL_SetRenderDrawColor(cam->rend, 255, 0, 0, SDL_ALPHA_OPAQUE);
   gen_node* curr = get_bodies(c)->start;
   body* temp_body = NULL;
   polygon* temp_poly = NULL;
@@ -425,7 +425,7 @@ void draw_polygon_outline(camera* cam, polygon* poly) {
 }
 
 void draw_body_picture(camera* cam, body* body) {
-  collider* coll = body->coll;
+  collider* coll = get_collider(body);
   virt_pos cent = get_center(get_polygon(get_collider(body)));
   int x = x_virt_to_pixel_scale * (cent.x - get_bb_width(coll) / 2) - cam->corner.x;
   int y = y_virt_to_pixel_scale * (cent.y - get_bb_height(coll) / 2) - cam->corner.y;
@@ -439,7 +439,7 @@ void draw_body_picture(camera* cam, body* body) {
     //draw picture flipped about y axis
     flip = SDL_FLIP_HORIZONTAL;
   }
-  draw_picture(cam, body->pic, NULL, &dst, get_rotation(coll->shape), flip);
+  draw_picture(cam, get_picture(body), NULL, &dst, get_rotation(coll->shape), flip);
 }
 
 void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, double rot, SDL_RendererFlip flip) {

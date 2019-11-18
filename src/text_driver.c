@@ -115,7 +115,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
     body_curr = get_bodies(aCompound)->start;
     while (body_curr != NULL) { 
       aBody = (body*)body_curr->stored;
-      fizz = aBody->fizz;
+      fizz = get_fizzle(aBody);
       
       check_events(map, get_body_events(aBody));
       update_smarts(get_body_smarts(aBody));
@@ -125,7 +125,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       run_body_poltergeist(aBody);
       calc_change(fizz, &trans_disp, &rot_disp);
       if (move_body(map, aBody, &trans_disp, rot_disp)) {
-	aBody->status = 1;
+	set_move_status(aBody, 1);
       }
       body_curr = body_curr->next;
     }
@@ -139,8 +139,8 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
     body_curr = get_bodies(aCompound)->start;
     while(body_curr != NULL) {
       aBody = (body*)body_curr->stored;
-      if (aBody->status != 0) {
-	aBody->status = 0;
+      if (get_move_status(aBody) != 0) {
+	set_move_status(aBody, 0);
 	resolve_collisions(map, aBody);
       }
       body_curr = body_curr->next;

@@ -13,7 +13,7 @@ void inc_physics_frame() {
 
 vector_2* g = &(vector_2){.v1 = 0, .v2 = 0.4};
 
-//TETHER_BARRIER defines sort of a barrier, pushes objects away if they are closer than td
+//TETHERa_BARRIER defines sort of a barrier, pushes objects away if they are closer than td
 //TETHER_SPRING, defines an ideal spring situation, pushes/pulls objects
 //TETHER_ROPE defines a standard rope, pulls objects together if they are farther than td
 
@@ -401,4 +401,29 @@ void set_rot_damp(fizzle* f, double val) {
 
 void fizzle_velocity_diff(fizzle* source, fizzle* other, vector_2* result) {
   vector_2_sub(&other->velocity, &source->velocity, result);
+}
+
+void inv_mass_contribution(double m1, double m2, double* m1c, double* m2c) {
+  mass_contribution(m1, m2, m2c, m1c);
+}
+
+void mass_contribution(double m1, double m2, double* m1c, double* m2c) {
+  double sum;
+  if (isinf(m1) && isinf(m2)) {
+    *m1c = 0;
+    *m2c = 0;
+  }
+  else if (isinf(m1) || isinf(m2)) {
+    *m1c = 1;
+    *m2c = 0;
+    if (isinf(m2)) {
+    *m1c = 0;
+    *m2c = 1;
+    }
+  }
+  else {
+    sum = m1 + m2;
+    *m1c = m1 / sum;
+    *m2c = m2 / sum;
+  }
 }

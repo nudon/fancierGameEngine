@@ -120,4 +120,7 @@ void set_rot_damp(fizzle* f, double val);
 
 void fizzle_velocity_diff(fizzle* source, fizzle* other, vector_2* result);
 
+void inv_mass_contribution(double m1, double m2, double* m1c, double* m2c);
+void mass_contribution(double m1, double m2, double* m1c, double* m2c);
+
 #endif

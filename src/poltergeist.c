@@ -30,6 +30,9 @@ void init_poltergeists() {
   i = first_empty_index(polt_names, POLT_LIM);
   polt_names[i] = "standard_polt";
   polt_funcs[i] = standard_poltergeist;
+  i = first_empty_index(polt_names, POLT_LIM);
+  polt_names[i] = "hand_polt";
+  polt_funcs[i] = holder_poltergeist;
   
   
   
@@ -53,6 +56,9 @@ void set_polt_by_name(poltergeist* p, char* polt) {
   int i = char_search(polt_names, polt, POLT_LIM);
   if (0 <= i && i < POLT_LIM) {
     p->posession = polt_funcs[i];
+  }
+  else {
+    fprintf(stderr, "error, unable to find poltergeist with name %s\n", polt);
   }
 }
 
@@ -142,4 +148,46 @@ void standard_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
   }
   //fprintf(stderr, "diff is %f\n", diff);
   *r_disp += r_scale * diff;
+}
+
+
+//takes body, applys a constant force in direction of torsos velocity
+//paired with a tether between body and torso, holds body in front of torso
+void holder_poltergeist(body* b, vector_2* t_disp, double* r_disp) {
+  compound* c = get_owner(b);
+  smarts* c_sm = get_compound_smarts(c);
+  body* head = get_compound_head(c);
+  vector_2 dir = *zero_vec, rotation_dir = *zero_vec;
+  double mag = 0, f = 0.7;
+  double cur_ang, dst_ang, delta;
+  vector_2 temp = *zero_vec;
+  virt_pos b_cent, head_cent;
+  fizzle* fizz = get_fizzle(b);
+  b_cent = get_body_center(b);
+  head_cent = get_body_center(head);
+  vector_between_points(&head_cent, &b_cent, &temp);
+  cur_ang = angle_of_vector(&temp);
+  //get_velocity(get_fizzle(head), &dir);
+  dir = get_smarts_movement(c_sm);
+  rotation_dir = dir;
+  rotation_dir = temp;
+  dst_ang = angle_of_vector(&rotation_dir);
+  delta = difference_of_radians(cur_ang, dst_ang);
+  if (!isZeroVec(&dir)) {
+    mag = vector_2_magnitude(&dir);
+    vector_2_scale(&dir, f / mag, &dir);
+    delta *= 0.2;
+    add_velocity(fizz, &dir);
+
+    if (rotation_dir.v1 <= 0) {
+      set_reflection(get_polygon(get_collider(b)), -1,1);
+      rotation_dir.v1 *= -1;
+      dst_ang = angle_of_vector(&rotation_dir);
+    }
+    else {
+      set_reflection(get_polygon(get_collider(b)), 1,1);
+    }
+    set_rotation(get_polygon(get_collider(b)), -dst_ang);
+    //print_vector(&dir);
+  }
 }

@@ -19,6 +19,8 @@ gen_list* get_bodies(compound* comp);
 
 void add_body_to_compound(compound* comp, body* body);
 
+
+void cut_compound(compound* c);
 void tether_join_compound(compound* comp, tether* teth);
 void add_tether_to_compound(compound* comp, tether* teth);
 gen_list* get_compound_tethers(compound* comp);
