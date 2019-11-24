@@ -8,7 +8,7 @@
 #include "gi.h"
 #include "map_io.h"
 #include "sizes.h"
-
+#include "names.h"
 body* quick_nopic_block(int width, int height);
 body* quick_block(int width, int height, char* fn);
 body* quick_tile_block(int width, int height, char* fn);
@@ -18,15 +18,9 @@ body* quick_tile_block(int width, int height, char* fn);
 char* ORIGIN_MAP_NAME = MAP_DIR"origin.map";
 char* BEACH_MAP_NAME = MAP_DIR"beach.map";
 
-char* BACKGROUND_PLANE_NAME = "background";
-char* FOREGROUND_PLANE_NAME = "foreground";
-char* MAIN_PLANE_NAME = "main";
+
 
 virt_pos ORIGIN_BEACH_POS = (virt_pos){.x= 345, .y=270};
-
-#define TRASHCAN_SPAWN "trashcan_spawn"
-#define BLUE_SLIME_SPAWN "blue_slime_spawn"
-#define TEST_SPAWN "test_spawn"
 
 typedef struct room_struct room;
 struct room_struct {
@@ -147,6 +141,9 @@ compound_spawner* create_compound_spawner(char* name, int cap, int x_pos, int y_
   }
   else if (strcmp(name, TRASHCAN_SPAWN) == 0) {
     spawn->spawner = &makeTrashCan;
+  }
+  else if (strcmp(name, GOHEI_SPAWN) == 0) {
+    spawn->spawner = &makeGohei;
   }
   else {
     fprintf(stderr, "warning, unable to find spawner for %s\n", name);
@@ -422,7 +419,7 @@ compound* tunctish() {
   shared_input** torso_si = create_shared_input_ref();
   virt_pos center = (virt_pos){.x = 0, .y = 0};
   
-  body* torso = makeNormalBody(30, 7);
+  body* torso = makeNormalBody(13,7);
 
   body* left_eye_anchor = makeNormalBody(3,1);
   body* right_eye_anchor = makeNormalBody(3,1);
@@ -435,6 +432,13 @@ compound* tunctish() {
   event* foot_step_event = make_event(range);
   set_event(foot_step_event, &foot_step);
   add_event_to_body(torso, foot_step_event);
+
+  polygon* hand_range = createNormalPolygon(3);
+  set_scale(hand_range, 5);
+  event* grabber_event = make_event(hand_range);
+  set_event(grabber_event, &holder_grab_event);
+  set_auto_check(grabber_event, 0);
+  add_event_to_body(hand, grabber_event);
  
   int torso_bb_width = get_bb_width(get_collider(torso));
   //int torso_bb_height = get_bb_height(get_collider(torso));
@@ -465,6 +469,10 @@ compound* tunctish() {
   tether* left_eye_tether = tether_bodies(left_eye_anchor, left_eye, one_way_tether);
   tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);
   tether* hand_tether = tether_bodies(torso, hand, one_way_tether);
+  set_tether_k(hand_tether, .08);
+  //set_tether_k(hand_tether, 0.15);
+  //set_tether_distance(hand_tether, 80);
+  //hand_tether->tether_type = TETHER_SPRING;
   
   add_tether_to_compound(comp, left_eye_tether);
   add_tether_to_compound(comp, right_eye_tether);
@@ -475,7 +483,7 @@ compound* tunctish() {
   tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
   tile_texture_for_body(hand, BEACH_TREE_FN, 3,3,0,0);
   
-  set_shared_input_origin(*torso_si, read_only_polygon_center(torso_poly));
+  set_shared_input_origin(*torso_si, torso_poly, SI_CENTER);
   
   set_shared_input(torso, torso_si);
   set_shared_input(left_eye_anchor, torso_si);
@@ -538,7 +546,7 @@ compound* makeTrashCan() {
   bottom = blankBody(bp);
   lside = blankBody(lp);
   rside = blankBody(rp);
-  set_shared_input_origin(*si, read_only_polygon_center(bp));
+  set_shared_input_origin(*si, bp, SI_CENTER);
   set_shared_input(bottom, si);
   set_shared_input(lside, si);
   set_shared_input(rside, si);
@@ -547,6 +555,33 @@ compound* makeTrashCan() {
   add_body_to_compound(can, rside);
   return can;
 }
+
+compound* makeGohei() {
+  compound* gohei = create_compound();
+  add_smarts_to_comp(gohei);
+  virt_pos* center = &(virt_pos){.x = 0, .y = 0};
+  shared_input** si = create_shared_input_ref();
+  body* handle, *left_side, *right_side;
+  int handle_width = 6;
+  int handle_height = 70;
+  int side_width = 15;
+  handle = makeRectangleBody(handle_width,handle_height);
+  polygon* handlep = get_polygon(get_collider(handle));
+  virt_pos offset = (virt_pos){.x = handle_width / 2, -handle_height / 2};
+  right_side = makeRectangleBody(side_width,side_width);
+  set_body_center(right_side, &offset);
+  set_shared_input_origin(*si, handlep, SI_CENTER);
+  set_shared_input(handle, si);
+  set_shared_input(right_side, si);
+  add_body_to_compound(gohei,handle);
+  add_body_to_compound(gohei,right_side);
+
+  smarts* sm = get_compound_smarts(gohei);
+  att* c_atts = get_comp_attributes(sm);
+  set_holdable(c_atts, 1);
+  return gohei;
+}
+
 
 /// special things
 
@@ -650,6 +685,10 @@ map* make_beach_map() {
   compound_spawner* trashcan_spawn = create_compound_spawner(TRASHCAN_SPAWN, -1 , trashcan_offset.x, trashcan_offset.y);
   add_spawner_to_plane(main, trashcan_spawn);
 
+  trashcan_offset.y -= 50;
+  compound_spawner* gohei_spawn = create_compound_spawner(GOHEI_SPAWN, -1, trashcan_offset.x, trashcan_offset.x);
+  add_spawner_to_plane(main, gohei_spawn);
+
   virt_pos floor_offset = calc_room_offset(&starting_room, -1, -1);
   compound* floor = makeBlockChain(0, 0, M_W, M_H, SAND_FN, 44, HORZ_CHAIN);
   offset_compound(floor, &floor_offset);
@@ -657,7 +696,7 @@ map* make_beach_map() {
 
   virt_pos monster_offset = calc_room_offset(&starting_room,-0.5, -0.9);
   compound_spawner* monster_spawn = create_compound_spawner(TEST_SPAWN, -1, monster_offset.x, monster_offset.y);
-  add_spawner_to_plane(main, monster_spawn);
+  //add_spawner_to_plane(main, monster_spawn);
   
   
   body* left_wall = add_wall_to_room(&starting_room, ROOM_WALL_LEFT, -1,1);

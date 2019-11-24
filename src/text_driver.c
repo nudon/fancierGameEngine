@@ -19,7 +19,8 @@ void update_map(map* map);
 void update_plane(plane* plane);
 void update_tethers(gen_list* tetherList);
 void update_compounds(spatial_hash_map* map, gen_list* compound_list);
-
+int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
+void move_compound(spatial_hash_map* map, compound* c);
 //Globals
 
 int main(int argc, char** args) {
@@ -108,33 +109,61 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
   fizzle* fizz = NULL;
   virt_pos trans_disp = *zero_pos;
   double rot_disp = 0;
+  //first traversal, do poltergeist/events/general smarts stuff
+  comp_curr = compound_list->start;
   while(comp_curr != NULL){
     aCompound = (compound*)comp_curr->stored;
-    update_tethers(get_compound_tethers(aCompound));
-    //calc_new_dir(get_gi(aCompound));
     body_curr = get_bodies(aCompound)->start;
+    
+    update_tethers(get_compound_tethers(aCompound));
+    
     while (body_curr != NULL) { 
       aBody = (body*)body_curr->stored;
-      fizz = get_fizzle(aBody);
       
       check_events(map, get_body_events(aBody));
       update_smarts(get_body_smarts(aBody));
+      run_body_poltergeist(aBody);
       
+      body_curr = body_curr->next;
+    }
+    update_smarts(get_compound_smarts(aCompound));
+    
+    comp_curr = comp_curr->next;
+  }
+  //move all bodies 
+  comp_curr = compound_list->start;
+  while(comp_curr != NULL){
+    aCompound = (compound*)comp_curr->stored;
+    body_curr = get_bodies(aCompound)->start;
+    
+      
+    while (body_curr != NULL) { 
+      aBody = (body*)body_curr->stored;
+      fizz = get_fizzle(aBody);
       trans_disp = *zero_pos;
       rot_disp = 0.0;
-      run_body_poltergeist(aBody);
+      
       calc_change(fizz, &trans_disp, &rot_disp);
       if (move_body(map, aBody, &trans_disp, rot_disp)) {
 	set_move_status(aBody, 1);
       }
+      
       body_curr = body_curr->next;
     }
-    update_smarts(get_compound_smarts(aCompound));
+    comp_curr = comp_curr->next;
+  }
+  //move all compounds
+  comp_curr = compound_list->start;
+  while(comp_curr != NULL){
+    aCompound = (compound*)comp_curr->stored;
+      
     move_compound(map, aCompound);
+    
     comp_curr = comp_curr->next;
   }
   comp_curr = compound_list->start;
-  while(comp_curr != NULL){
+  //body collisions
+  while(comp_curr != NULL) {
     aCompound = (compound*)comp_curr->stored;
     body_curr = get_bodies(aCompound)->start;
     while(body_curr != NULL) {
@@ -145,10 +174,70 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
       }
       body_curr = body_curr->next;
     }
-    move_compound(map, aCompound);
     comp_curr = comp_curr->next;
   }
+  comp_curr = compound_list->start;
+  //compound compounds
+  while(comp_curr != NULL){
+    aCompound = (compound*)comp_curr->stored;
+    move_compound(map, aCompound);
+    comp_curr = comp_curr->next;
+ 
+  }
 }
+
+int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
+  shared_input* si = get_shared_input(b);
+  if (si != NULL) {
+    add_to_shared_input(t_disp, r_disp, si);
+    return 1;
+  }
+  else {
+    calc_change(get_fizzle(b), t_disp, &r_disp);
+    return update(map, get_collider(b), t_disp, r_disp);
+  }
+}
+
+void move_compound(spatial_hash_map* map, compound* c) {
+  gen_node* n  = NULL;
+  body* b = NULL;
+  virt_pos rot_offset = *zero_pos;
+  virt_pos curr_offset = *zero_pos;
+  virt_pos orig_offset = *zero_pos;
+  virt_pos t_disp = *zero_pos;
+  polygon* head = get_polygon(get_collider(get_compound_head(c)));
+  double r_disp = 0;
+  virt_pos avg_t_disp = *zero_pos;
+  double avg_r_disp = 0;
+  shared_input* si = NULL;
+  n = get_bodies(c)->end;
+  while(n != NULL) {
+    b = (body*)n->stored;
+    si = get_shared_input(b);
+    rot_offset = get_rotation_offset(get_polygon(get_collider(b)));
+    if (si != NULL)  {
+      get_avg_movement(si, &avg_t_disp, &avg_r_disp);
+      orig_offset = *zero_pos;
+      curr_offset = get_si_offset(b);
+      t_disp = *zero_pos;
+      pull_shared_reflections(b);
+      if (!isZeroPos(&rot_offset)) {
+	//modify t_disp for poly so it looks like it wasn't rotated about it's center
+	virt_pos_rotate(&rot_offset, get_rotation(head), &orig_offset);
+	virt_pos_sub(&orig_offset, &curr_offset, &t_disp);
+	virt_pos_sub(&avg_t_disp,&t_disp, &t_disp);
+      }
+      else {
+	//no rotation offset, nothing special happens
+	t_disp = avg_t_disp;
+      }
+      r_disp = avg_r_disp;
+      update(map, get_collider(b), &t_disp, r_disp);
+    }
+    n = n->prev;
+  }
+}
+
 
 void myClose() {
   quit_graphics();

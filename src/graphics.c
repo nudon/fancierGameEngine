@@ -195,7 +195,7 @@ void draw_virt_pos(camera* cam, virt_pos* virt) {
   pixel_pos pix;
   pixel_pos o = cam->corner;
   virt_to_pixel(virt, &pix);
-  myDrawCirc(pix.x - o.x, pix.y - o.y, 4);
+  myDrawCirc(pix.x - o.x, pix.y - o.y, 14);
   SDL_SetRenderDrawColor(cam->rend, 0,0,255,SDL_ALPHA_OPAQUE);
   myDrawCirc(pix.x - o.x, pix.y - o.y, 3);
 }
@@ -286,6 +286,17 @@ void draw_events_in_list(camera* cam, gen_list* list) {
     p = get_polygon(get_event_collider(e));
     draw_polygon_outline(cam, p);
     event_node = event_node->next;
+  }
+}
+
+void draw_tethers_in_list(camera* cam, gen_list* list) {
+  tether* t = NULL;
+  gen_node* node = list->start;
+  while(node != NULL) {
+    t = (tether*)node->stored;
+    draw_virt_pos(cam, t->point_1);
+    draw_virt_pos(cam, t->point_2);
+    node = node->next;
   }
 }
 
@@ -406,6 +417,7 @@ void draw_compound(compound* c, camera* cam) {
     
     curr = curr->next;
   }
+  //draw_tethers_in_list(cam, get_compound_tethers(c));
 }
 
 void draw_polygon_outline(camera* cam, polygon* poly) {
@@ -414,8 +426,6 @@ void draw_polygon_outline(camera* cam, polygon* poly) {
   for (int i = 0; i < size; i++) {
     get_actual_point(poly, i, &(points[i]));
   }
-  //convert to pixel_pos
-  //then call some more camera draw primitives which works out where or if to draw object
   virt_pos p1 = *zero_pos, p2 = *zero_pos;
   for (int i = 0; i < size; i++) {
     p1 = points[i];
@@ -426,16 +436,15 @@ void draw_polygon_outline(camera* cam, polygon* poly) {
 
 void draw_body_picture(camera* cam, body* body) {
   collider* coll = get_collider(body);
-  virt_pos cent = get_center(get_polygon(get_collider(body)));
+  polygon* poly = get_polygon(coll);
+  virt_pos cent = get_center(poly);
   int x = x_virt_to_pixel_scale * (cent.x - get_bb_width(coll) / 2) - cam->corner.x;
   int y = y_virt_to_pixel_scale * (cent.y - get_bb_height(coll) / 2) - cam->corner.y;
   int w = x_virt_to_pixel_scale * get_bb_width(coll);
   int h = y_virt_to_pixel_scale * get_bb_height(coll);
   SDL_Rect dst = (SDL_Rect){.x = x, .y = y, .w = w, .h = h};
   SDL_RendererFlip flip = SDL_FLIP_NONE;
-  vector_2 vel = *zero_vec;
-  get_velocity(get_fizzle(body), &vel);
-  if (vel.v1 < 0) {
+  if (get_x_reflection(poly) == -1) {
     //draw picture flipped about y axis
     flip = SDL_FLIP_HORIZONTAL;
   }

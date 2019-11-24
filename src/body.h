@@ -13,18 +13,22 @@ typedef struct shared_input_struct shared_input;
 #include "events.h"
 #include "gi.h"
 
+#define SI_CENTER -1
+
 shared_input* create_shared_input();
 shared_input** create_shared_input_ref();
 void free_shared_input(shared_input* rm);
 void free_shared_input_ref(shared_input** rm);
 shared_input* get_shared_input(body* b);
+shared_input** get_shared_input_ref(body* b);
 void set_shared_input(body* b, shared_input** si);
 void un_set_shared_input(body* b);
 void add_to_shared_input(virt_pos* t, double r, shared_input* si);
 void get_avg_movement(shared_input* si, virt_pos* t, double* r);
-void set_shared_input_origin(shared_input* si, virt_pos* point);
+void set_shared_input_origin(shared_input* si, polygon* p, int point);
 virt_pos get_shared_input_origin(shared_input* si);
-virt_pos get_rotational_offset(body* b);
+virt_pos calc_rotational_offset(body* b);
+virt_pos get_si_offset(body* b);
 
 body* createBody(fizzle* fizz, struct collider_struct* coll);
 body* cloneBody(body* src);
@@ -71,4 +75,10 @@ void run_body_poltergeist(body* b);
 
 void set_body_smarts(body* b, smarts* sm);
 smarts* get_body_smarts(body* b);
+
+void set_shared_reflections(shared_input* si, int x_r, int y_r);
+void push_shared_reflections(body* b);
+void pull_shared_reflections(body* b);
+
+
 #endif

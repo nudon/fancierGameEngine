@@ -19,6 +19,7 @@ extern tether* default_tether;
 extern tether* one_way_tether;
 
 struct fizzle_struct {
+  fizzle* anotherFizzle;
   double mass;
   //moment of inertia
   double moi;
@@ -42,6 +43,10 @@ struct fizzle_struct {
   double rot_damp_val;
   int frame_count;
 };
+
+void redirect_fizzle(fizzle* a, fizzle* r);
+fizzle* get_end_fizzle(fizzle* f);
+void clear_other_fizzle(fizzle* f);
 
 struct tether_struct{
   virt_pos* point_1;
@@ -87,6 +92,7 @@ void set_gravity(fizzle* fizz, vector_2* newGrav);
 void set_impact(fizzle* fizz, vector_2* newImp);
 void add_impact(fizzle* fizz, vector_2* newAdd);
 void set_tether(fizzle* fizz, vector_2* newTF);
+void get_tether(fizzle* fizz, vector_2* res);
 double get_mass(fizzle* f);
 void set_mass(fizzle* fizz, double mass);
 double get_moi(fizzle* f);

@@ -53,6 +53,10 @@ void end_jump(compound* c);
 void jump_action_reset(compound* c);
 
 
+void pickup_action(compound* c);
+
+void throw_action(compound* c);
+
 #endif
 
 

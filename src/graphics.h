@@ -62,6 +62,7 @@ void draw_plane(plane* plane, camera* cam);
 void draw_map(camera* cam, map* map);
 void draw_events_in_map(camera* cam, map* map);
 void draw_events_in_list(camera* cam, gen_list* list);
+void draw_tethers_in_list(camera* cam, gen_list* list);
 void draw_load_zones_in_map(camera* cam, map* map);
 void draw_hash_map(camera* cam, spatial_hash_map* map);
 void drawWallIndication(camera* cam, SDL_Rect* rect);

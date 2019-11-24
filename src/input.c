@@ -71,7 +71,7 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   double rot_delta = 0.03;
   compound* comp = get_owner(b);
   int jumped = 0;
-  int up = 0, down = 0, left = 0, right = 0;
+  int up = 0, down = 0, left = 0, right = 0, pickup = 0, throw = 0;
   vector_2 dir = *zero_vec;
   while (SDL_PollEvent(&e) != 0 ) {
     if (e.type == SDL_QUIT) {
@@ -105,6 +105,12 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
 	case SDLK_LEFT:
 	  left = 1;
 	  break;
+	case SDLK_z:
+	  pickup = 1;
+	  break;
+	case SDLK_x:
+	  throw = 1;
+	  break;
 	case SDLK_SPACE:
 	  cut_compound(get_owner(b));
 	default:
@@ -127,7 +133,14 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   if (state[SDL_SCANCODE_LEFT]) {
     left = 1;
   }
+  if (state[SDL_SCANCODE_Z]) {
+    pickup = 1;
+  }
+  if (state[SDL_SCANCODE_X]) {
+    throw = 1;
+  }
 
+  
   if (up) {
     jump_action(comp);
     jumped = 1;
@@ -144,6 +157,12 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   if (right) {
     trans_disp->v1 += mov_delta;
     dir.v1 += 1;
+  }
+  if (pickup) {
+    pickup_action(comp);
+  }
+  else if (throw) {
+    throw_action(comp);
   }
   
 

@@ -26,8 +26,13 @@ struct shared_input_struct {
   int r_count;
   virt_pos avg_t;
   double avg_r;
-  virt_pos* shared_input_origin;
+  //virt_pos* shared_input_origin;
+  polygon* tracker;
+  //
+  int point;
   fizzle* shared_fizzle;
+  int x_reflection;
+  int y_reflection;
   enum shared_input_mode mode;
 };
 
@@ -40,8 +45,12 @@ shared_input* create_shared_input() {
   new->avg_t = *zero_pos;
   new->avg_r = 0;
   new->mode = si_add;
-  new->shared_input_origin = NULL;
+  //new->shared_input_origin = NULL;
+  new->tracker = NULL;
+  new->point = -2;
   new->shared_fizzle = NULL;
+  new->x_reflection = 1;
+  new->y_reflection = 1;
   return new;
 }
 
@@ -70,6 +79,10 @@ shared_input* get_shared_input(body* b) {
   return NULL;
 }
 
+shared_input** get_shared_input_ref(body* b) {
+  return b->uniform_input;
+}
+
 void set_shared_input(body* b, shared_input** si) {
   fizzle* si_f = NULL, *f = NULL;
   vector_2 v, si_v;
@@ -93,9 +106,15 @@ void set_shared_input(body* b, shared_input** si) {
     set_velocity(si_f, &si_v);
     set_mass(si_f, get_mass(si_f) + get_mass(f));
     //might not be a good idea
-    set_mass(si_f, get_moi(si_f) + get_moi(f));
+    //set_mass(si_f, get_moi(si_f) + get_moi(f));
   }
   b->uniform_input = si;
+  redirect_fizzle(f, si_f);
+  virt_pos offset = *zero_pos;
+  offset = calc_rotational_offset(b);
+  print_point(&offset);
+  set_rotation_offset(get_polygon(get_collider((b))), &offset);
+  
   /*
   free_fizzle(f);
   b->fizz = si_f;
@@ -112,10 +131,33 @@ void un_set_shared_input(body* b) {
   vector_2 v;
   //undo whatever set_shared_input does
   set_mass(si_fizz, get_mass(si_fizz) - get_mass(fizz));
-  set_mass(si_fizz, get_moi(si_fizz) - get_moi(fizz));
+  //set_mass(si_fizz, get_moi(si_fizz) - get_moi(fizz));
   get_velocity(si_fizz, &v);
   set_velocity(fizz, &v);
   b->uniform_input = NULL;
+  clear_other_fizzle(fizz);
+}
+
+//calculates rotation offset from b to si origin when b is not rotated
+virt_pos calc_rotational_offset(body* b) {
+  virt_pos offset = get_si_offset(b);
+  shared_input* si = get_shared_input(b);
+  double tracker_rotation = get_rotation(si->tracker);
+  virt_pos_rotate(&offset, -tracker_rotation, &offset);
+  return offset;
+}
+
+virt_pos get_si_offset(body* b) {
+  virt_pos head_center = *zero_pos;
+  virt_pos curr_center = *zero_pos;
+  virt_pos offset = *zero_pos;
+  shared_input *si = get_shared_input(b);
+  if (si != NULL) {
+    head_center = get_shared_input_origin(si);
+    curr_center = get_body_center(b);
+    virt_pos_sub(&head_center, &curr_center, &offset);
+  }
+  return offset;
 }
 
 void add_to_shared_input(virt_pos* t, double r, shared_input* si) {
@@ -166,18 +208,29 @@ void get_avg_movement(shared_input* si, virt_pos* t, double* r) {
   }
 }
 
-void set_shared_input_origin(shared_input* si, virt_pos* point) {
-  if (si->shared_input_origin != NULL) {
+void set_shared_input_origin(shared_input* si, polygon* p, int point) {
+  if (si->tracker != NULL) {
     fprintf(stderr, "warning, overwriting shared input origin\n");
   }
-  si->shared_input_origin = point;
+  if (point != SI_CENTER && (point < 0 || point >= get_sides(p))) {
+      fprintf(stderr, "error, invalid point value for shared input, val is %d, must be between [0, %d] or %d\n", point, get_sides(p) - 1, SI_CENTER);
+  }
+  //si->shared_input_origin = point;
+  si->tracker = p;
+  si->point = point;
+  
 }
 
 virt_pos get_shared_input_origin(shared_input* si) {
   virt_pos ret = *zero_pos;
   if (si != NULL) {
-    if (si->shared_input_origin != NULL) {
-      ret = *si->shared_input_origin;
+    if (si->tracker != NULL) {
+      if (si->point == SI_CENTER) {
+	ret = get_center(si->tracker);
+      }
+      else {
+	get_actual_point(si->tracker, si->point, &ret);
+      }
     }
     else {
       fprintf(stderr, "warning, shared_input_origin not set\n");
@@ -259,13 +312,7 @@ void set_owner(body* b, compound* o) {
 }
 
 fizzle* get_fizzle(body* b) {
-  shared_input* si = get_shared_input(b);
-  if (si != NULL) {
-    return si->shared_fizzle;
-  }
-  else {
-    return b->fizz;
-  }
+  return get_end_fizzle(get_base_fizzle(b));
 }
 
 fizzle* get_base_fizzle(body* b) {
@@ -354,7 +401,7 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
     impact(body1, body2, &b1_norm);
 
     if (calc_contact_point(p1, p2, &b1_norm, &poc) > 0) {
-      draw_virt_pos(getCam(), &poc);
+      //draw_virt_pos(getCam(), &poc);
       impact_torque(body1, body2, &b1_norm, &b2_norm, &poc);
     }
   }
@@ -520,19 +567,6 @@ tether* tether_bodies(body* b1, body* b2, tether* tether_params) {
   return teth;
 }
 
-virt_pos get_rotational_offset(body* b) {
-  virt_pos head_center = *zero_pos;
-  virt_pos curr_center = *zero_pos;
-  virt_pos offset = *zero_pos;
-  shared_input *si = get_shared_input(b);  
-  if (si != NULL) {
-    head_center = get_shared_input_origin(si);
-    curr_center = get_body_center(b);
-    virt_pos_sub(&head_center, &curr_center, &offset);
-  }
-  return offset;
-}
-
 void run_body_poltergeist(body* b) {
   vector_2 t_input = *zero_vec;
   double r_input = 0;
@@ -548,4 +582,27 @@ void set_body_smarts(body* b, smarts* sm) {
 
 smarts* get_body_smarts(body* b) {
   return b->smarts;
+}
+
+void set_shared_reflections(shared_input* si, int x_r, int y_r) {
+  si->x_reflection = x_r;
+  si->y_reflection = y_r;
+}
+
+void push_shared_reflections(body* b) {
+  shared_input* si = get_shared_input(b);
+  if (si == NULL) {
+    return;
+  }
+  polygon* p = get_polygon(get_collider(b));
+  set_shared_reflections(si, get_x_reflection(p), get_y_reflection(p));
+}
+
+void pull_shared_reflections(body* b) {
+  shared_input* si = get_shared_input(b);
+  if (si == NULL) {
+    return;
+  }
+  polygon* p = get_polygon(get_collider(b));
+  set_reflections(p, si->x_reflection, si->y_reflection);
 }

@@ -43,5 +43,6 @@ compound* makeCrab();
 compound* makeSlime();
 compound* tunctish();
 compound* makeTrashCan();
+compound* makeGohei();
 
 #endif

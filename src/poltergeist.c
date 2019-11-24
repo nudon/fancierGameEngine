@@ -120,7 +120,7 @@ void standard_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
     return;
   }
   vector_2 b_dir = get_smarts_movement(get_body_smarts(body));
-  vector_2 c_dir = get_smarts_movement(get_compound_smarts(get_owner(body)));
+  //vector_2 c_dir = get_smarts_movement(get_compound_smarts(get_owner(body)));
   vector_2 dir = b_dir;
   double t_scale = .0005;
   double r_scale = 0.004;
@@ -157,37 +157,40 @@ void holder_poltergeist(body* b, vector_2* t_disp, double* r_disp) {
   compound* c = get_owner(b);
   smarts* c_sm = get_compound_smarts(c);
   body* head = get_compound_head(c);
-  vector_2 dir = *zero_vec, rotation_dir = *zero_vec;
-  double mag = 0, f = 0.7;
-  double cur_ang, dst_ang, delta;
+  vector_2 dir = *zero_vec, offset = *zero_vec;
+  double mag = 0, f = 0.2;
+  double theta;
   vector_2 temp = *zero_vec;
   virt_pos b_cent, head_cent;
   fizzle* fizz = get_fizzle(b);
+  fizzle* base_fizz = get_base_fizzle(b);
   b_cent = get_body_center(b);
   head_cent = get_body_center(head);
-  vector_between_points(&head_cent, &b_cent, &temp);
-  cur_ang = angle_of_vector(&temp);
-  //get_velocity(get_fizzle(head), &dir);
+  vector_between_points(&head_cent, &b_cent, &offset);
   dir = get_smarts_movement(c_sm);
-  rotation_dir = dir;
-  rotation_dir = temp;
-  dst_ang = angle_of_vector(&rotation_dir);
-  delta = difference_of_radians(cur_ang, dst_ang);
+  theta = angle_of_vector(&offset);
   if (!isZeroVec(&dir)) {
     mag = vector_2_magnitude(&dir);
     vector_2_scale(&dir, f / mag, &dir);
-    delta *= 0.2;
     add_velocity(fizz, &dir);
 
-    if (rotation_dir.v1 <= 0) {
-      set_reflection(get_polygon(get_collider(b)), -1,1);
-      rotation_dir.v1 *= -1;
-      dst_ang = angle_of_vector(&rotation_dir);
+    if (offset.v1 <= 0) {
+      set_reflections(get_polygon(get_collider(b)), -1,1);
+      offset.v1 *= -1;
+      theta = angle_of_vector(&offset);
     }
     else {
-      set_reflection(get_polygon(get_collider(b)), 1,1);
+      set_reflections(get_polygon(get_collider(b)), 1,1);
     }
-    set_rotation(get_polygon(get_collider(b)), -dst_ang);
+    push_shared_reflections(b);
+    set_rotation(get_polygon(get_collider(b)), theta);
     //print_vector(&dir);
   }
-}
+  //weird shit with tethers
+  get_tether(base_fizz, &temp);
+  set_tether(base_fizz, zero_vec);
+  add_tether(fizz, &temp);
+  //print_vector(&dir); 
+  //print_vector(&temp); 
+  //print_point(&head_cent);
+  }

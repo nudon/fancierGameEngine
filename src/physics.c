@@ -73,6 +73,7 @@ fizzle* cloneFizzle(fizzle* src) {
 }
 
 void init_fizzle(fizzle* fizz) {
+  fizz->anotherFizzle = NULL;
   fizz->mass = 10;
   fizz->moi = 10;
   fizz->velocity = *zero_vec;
@@ -95,6 +96,21 @@ void init_fizzle(fizzle* fizz) {
 
 void free_fizzle(fizzle* rm) {
   free(rm);
+}
+
+void redirect_fizzle(fizzle* a, fizzle* r) {
+  a->anotherFizzle = r;
+}
+
+fizzle* get_end_fizzle(fizzle* f) {
+  while(f->anotherFizzle != NULL) {
+    f = f->anotherFizzle;
+  }
+  return f;
+}
+
+void clear_other_fizzle(fizzle* f) {
+  f->anotherFizzle = NULL;
 }
 
 void add_rotational_velocity(fizzle* fizz, double delta) {
@@ -221,6 +237,10 @@ void set_tether(fizzle* fizz, vector_2* newTF) {
   fizz->tether = *newTF;
 }
 
+void get_tether(fizzle* fizz, vector_2* res) {
+  *res = fizz->tether;
+}
+
 double get_mass(fizzle* f) {
   return f->mass;
 }
@@ -331,8 +351,8 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
     }
     //hardcode for critically camped system, coef should eventually be a tether field
     double damp_coef = -70 * pow(teth->tether_k, 0.5);
-    fizzle* f1 = teth->fizz_1;
-    fizzle* f2 = teth->fizz_2;
+    fizzle* f1 = get_end_fizzle(teth->fizz_1);
+    fizzle* f2 = get_end_fizzle(teth->fizz_2);
     mag = diff * teth->tether_k;
     damp_1 = *zero_vec;
     damp_2 = *zero_vec;
@@ -356,8 +376,11 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
 
     vector_2_scale(t1, teth->weight_1, t1);
     vector_2_scale(t2, teth->weight_2, t2);
-
-
+    /*
+    printf("diff is %f k is %f\n", diff, teth->tether_k);
+    printf("t1 has mag %f\n", vector_2_magnitude(t1));
+    printf("t2 has mag %f\n", vector_2_magnitude(t2));
+    */
   }
 }
 

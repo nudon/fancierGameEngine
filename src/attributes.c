@@ -13,6 +13,7 @@
 #define COMP_USER 2
 //travel bit because I probably don't want things like walls to traverse maps
 #define COMP_TRAVEL 3
+#define COMP_HOLDABLE 4
 
 //sets whether the body is immune to damage
 #define BODY_INVULN 0
@@ -105,6 +106,13 @@ int is_travel(att *a) {
 }
 void set_travel(att *a, int val) {
   set_bit(&(a->flag_atts), COMP_TRAVEL, val);
+}
+
+int is_holdable(att *a) {
+  return test_bit(a->flag_atts, COMP_HOLDABLE);
+}
+void set_holdable(att *a, int val) {
+  set_bit(&(a->flag_atts), COMP_HOLDABLE, val);
 }
 
 void copy_attributes(att* src, att* dst) {

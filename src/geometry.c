@@ -218,14 +218,25 @@ void get_base_point(polygon* poly, int i, virt_pos* result) {
   result->y = poly->base_corners[i].y;
 }
 
-void set_reflection(polygon* p, int x_r, int y_r) {
+void set_reflections(polygon* p, int x_r, int y_r) {
   if (x_r * x_r != 1 || y_r * y_r != 1) {
     fprintf(stderr, "error, cant set x and y reflections to %d and %d, vals may only be -1 or 1\n", x_r, y_r);
   }
   else {
-    p->x_reflection = x_r;
-    p->y_reflection = y_r;
+    if (p->x_reflection != x_r || p->y_reflection != y_r) {
+      p->x_reflection = x_r;
+      p->y_reflection = y_r;
+      recalc_corners_and_norms(p);
+    }
   }
+}
+
+int get_x_reflection(polygon* p) {
+  return p->x_reflection;
+}
+
+int get_y_reflection(polygon* p) {
+  return p->y_reflection;
 }
 
 void set_base_point(polygon* poly, int i, virt_pos* set) {
@@ -277,10 +288,11 @@ void recalc_corners(polygon* poly) {
     temp = poly->base_corners[i];
     temp.x = temp.x * poly->scale;
     temp.y = temp.y * poly->scale;
-    
-    virt_pos_rotate(&temp, ang, &temp);
     temp.x *= poly->x_reflection;
     temp.y *= poly->y_reflection;
+    
+    virt_pos_rotate(&temp, ang, &temp);
+
     virt_pos_add(&temp, poly->center, &temp);
     poly->corners[i] = temp;
   }  
@@ -292,10 +304,15 @@ double get_rotation(polygon* poly) {
 
 void set_rotation_offset(polygon* poly, virt_pos* offset) {
   poly->rotation_offset = *offset;
+  poly->rotation_offset.x *= poly->x_reflection;
+  poly->rotation_offset.y *= poly->y_reflection;
 }
 
 virt_pos get_rotation_offset(polygon* p) {
-  return p->rotation_offset;
+  virt_pos t = p->rotation_offset;
+  t.x *= p->x_reflection;
+  t.y *= p->y_reflection;
+  return t;
 }
 
  int do_polygons_intersect(polygon* p1, polygon* p2) {
@@ -790,11 +807,11 @@ void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result) {
 }
 
 void print_vector(vector_2* vec) {
-  fprintf(stderr, "vector is %f, %f\n", vec->v1, vec->v2);
+  fprintf(stdout, "vector is %f, %f\n", vec->v1, vec->v2);
 }
 
 void print_point(virt_pos* pos) {
-  fprintf(stderr, "point is x:%d, y:%d\n", pos->x, pos->y);
+  fprintf(stdout, "point is x:%d, y:%d\n", pos->x, pos->y);
 }
 
 
@@ -828,7 +845,7 @@ double clamp_rotation(double ang) {
 }
 
 double angle_of_vector(vector_2* vec) {
-  return atan2(-1 * vec->v2, vec->v1);
+  return atan2(vec->v2, vec->v1);
 }
 
 //from d1 to d2, in radians

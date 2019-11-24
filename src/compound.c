@@ -35,71 +35,12 @@ compound* mono_compound(body* b) {
   return c;
 }
 
-int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
-  shared_input* si = get_shared_input(b);
-  if (si != NULL) {
-    add_to_shared_input(t_disp, r_disp, si);
-    return 1;
-  }
-  else {
-    return update(map, get_collider(b), t_disp, r_disp);
-  }
-}
-
-void move_compound(spatial_hash_map* map, compound* c) {
-  gen_node* n  = NULL;
-  body* b = NULL;
-  virt_pos rot_offset = *zero_pos;
-  virt_pos curr_offset = *zero_pos;
-  virt_pos orig_offset = *zero_pos;
-  virt_pos t_disp = *zero_pos;
-  polygon* head = get_polygon(get_collider(get_compound_head(c)));
-  double r_disp = 0;
-  virt_pos avg_t_disp = *zero_pos;
-  double avg_r_disp = 0;
-  shared_input* si = NULL;
-  n = get_bodies(c)->end;
-  //printf("\n");
-  while(n != NULL) {
-    b = (body*)n->stored;
-    si = get_shared_input(b);
-    rot_offset = get_rotation_offset(get_polygon(get_collider(b)));
-    if (si != NULL)  {
-      get_avg_movement(si, &avg_t_disp, &avg_r_disp);
-      orig_offset = *zero_pos;
-      curr_offset = get_rotational_offset(b);
-      t_disp = *zero_pos;
-      if (!isZeroPos(&rot_offset)) {
-	//modify t_disp for poly so it looks like it wasn't rotated about it's center
-	
-	virt_pos_rotate(&rot_offset, get_rotation(head), &orig_offset);
-	virt_pos_sub(&orig_offset, &curr_offset, &t_disp);
-	virt_pos_sub(&avg_t_disp,&t_disp, &t_disp);
-      }
-      else {
-	//no rotation offset, nothing special happens
-	t_disp = avg_t_disp;
-      }
-      r_disp = avg_r_disp;
-      update(map, get_collider(b), &t_disp, r_disp);
-    }
-    n = n->prev;
-  }
-}
-
 void add_body_to_compound(compound* comp, body* b) {
-  //probably do some check to make sure body isn't already linked to a compound
   if (get_owner(b) != NULL) {
     fprintf(stderr, "warning, overwriting compound owner of a body\n");
   }
   set_owner(b, comp);
-  virt_pos offset = *zero_pos;
-  polygon* p = NULL;
-  if (get_shared_input(b) != NULL && comp->bp->start != NULL) {
-    p = get_polygon(get_collider((b)));
-    offset = get_rotational_offset(b);
-    set_rotation_offset(p, &offset);
-  }
+  
   if (comp->smarts != NULL) {
     add_smarts_to_body(b);
   }

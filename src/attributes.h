@@ -28,6 +28,9 @@ void set_user(att *a, int val);
 int is_travel(att *a);
 void set_travel(att *a, int val);
 
+int is_holdable(att *a);
+void set_holdable(att *a, int val);
+
 void copy_attributes(att* src, att* dst);
 
 char* atts_to_text(att* att);

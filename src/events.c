@@ -20,7 +20,9 @@ typedef struct event_struct {
   collider* coll;
   body* body;
   void (*onTrigger)(TRIGGER_ARGS);
+  int auto_check;
 } event;
+
 
 
 #define FUNC_LIM 10
@@ -36,6 +38,10 @@ void init_events() {
   i = first_empty_index(func_names, FUNC_LIM);
   func_names[i] = "basic_decide_event";
   func_funcs[i] = basic_decide_event;
+  i = first_empty_index(func_names, FUNC_LIM);
+  func_names[i] = "holder_grab";
+  func_funcs[i] = holder_grab_event;
+  
   
 }
 
@@ -65,7 +71,16 @@ event* make_event(polygon* poly) {
   new->coll = coll;
   new->onTrigger = no_event;
   new->body = NULL;
+  new->auto_check = 1;
   return new;
+}
+
+void set_auto_check(event* e, int v) {
+  e->auto_check = v;
+}
+
+int get_auto_check(event* e) {
+  return e->auto_check;
 }
 
 void set_event(event* e, void (*newTrigger)(TRIGGER_ARGS)) {
@@ -96,7 +111,9 @@ void check_events(spatial_hash_map* map, gen_list* e) {
   event* anEvent;
   while(curr != NULL) {
     anEvent = (event*)(curr->stored);
-    check_event(map, anEvent);
+    if (get_auto_check(anEvent)) {
+      check_event(map, anEvent);
+    }
     curr = curr->next;
   }
 }
@@ -171,40 +188,9 @@ void no_event(event* e, body* b, virt_pos* poc) {
 }
 
 void basic_decide_event(event* e, body* b2, virt_pos* poc) {
-  body* b1 = get_event_body(e);
-  if (b1 != NULL) {
-    basic_decide(b1, b2, poc);
-  }
+
 }
 
-//decision process
-//sets direction for compound to move
-void basic_decide(body* self, body* trigger, virt_pos* poc) {
-  //compound* self_comp = get_owner(self);
-  //compound* trigger_comp = get_owner(trigger);
-  //comp_int* si = get_comp_int(self_comp);
-  //comp_int* ti = get_comp_int(trigger_comp);
-  /*
-  decision_att* sa = get_gi_attributes(si);
-  decision_att* ta = get_gi_attributes(ti);
-  vector_2 dir = *zero_vec;
-  virt_pos tc = get_body_center(trigger);
-  virt_pos sc = get_body_center(self);
-  if (is_hunter(ta) && is_prey(sa)) {
-    //then run away
-    vector_between_points(&tc, &sc, &dir);
-    add_to_dir(si, &dir);
-  }
-  if (is_hunter(sa) && is_prey(ta)) {
-    //then chase
-    vector_between_points(&sc, &tc, &dir);
-    add_to_dir(si, &dir);
-  }
-  
-  //dir = get_dir(get_owner(self));
-  */
-    
-}
 
 
 void foot_placement(event* e, body* trigger, virt_pos* poc) {
@@ -247,4 +233,29 @@ void foot_step(event* e, body* trigger, virt_pos* poc) {
   //for body, probably add -1 / 2 * gravity
   //issue is how to determine what is the main body/torso
   //could implicity take head of body part list
+}
+
+void holder_grab_event(event* e, body* trigger, virt_pos* poc) {
+  body* self = get_event_body(e);
+  compound* self_comp = get_owner(self);
+  compound* trigger_comp = get_owner(trigger);
+
+  smarts* t_comp_sm = get_compound_smarts(trigger_comp);
+  if (t_comp_sm == NULL) {
+    return;
+  }
+  att* trig_atts = get_comp_attributes(t_comp_sm);
+  //somehow set checks for this
+  //could check if trigger mass is inf, or have some attribute for it
+  if (self_comp != trigger_comp) {
+    if (is_holdable(trig_atts)) {
+      if (get_shared_input(self) != get_shared_input(trigger)) {
+	shared_input** si = get_shared_input_ref(trigger);
+	virt_pos temp = get_shared_input_origin(*si);
+	set_body_center(self, &temp);
+	set_shared_input(self, si);
+	set_holdable(trig_atts,0);
+      }
+    }
+  }
 }

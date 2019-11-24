@@ -139,6 +139,8 @@ void add_offset_to_center(polygon* p, virt_pos* off);
 void free_polygon_center(polygon* p);
 virt_pos* read_only_polygon_center(polygon* p);
 
-void set_reflection(polygon* p, int x_r, int y_r);
+void set_reflections(polygon* p, int x_r, int y_r);
+int get_x_reflection(polygon* p);
+int get_y_reflection(polygon* p);
 
 #endif

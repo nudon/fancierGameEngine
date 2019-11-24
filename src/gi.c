@@ -3,6 +3,7 @@
 #include "gi.h"
 #include "attributes.h"
 #include "map.h"
+#include "names.h"
 //temp folder for game intelligence stuff
 typedef struct stam_struct stam;
 
@@ -469,7 +470,8 @@ void jump_action(compound* c) {
   //fprintf(stderr, "dt is %f\n", get_dT());
   vector_2_scale(&jump_force, -1 * jump_mag ,&jump_force);
   body* b = get_compound_head(c);
-  add_tether(get_fizzle(b), &jump_force);
+  fizz = get_fizzle(b);
+  add_tether(fizz, &jump_force);
   /*
   for (gen_node* curr = get_bodies(c)->start; curr != NULL; curr = curr->next) {
     aBody = (body*)curr->stored;
@@ -497,4 +499,71 @@ void jump_action_reset(compound* c) {
   comp_stats* c_stats = sm->c_stats;
   c_stats->jumps_left = c_stats->max_jumps;
   c_stats->jump_airtime = -1;
+}
+
+void pickup_action(compound* c) {
+  gen_node* curr = get_bodies(c)->start;
+  gen_node* events;
+  body* b;
+  event* e;
+  int done = 0;
+  spatial_hash_map* shm = get_shm(get_plane_by_name(getMap(), MAIN_PLANE_NAME));
+  while(!done && curr!=NULL) {
+    b = (body*)curr->stored;
+    events = get_body_events(b)->start;
+    while(!done && events!=NULL) {
+      e = (event*)events->stored;
+      if (strcmp(get_event_name(e), "holder_grab") == 0) {
+	check_event(shm, e);
+	if (get_shared_input(b) != NULL) {
+	  done = 1;
+	}
+      }
+      events = events->next;
+    }
+    curr = curr->next;
+  }
+}
+
+void throw_action(compound* c) {
+
+  gen_node* curr = get_bodies(c)->start;
+  gen_node* events;
+  body* b;
+  event* e;
+  /*
+  smarts* b_sm;
+  att* b_atts;
+  */
+  shared_input* si = NULL;
+  int done = 0;
+  while(!done && curr!=NULL) {
+    b = (body*)curr->stored;
+    events = get_body_events(b)->start;
+    while(!done && events!=NULL) {
+      e = (event*)events->stored;
+      if (strcmp(get_event_name(e), "holder_grab") == 0) {
+	//need to test if something is in hand
+	//so far holders are individual bodies that use other compounds si
+	//removing should throw the object and not disfigure the thrower
+	si = get_shared_input(b);
+	if (si != NULL) {
+	  un_set_shared_input(b);
+	  done = 1;
+	}
+      }
+      events = events->next;
+    }
+    curr = curr->next;
+  }
+  /*
+    while(curr != NULL) {
+    b = (body*)curr->stored;
+    b_sm = get_body_smarts(b);
+    b_atts = get_body_attributes(b_sm);
+    
+    curr = curr->next;
+    }
+  */
+  printf("yeet\n");
 }
