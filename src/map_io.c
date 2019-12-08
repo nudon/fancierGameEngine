@@ -247,8 +247,10 @@ compound* xml_read_compound(xmlNodePtr comp_node) {
   smarts* sm = NULL;
   child = get_child_by_name(comp_node, "smarts");
   sm = xml_read_smarts(child);
-  set_compound_smarts(comp, sm);
-  add_smarts_to_comp(comp);
+  if (sm != NULL) {
+    set_compound_smarts(comp, sm);
+    add_smarts_to_comp(comp);
+  }
   child = comp_node->xmlChildrenNode;
   while(child != NULL) {
     if (xmlStrcmp(child->name, (const xmlChar*)"body") == 0) {

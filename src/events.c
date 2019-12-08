@@ -258,4 +258,5 @@ void holder_grab_event(event* e, body* trigger, virt_pos* poc) {
       }
     }
   }
+  
 }

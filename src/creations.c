@@ -483,7 +483,7 @@ compound* tunctish() {
   tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
   tile_texture_for_body(hand, BEACH_TREE_FN, 3,3,0,0);
   
-  set_shared_input_origin(*torso_si, torso_poly, SI_CENTER);
+  set_shared_input_origin(*torso_si, torso, SI_CENTER);
   
   set_shared_input(torso, torso_si);
   set_shared_input(left_eye_anchor, torso_si);
@@ -546,13 +546,14 @@ compound* makeTrashCan() {
   bottom = blankBody(bp);
   lside = blankBody(lp);
   rside = blankBody(rp);
-  set_shared_input_origin(*si, bp, SI_CENTER);
+  set_shared_input_origin(*si, bottom, SI_CENTER);
   set_shared_input(bottom, si);
   set_shared_input(lside, si);
   set_shared_input(rside, si);
   add_body_to_compound(can, bottom);
   add_body_to_compound(can, lside);
   add_body_to_compound(can, rside);
+  set_compound_gravity(can, g);
   return can;
 }
 
@@ -566,19 +567,23 @@ compound* makeGohei() {
   int handle_height = 70;
   int side_width = 15;
   handle = makeRectangleBody(handle_width,handle_height);
-  polygon* handlep = get_polygon(get_collider(handle));
   virt_pos offset = (virt_pos){.x = handle_width / 2, -handle_height / 2};
   right_side = makeRectangleBody(side_width,side_width);
+  left_side = makeRectangleBody(side_width,side_width);
   set_body_center(right_side, &offset);
-  set_shared_input_origin(*si, handlep, SI_CENTER);
+  offset.x *= -1;
+  set_body_center(left_side, &offset);
+  set_shared_input_origin(*si, handle, SI_CENTER);
   set_shared_input(handle, si);
   set_shared_input(right_side, si);
   add_body_to_compound(gohei,handle);
   add_body_to_compound(gohei,right_side);
-
+  set_compound_gravity(gohei, g);
+  
   smarts* sm = get_compound_smarts(gohei);
   att* c_atts = get_comp_attributes(sm);
   set_holdable(c_atts, 1);
+
   return gohei;
 }
 
@@ -689,11 +694,6 @@ map* make_beach_map() {
   compound_spawner* gohei_spawn = create_compound_spawner(GOHEI_SPAWN, -1, trashcan_offset.x, trashcan_offset.x);
   add_spawner_to_plane(main, gohei_spawn);
 
-  virt_pos floor_offset = calc_room_offset(&starting_room, -1, -1);
-  compound* floor = makeBlockChain(0, 0, M_W, M_H, SAND_FN, 44, HORZ_CHAIN);
-  offset_compound(floor, &floor_offset);
-  add_compound_to_plane(main, floor);
-
   virt_pos monster_offset = calc_room_offset(&starting_room,-0.5, -0.9);
   compound_spawner* monster_spawn = create_compound_spawner(TEST_SPAWN, -1, monster_offset.x, monster_offset.y);
   //add_spawner_to_plane(main, monster_spawn);
@@ -701,10 +701,12 @@ map* make_beach_map() {
   
   body* left_wall = add_wall_to_room(&starting_room, ROOM_WALL_LEFT, -1,1);
   body* right_wall = add_wall_to_room(&starting_room, ROOM_WALL_RIGHT, -1,1);
-  
+  body* down_wall = add_wall_to_room(&starting_room, ROOM_WALL_BOTTOM, -1, 1);
+  tile_texture_for_body(down_wall, SAND_FN, 3,3,0,0);
   compound* wall_comp = create_compound();
   add_body_to_compound(wall_comp, left_wall);
   add_body_to_compound(wall_comp, right_wall);
+  add_body_to_compound(wall_comp, down_wall);
   add_compound_to_plane(main, wall_comp);
   
   

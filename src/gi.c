@@ -28,6 +28,10 @@ comp_memory* make_comp_memory();
 void free_comp_memory(comp_memory* rm);
 void update_comp_memory(comp_memory* c_mem);
 
+void set_temp_owner(shared_input* si, compound* own);
+void un_set_temp_owner(shared_input* si);
+
+
 //alpha decay vec, just stores a vector and alpha decay params
 #define BODY_MOVE_ALPHA 0.05
 #define COMP_MOVE_ALPHA 0.05
@@ -451,7 +455,7 @@ vector_2 get_smarts_movement(smarts* sm) {
 void jump_action(compound* c) {
   smarts* sm = get_compound_smarts(c);
   comp_stats* c_stats = sm->c_stats;
-  body* aBody = NULL;
+  body* b = NULL;
   fizzle* fizz = NULL;
   vector_2 jump_force = *g;
   vector_2_scale(&jump_force, 0.25, &jump_force);
@@ -469,7 +473,7 @@ void jump_action(compound* c) {
   //fprintf(stderr,"jumping with mag = %f, air_t = %f and max air_t = %f\n", jump_mag, c_stats->jump_airtime, c_stats->max_jump_airtime);
   //fprintf(stderr, "dt is %f\n", get_dT());
   vector_2_scale(&jump_force, -1 * jump_mag ,&jump_force);
-  body* b = get_compound_head(c);
+  b = get_compound_head(c);
   fizz = get_fizzle(b);
   add_tether(fizz, &jump_force);
   /*
@@ -516,6 +520,7 @@ void pickup_action(compound* c) {
       if (strcmp(get_event_name(e), "holder_grab") == 0) {
 	check_event(shm, e);
 	if (get_shared_input(b) != NULL) {
+	  set_temp_owner(get_shared_input(b), c);
 	  done = 1;
 	}
       }
@@ -543,12 +548,16 @@ void throw_action(compound* c) {
     while(!done && events!=NULL) {
       e = (event*)events->stored;
       if (strcmp(get_event_name(e), "holder_grab") == 0) {
-	//need to test if something is in hand
 	//so far holders are individual bodies that use other compounds si
-	//removing should throw the object and not disfigure the thrower
+	//removing should si will release object
 	si = get_shared_input(b);
 	if (si != NULL) {
 	  un_set_shared_input(b);
+	  un_set_temp_owner(si);
+	  //also need to reset holdable attributes
+	  compound* c = get_smarts_compound(get_body_smarts(get_shared_input_tracking_body(si)));
+	  att* atts = get_comp_attributes(get_compound_smarts(c));
+	  set_holdable(atts, 1);					  
 	  done = 1;
 	}
       }
@@ -556,14 +565,27 @@ void throw_action(compound* c) {
     }
     curr = curr->next;
   }
-  /*
-    while(curr != NULL) {
+}
+
+void set_temp_owner(shared_input* si, compound* own) {
+  compound* c = get_owner(get_shared_input_tracking_body(si));
+  gen_node* curr = get_bodies(c)->start;
+  body* b = NULL;
+  while(curr != NULL) {
     b = (body*)curr->stored;
-    b_sm = get_body_smarts(b);
-    b_atts = get_body_attributes(b_sm);
-    
+    set_owner(b,own);
     curr = curr->next;
-    }
-  */
-  printf("yeet\n");
+  }
+}
+
+
+void un_set_temp_owner(shared_input* si) {
+  compound* c = get_smarts_compound(get_body_smarts(get_shared_input_tracking_body(si)));
+  gen_node* curr = get_bodies(c)->start;
+  body* b = NULL;
+  while(curr != NULL) {
+    b = (body*)curr->stored;
+    set_owner(b,c);
+    curr = curr->next;
+  }
 }

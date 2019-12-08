@@ -9,6 +9,8 @@
 #define NONUNIFORM_COMPOUND 0
 #define UNIFORM_COMPOUND 1
 
+
+
 struct compound_struct {
   //list of bodies in compound
   gen_list* bp;

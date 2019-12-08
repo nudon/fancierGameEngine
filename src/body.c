@@ -27,7 +27,8 @@ struct shared_input_struct {
   virt_pos avg_t;
   double avg_r;
   //virt_pos* shared_input_origin;
-  polygon* tracker;
+  body* tracking_body;
+  polygon* tracking_poly;
   //
   int point;
   fizzle* shared_fizzle;
@@ -46,7 +47,8 @@ shared_input* create_shared_input() {
   new->avg_r = 0;
   new->mode = si_add;
   //new->shared_input_origin = NULL;
-  new->tracker = NULL;
+  new->tracking_body = NULL;
+  new->tracking_poly = NULL;
   new->point = -2;
   new->shared_fizzle = NULL;
   new->x_reflection = 1;
@@ -112,7 +114,7 @@ void set_shared_input(body* b, shared_input** si) {
   redirect_fizzle(f, si_f);
   virt_pos offset = *zero_pos;
   offset = calc_rotational_offset(b);
-  print_point(&offset);
+  //print_point(&offset);
   set_rotation_offset(get_polygon(get_collider((b))), &offset);
   
   /*
@@ -142,7 +144,7 @@ void un_set_shared_input(body* b) {
 virt_pos calc_rotational_offset(body* b) {
   virt_pos offset = get_si_offset(b);
   shared_input* si = get_shared_input(b);
-  double tracker_rotation = get_rotation(si->tracker);
+  double tracker_rotation = get_rotation(si->tracking_poly);
   virt_pos_rotate(&offset, -tracker_rotation, &offset);
   return offset;
 }
@@ -208,15 +210,17 @@ void get_avg_movement(shared_input* si, virt_pos* t, double* r) {
   }
 }
 
-void set_shared_input_origin(shared_input* si, polygon* p, int point) {
-  if (si->tracker != NULL) {
+void set_shared_input_origin(shared_input* si, body* b, int point) {
+  polygon* p = get_polygon(get_collider(b));
+  if (si->tracking_body != NULL) {
     fprintf(stderr, "warning, overwriting shared input origin\n");
   }
   if (point != SI_CENTER && (point < 0 || point >= get_sides(p))) {
       fprintf(stderr, "error, invalid point value for shared input, val is %d, must be between [0, %d] or %d\n", point, get_sides(p) - 1, SI_CENTER);
   }
   //si->shared_input_origin = point;
-  si->tracker = p;
+  si->tracking_body = b;
+  si->tracking_poly = p;
   si->point = point;
   
 }
@@ -224,12 +228,12 @@ void set_shared_input_origin(shared_input* si, polygon* p, int point) {
 virt_pos get_shared_input_origin(shared_input* si) {
   virt_pos ret = *zero_pos;
   if (si != NULL) {
-    if (si->tracker != NULL) {
+    if (si->tracking_poly != NULL) {
       if (si->point == SI_CENTER) {
-	ret = get_center(si->tracker);
+	ret = get_center(si->tracking_poly);
       }
       else {
-	get_actual_point(si->tracker, si->point, &ret);
+	get_actual_point(si->tracking_poly, si->point, &ret);
       }
     }
     else {
@@ -237,6 +241,10 @@ virt_pos get_shared_input_origin(shared_input* si) {
     }
   }
   return ret;
+}
+
+body* get_shared_input_tracking_body(shared_input* si) {
+  return si->tracking_body;
 }
 
 void clear_shared_input(shared_input* si) {

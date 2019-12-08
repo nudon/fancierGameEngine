@@ -25,8 +25,9 @@ void set_shared_input(body* b, shared_input** si);
 void un_set_shared_input(body* b);
 void add_to_shared_input(virt_pos* t, double r, shared_input* si);
 void get_avg_movement(shared_input* si, virt_pos* t, double* r);
-void set_shared_input_origin(shared_input* si, polygon* p, int point);
+void set_shared_input_origin(shared_input* si, body* b, int point);
 virt_pos get_shared_input_origin(shared_input* si);
+body* get_shared_input_tracking_body(shared_input* si);
 virt_pos calc_rotational_offset(body* b);
 virt_pos get_si_offset(body* b);
 
@@ -80,5 +81,7 @@ void set_shared_reflections(shared_input* si, int x_r, int y_r);
 void push_shared_reflections(body* b);
 void pull_shared_reflections(body* b);
 
+//defined in text driver currently
+int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
 
 #endif
