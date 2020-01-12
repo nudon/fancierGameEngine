@@ -116,7 +116,7 @@ void generate_normals_for_polygon(polygon* poly) {
   for (int i = 0; i < sides; i++) {
     get_base_point(poly, i, &p1);
     get_base_point(poly, (i + 1) % sides , &p2);
-    vector_between_points(&p1, &p2, &temp);
+    temp = vector_between_points(&p1, &p2);
     vector_2_rotate(&temp, M_PI / 2, &temp);
 
     virt_pos_midpoint(&p1, &p2, &midp);
@@ -800,10 +800,12 @@ void vector_2_to_virt_pos_zero(vector_2* in, virt_pos* out) {
   out->y = (int)in->v2;
 }
 
-void vector_between_points( virt_pos* p1, virt_pos* p2, vector_2* result) {
+vector_2 vector_between_points( virt_pos* p1, virt_pos* p2) {
   //p1 is start, p2 is end
-  result->v1 = p2->x - p1->x;
-  result->v2 = p2->y - p1->y;
+  vector_2 result;
+  result.v1 = p2->x - p1->x;
+  result.v2 = p2->y - p1->y;
+  return result;
 }
 
 void print_vector(vector_2* vec) {
@@ -831,15 +833,17 @@ int sign_of(double val) {
 //clamps angle between 0 and 2pi
 double clamp_rotation(double ang) {
   double r = 0;
+  double s = 0;
   if (ang > 2 * M_PI || ang < 0) {
     r = (ang / (2 * M_PI));
     if (ang > 2 * M_PI) {
-      ang = 2 * M_PI * (r - (int)r);
+      s = r - (int)r;
     }
     else {
       r *= -1;
-      ang = 2 * M_PI * (1 - (r - (int)r));
+      s = 1 - (r - (int)r);
     }
+    ang = 2 * M_PI * s;
   }
   return ang;
 }
@@ -852,7 +856,7 @@ double angle_of_vector(vector_2* vec) {
 double difference_of_radians(double r1, double r2) {
   double diff = clamp_rotation(r2 - r1);
   if (diff > (M_PI)) {
-    diff = 2 * M_PI - diff;
+    diff = -1 * (2 * M_PI - diff);
   }
   return diff;
 }

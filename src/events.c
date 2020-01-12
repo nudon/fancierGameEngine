@@ -14,7 +14,15 @@
 
 //also have to do some mapping from strings to trigger functions for map loading
 
-void basic_decide(body* self, body* trigger, virt_pos* poc);
+//standard events
+static void no_event(TRIGGER_ARGS);
+static void basic_decide_event(TRIGGER_ARGS);
+static void foot_placement(TRIGGER_ARGS);
+static void foot_step(TRIGGER_ARGS);
+static void grab_event(TRIGGER_ARGS);
+static void side_sight_event(TRIGGER_ARGS);
+static void main_sight_event(TRIGGER_ARGS);
+
 
 typedef struct event_struct {
   collider* coll;
@@ -39,8 +47,17 @@ void init_events() {
   func_names[i] = "basic_decide_event";
   func_funcs[i] = basic_decide_event;
   i = first_empty_index(func_names, FUNC_LIM);
-  func_names[i] = "holder_grab";
-  func_funcs[i] = holder_grab_event;
+  func_names[i] = "side_sight";
+  func_funcs[i] = side_sight_event;
+  i = first_empty_index(func_names, FUNC_LIM);
+  func_names[i] = "main_sight";
+  func_funcs[i] = main_sight_event;
+  i = first_empty_index(func_names, FUNC_LIM);
+  func_names[i] = "foot_step";
+  func_funcs[i] = foot_step;
+  i = first_empty_index(func_names, FUNC_LIM);
+  func_names[i] = "grab";
+  func_funcs[i] = grab_event;
   
   
 }
@@ -82,11 +99,6 @@ void set_auto_check(event* e, int v) {
 int get_auto_check(event* e) {
   return e->auto_check;
 }
-
-void set_event(event* e, void (*newTrigger)(TRIGGER_ARGS)) {
-  e->onTrigger = newTrigger;
-}
-
 
 collider* get_event_collider(event* e) {
   return e->coll;
@@ -144,7 +156,6 @@ void check_event(spatial_hash_map* map, event* e) {
   aHit = hits.start;
   while(aHit != NULL) {
     hitBody = ((collider*)(aHit->stored))->body;
-    //
     hitPoly = get_polygon(get_collider(hitBody));
     vector_2 normal_of_collision = *zero_vec;
     vector_2 b1_norm = *zero_vec;
@@ -191,6 +202,60 @@ void basic_decide_event(event* e, body* b2, virt_pos* poc) {
 
 }
 
+void side_sight_event(event* e, body* b2, virt_pos* poc) {
+  body* self = get_event_body(e);
+  compound* self_comp = get_owner(self);
+  smarts* s_comp_sm = get_compound_smarts(self_comp);
+  vector_2 vel = *zero_vec, add = *zero_vec;
+  get_velocity(get_fizzle(b2), &vel);
+  if (foreign_body(self, b2) && !isCloseEnoughToZeroVec(&vel)) {
+    add = vector_between_bodies(self, b2);
+
+    add = vision_speed_scale(&add, &vel);
+    add_to_smarts(s_comp_sm, SM_LOOK,  &add);
+  }  
+}
+
+void main_sight_event(event* e, body* b2, virt_pos* poc) {
+  body* self = get_event_body(e);
+  compound* self_comp = get_owner(self);
+  compound* trigger_comp = get_owner(b2);
+
+  smarts* t_comp_sm = get_compound_smarts(trigger_comp);
+  smarts* s_comp_sm = get_compound_smarts(self_comp);
+  if (t_comp_sm == NULL) {
+    return;
+  }
+  att* trig_atts = get_comp_attributes(t_comp_sm);
+  att* self_atts = get_comp_attributes(s_comp_sm);
+  vector_2 dir = *zero_vec;
+  int run = is_hunter(trig_atts) && is_prey(self_atts);
+  int chase = is_hunter(self_atts) && is_prey(trig_atts);
+  int pickup  = is_holdable(trig_atts);
+  if (foreign_body(self, b2)) {
+    if (pickup) {
+      dir = vector_between_bodies(self, b2);
+      dir = vision_inv_distance_scale(&dir);
+      add_to_smarts(s_comp_sm, SM_USEFULL, &dir);
+    }
+    if (chase && run) {
+      dir = vector_between_bodies(self, b2);
+      dir = vision_inv_distance_scale(&dir);
+      add_to_smarts(s_comp_sm, SM_ATTACK, &dir);
+    }
+    if (chase) {
+      dir = vector_between_bodies(self, b2);
+      dir = vision_inv_distance_scale(&dir);
+      add_to_smarts(s_comp_sm, SM_USEFULL, &dir);
+    }
+    if (run) {
+      dir = vector_between_bodies(b2 , self);
+      dir = vision_inv_distance_scale(&dir);
+      add_to_smarts(s_comp_sm, SM_DANGER, &dir);
+    }
+  }    
+}
+
 
 
 void foot_placement(event* e, body* trigger, virt_pos* poc) {
@@ -207,11 +272,11 @@ void foot_placement(event* e, body* trigger, virt_pos* poc) {
     if (poc != NULL) {
       tc = *poc;
     }
-    vector_between_points(&sc, &tc, &dir);
+    dir = vector_between_points(&sc, &tc);
     if (!isZeroVec(&dir)) {
       make_unit_vector(&dir, &dir);
       smarts* b_sm = get_body_smarts(self);
-      add_to_smarts_movement(b_sm, &dir);
+      add_to_smarts(b_sm, SM_MOVE, &dir);
     }
   }
 }
@@ -223,7 +288,7 @@ void foot_step(event* e, body* trigger, virt_pos* poc) {
   
   //somehow set checks for this
   //could check if trigger mass is inf, or have some attribute for it
-  if (self_comp != trigger_comp) {
+  if (foreign_body(self, trigger)) {
     jump_action_reset(self_comp);
   }
 
@@ -235,7 +300,7 @@ void foot_step(event* e, body* trigger, virt_pos* poc) {
   //could implicity take head of body part list
 }
 
-void holder_grab_event(event* e, body* trigger, virt_pos* poc) {
+void grab_event(event* e, body* trigger, virt_pos* poc) {
   body* self = get_event_body(e);
   compound* self_comp = get_owner(self);
   compound* trigger_comp = get_owner(trigger);
@@ -258,5 +323,4 @@ void holder_grab_event(event* e, body* trigger, virt_pos* poc) {
       }
     }
   }
-  
 }

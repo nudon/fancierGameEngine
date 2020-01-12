@@ -380,7 +380,7 @@ void resolve_collisions(spatial_hash_map* map, body* main_body) {
   body* currBody;
   while(currNode != NULL) {
     currBody =((collider*)currNode->stored)->body;
-    if (currBody != main_body && currBody->owner != main_body->owner) {
+    if (foreign_body(main_body, currBody)) {
       resolve_collision(map, main_body, currBody);
     }
     currNode = currNode->next;
@@ -409,7 +409,7 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
     impact(body1, body2, &b1_norm);
 
     if (calc_contact_point(p1, p2, &b1_norm, &poc) > 0) {
-      //draw_virt_pos(getCam(), &poc);
+      draw_virt_pos(getCam(), &poc);
       impact_torque(body1, body2, &b1_norm, &b2_norm, &poc);
     }
   }
@@ -437,7 +437,7 @@ void displace_bodies(spatial_hash_map* map, body* b1, body* b2, double mtv_mag, 
   
   vector_2_to_virt_pos(&b1tv, &b1d);
   vector_2_to_virt_pos(&b2tv, &b2d);
-
+  
   move_body(map, b1, &b1d, 0.0);
   move_body(map, b2, &b2d, 0.0);
   
@@ -500,7 +500,6 @@ void impact(body* b1, body* b2, vector_2* normal) {
   body2d = body2f - body2i;
 
   scale = (get_bounce(f1) + get_bounce(f2)) / 2.0;
-
   body1d *= scale;
   body2d *= scale;
 
@@ -519,8 +518,8 @@ void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, vir
   b1_c = get_center(get_polygon(get_collider(b1)));
   b2_c = get_center(get_polygon(get_collider(b2)));
   
-  vector_between_points(&b1_c, poc, &b1_line);
-  vector_between_points(&b2_c, poc, &b2_line);
+  b1_line = vector_between_points(&b1_c, poc);
+  b2_line = vector_between_points(&b2_c, poc);
 
   decompose_vector(&b1_line, b1_norm, &b1_line_p, &b1_line_o);
   decompose_vector(&b2_line, b2_norm, &b2_line_p, &b2_line_o);
@@ -613,4 +612,16 @@ void pull_shared_reflections(body* b) {
   }
   polygon* p = get_polygon(get_collider(b));
   set_reflections(p, si->x_reflection, si->y_reflection);
+}
+
+
+int foreign_body(body* b1, body* b2) {
+  return get_owner(b1) != get_owner(b2);
+}
+
+//point from b1 to b2
+vector_2 vector_between_bodies(body* b1, body* b2) {
+  virt_pos c1 = get_body_center(b1);
+  virt_pos c2 = get_body_center(b2);
+  return vector_between_points(&c1, &c2);
 }

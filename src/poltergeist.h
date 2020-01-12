@@ -24,5 +24,10 @@ void apply_poltergeist(poltergeist* polt, struct body_struct* body, vector_2* t_
 void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp);
 void user_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp);
 void standard_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp);
+void look_poltergeist(body* body, vector_2* t_disp, double* r_disp);
 void holder_poltergeist(body* b, vector_2* t_disp, double* r_disp);
+void basic_brain(body* b, vector_2* t_disp, double* r_disp);
+
+void reorient(body* b, vector_2* vec, vector_2* t_disp, double* r);
+void translate(body* b, vector_2* vec, vector_2* t_disp, double* r);
 #endif

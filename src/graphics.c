@@ -161,6 +161,16 @@ camera* getCam(){
   return gamgam;
 }
 
+
+void center_cam_on_body(body* body) {
+  static int cam_init = 0;
+  polygon* p = get_polygon(get_collider(body));
+  if (!cam_init) {
+    set_camera_center(getCam(), read_only_polygon_center(p));
+    cam_init = 1;
+  }
+}
+
 void set_camera_center(camera* cam, virt_pos* cent) {
   cam->center = cent;
 }
@@ -410,10 +420,10 @@ void draw_compound(compound* c, camera* cam) {
     temp_coll = get_collider(temp_body);
     temp_poly = get_polygon(temp_coll);
 
-    draw_polygon_outline(cam, temp_poly);
     draw_body_picture(cam, temp_body);
+    draw_polygon_outline(cam, temp_poly);
     draw_events_in_list(cam, get_body_events(temp_body));
-    //draw_bbox(cam, temp_coll);
+    draw_bbox(cam, temp_coll);
     
     curr = curr->next;
   }
@@ -445,8 +455,10 @@ void draw_body_picture(camera* cam, body* body) {
   SDL_Rect dst = (SDL_Rect){.x = x, .y = y, .w = w, .h = h};
   SDL_RendererFlip flip = SDL_FLIP_NONE;
   if (get_x_reflection(poly) == -1) {
-    //draw picture flipped about y axis
-    flip = SDL_FLIP_HORIZONTAL;
+    flip = flip | SDL_FLIP_HORIZONTAL;
+  }
+  if (get_y_reflection(poly) == -1) {
+    flip = flip | SDL_FLIP_VERTICAL;
   }
   draw_picture(cam, get_picture(body), NULL, &dst, get_rotation(coll->shape), flip);
 }

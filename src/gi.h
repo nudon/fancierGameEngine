@@ -2,11 +2,18 @@
 #define FILE_GI_SEEN
 
 typedef struct smarts_struct smarts;
+#define SM_ATTACK "sm_attack"
+#define SM_MOVE "sm_move"
+#define SM_LOOK "sm_look"
+#define SM_DANGER "sm_danger"
+#define SM_USEFULL "sm_usefull"
 
 #include "events.h"
 #include "body.h"
 #include "collider.h"
 #include "attributes.h"
+
+
 
 //smarts stuff
 smarts * make_smarts();
@@ -45,17 +52,21 @@ int get_smarts_comp_health(smarts* sm);
 int get_smarts_comp_max_jumps(smarts* sm);
 int get_smarts_comp_jumps(smarts* sm);
 
-void add_to_smarts_movement(smarts* sm, vector_2* add);
-vector_2 get_smarts_movement(smarts* sm);
+void add_to_smarts(smarts* sm, char* tag, vector_2* add);
+vector_2 get_from_smarts(smarts* sm, char* tag);
 
 void jump_action(compound* c);
 void end_jump(compound* c);
 void jump_action_reset(compound* c);
-
-
 void pickup_action(compound* c);
-
 void throw_action(compound* c);
+
+
+
+vector_2 vision_inv_distance_scale(vector_2* vec);
+vector_2 vision_speed_scale(vector_2* vec, vector_2* velocity);
+ 
+ 
 
 #endif
 

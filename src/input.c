@@ -67,7 +67,7 @@ int get_input_for_polygon(polygon* poly, vector_2* trans_disp, double* rot_disp)
 int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
-  double mov_delta = 0.1;
+  double mov_delta = 0.07;
   double rot_delta = 0.03;
   compound* comp = get_owner(b);
   int jumped = 0;
@@ -169,7 +169,7 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
   if (!jumped) {
     end_jump(comp);
   }
-  add_to_smarts_movement(get_compound_smarts(comp), &dir);
+  add_to_smarts(get_compound_smarts(comp), SM_MOVE, &dir);
   setQuit(quit);
   return quit;
 }

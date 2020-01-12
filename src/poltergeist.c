@@ -31,11 +31,14 @@ void init_poltergeists() {
   polt_names[i] = "standard_polt";
   polt_funcs[i] = standard_poltergeist;
   i = first_empty_index(polt_names, POLT_LIM);
+  polt_names[i] = "look_polt";
+  polt_funcs[i] = look_poltergeist;
+  i = first_empty_index(polt_names, POLT_LIM);
   polt_names[i] = "hand_polt";
   polt_funcs[i] = holder_poltergeist;
-  
-  
-  
+  i = first_empty_index(polt_names, POLT_LIM);
+  polt_names[i] = "bb_polt";
+  polt_funcs[i] = basic_brain;
 }
 
 char* null_text = "NULL";
@@ -100,56 +103,53 @@ void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) 
 
 
 void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
-  static int cam_init = 0;
-  //virt_pos cent = get_body_center(user_body);
-  polygon* p = get_polygon(get_collider(user_body));
-  if (!cam_init) {
-    set_camera_center(getCam(), read_only_polygon_center(p));
-    cam_init = 1;
-  }
   get_input_for_body(user_body, t_disp, r_disp);
+  reorient(user_body, x_axis, t_disp, r_disp);
 }
-//given a compound and dir, move all bodies in that dir
-//should be adding a force
-//also seems like having a decaying average of a direction would be nice
-//would add the soft behavior of things gradually aquiring new directions
-//also might want to have some limited speed modes by modifying magnitude of direction. could either add hard-coded tiers/thresholds or take a log of magnitude for nice but sometimes funny stuff
+
+void basic_brain(body* b, vector_2* t_disp, double* r_disp) {
+  vector_2 use, danger, move;
+  compound* c = get_owner(b);
+  smarts* sm = get_compound_smarts(c);
+  use = get_from_smarts(sm, SM_USEFULL);
+  danger = get_from_smarts(sm, SM_DANGER);
+  move = get_from_smarts(sm, SM_MOVE);
+  double use_mag = vector_2_magnitude(&use);
+  double danger_mag = vector_2_magnitude(&danger);
+  if (use_mag > 100) {
+    pickup_action(c);
+  }
+  if (danger_mag > 100) {
+    throw_action(c);
+  }
+  translate(b, &move, t_disp, r_disp);
+  reorient(b, x_axis, t_disp, r_disp);
+}
 
 void standard_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
-  if (get_body_smarts(body) == NULL) {
+  smarts* sm = get_body_smarts(body);
+  if (sm == NULL) {
     return;
   }
-  vector_2 b_dir = get_smarts_movement(get_body_smarts(body));
-  //vector_2 c_dir = get_smarts_movement(get_compound_smarts(get_owner(body)));
-  vector_2 dir = b_dir;
-  double t_scale = .0005;
-  double r_scale = 0.004;
-  double mag = vector_2_magnitude(&dir);
-  if (mag > 0) {
-    vector_2_scale(&dir, t_scale / mag , &dir);
-    vector_2_add(t_disp, &dir, t_disp);
-    r_scale *= mag;
-  }
+  vector_2 dir = get_from_smarts(sm, SM_MOVE);
+  translate(body,&dir, t_disp, r_disp);
   //also reorient so body is "facing" dir
-  double dir_theta = atan2(dir.v2, dir.v1);
-  if (dir_theta < 0) {
-    dir_theta += 2 * M_PI;
-  }
-  double diff = dir_theta - get_rotation(get_polygon(get_collider(body)));
-
-  if (abs(diff) > M_PI) {
-    if (diff > 0) {
-      diff = diff - 2 * M_PI;
-    }
-    else {
-      diff = diff + 2 * M_PI;
-    }
-
-  }
-  //fprintf(stderr, "diff is %f\n", diff);
-  *r_disp += r_scale * diff;
+  reorient(body, &dir, t_disp, r_disp);
 }
 
+void look_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
+  smarts* sm = get_compound_smarts(get_owner(body));
+  if (sm == NULL) {
+    return;
+  }
+  vector_2 c_dir = get_from_smarts(sm, SM_LOOK);
+  if (isCloseEnoughToZeroVec(&c_dir)) {
+    return;
+  }
+  reorient(body, &c_dir, t_disp, r_disp);
+  printf("\n\nrotation force of %f for vector", *r_disp);
+  print_vector(&c_dir);
+}
 
 //takes body, applys a constant force in direction of torsos velocity
 //paired with a tether between body and torso, holds body in front of torso
@@ -158,39 +158,49 @@ void holder_poltergeist(body* b, vector_2* t_disp, double* r_disp) {
   smarts* c_sm = get_compound_smarts(c);
   body* head = get_compound_head(c);
   vector_2 dir = *zero_vec, offset = *zero_vec;
-  double mag = 0, f = 0.2;
   double theta;
   vector_2 temp = *zero_vec;
-  virt_pos b_cent, head_cent;
   fizzle* fizz = get_fizzle(b);
   fizzle* base_fizz = get_base_fizzle(b);
-  b_cent = get_body_center(b);
-  head_cent = get_body_center(head);
-  vector_between_points(&head_cent, &b_cent, &offset);
-  dir = get_smarts_movement(c_sm);
+  offset = vector_between_bodies(head, b);
   theta = angle_of_vector(&offset);
-  if (!isZeroVec(&dir)) {
-    mag = vector_2_magnitude(&dir);
-    vector_2_scale(&dir, f / mag, &dir);
-    add_velocity(fizz, &dir);
-
-    if (offset.v1 <= 0) {
-      set_reflections(get_polygon(get_collider(b)), -1,1);
-      offset.v1 *= -1;
-      theta = angle_of_vector(&offset);
-    }
-    else {
-      set_reflections(get_polygon(get_collider(b)), 1,1);
-    }
-    push_shared_reflections(b);
-    set_rotation(get_polygon(get_collider(b)), theta);
-    //print_vector(&dir);
+  if (offset.v1 < 0) {
+    set_reflections(get_polygon(get_collider(b)), -1,1);
+    offset.v1 *= -1;
+    offset.v2 *= -1;
+    theta = angle_of_vector(&offset);
   }
-  //weird shit with tethers
+  else {
+    set_reflections(get_polygon(get_collider(b)), 1,1);
+  }
+  push_shared_reflections(b);
+  set_rotation(get_polygon(get_collider(b)), theta);
   get_tether(base_fizz, &temp);
   set_tether(base_fizz, zero_vec);
   add_tether(fizz, &temp);
-  //print_vector(&dir); 
-  //print_vector(&temp); 
-  //print_point(&head_cent);
+  
+  dir = get_from_smarts(c_sm, SM_MOVE);
+  translate(b, &dir, t_disp, r_disp);
+}
+
+void reorient(body* b, vector_2* vec, vector_2* t_disp, double* r_disp) {
+  vector_2 dir = *vec;
+  double r_scale = 0.04;
+  //also reorient so body is "facing" dir
+  double dir_theta = atan2(dir.v2, dir.v1);
+  double body_theta = get_rotation(get_polygon(get_collider(b)));
+  double diff = difference_of_radians(body_theta, dir_theta);
+  *r_disp += r_scale * diff;
+}
+
+void translate(body* b, vector_2* vec, vector_2* t_disp, double* r_disp) {
+  vector_2 dir = *vec;
+  double t_scale = .2;
+  double mag = vector_2_magnitude(&dir);
+  if (mag > 0) {
+    vector_2_scale(&dir, t_scale / mag , &dir);
+    vector_2_add(t_disp, &dir, t_disp);
   }
+}
+
+

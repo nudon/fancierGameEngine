@@ -84,4 +84,8 @@ void pull_shared_reflections(body* b);
 //defined in text driver currently
 int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp);
 
+int foreign_body(body* b1, body* b2);
+
+vector_2 vector_between_bodies(body* b1, body* b2);
+
 #endif

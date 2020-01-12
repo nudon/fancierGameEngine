@@ -45,6 +45,7 @@ int init_rend(SDL_Renderer** rend);
 camera* make_camera();
 void setCam(camera* cam);
 camera* getCam();
+void center_cam_on_body(body* body);
 void set_camera_center(camera* cam, virt_pos* cent);
 void update_corner(camera* cam);
 int getScreenWidth();

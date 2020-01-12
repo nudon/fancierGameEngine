@@ -13,10 +13,13 @@ body* quick_nopic_block(int width, int height);
 body* quick_block(int width, int height, char* fn);
 body* quick_tile_block(int width, int height, char* fn);
 
+void eyes(body* anchor);
+void hand(body* anchor);
 
 #define MAP_DIR "./maps/"
 char* ORIGIN_MAP_NAME = MAP_DIR"origin.map";
 char* BEACH_MAP_NAME = MAP_DIR"beach.map";
+char* BASIC_MAP_NAME = MAP_DIR"basic.map";
 
 
 
@@ -83,11 +86,11 @@ body* add_wall_to_room(room* r, int wall_type, double rel_start, double rel_end)
     wall = quick_block(width, height, DEF_FN);
     if (wall_type == ROOM_WALL_LEFT) {
       cent = calc_room_offset(r, -1, (rel_start + rel_end) * 0.5);
-      cent.x -= width;
+      //cent.x -= width  * 0.5;
     }
     else {
       cent = calc_room_offset(r, 1, (rel_start + rel_end) * 0.5);
-      cent.x += width;
+      //cent.x += width * 0.5 ;
     }
     offset_body(wall, &cent);
   }
@@ -97,15 +100,107 @@ body* add_wall_to_room(room* r, int wall_type, double rel_start, double rel_end)
     wall = quick_block(width, height, DEF_FN);
     if (wall_type == ROOM_WALL_TOP) {
       cent = calc_room_offset(r, (rel_start + rel_end) * 0.5, 1);
-      cent.y += height * 0.5;
+      //cent.y += height * 0.5;
     }
     else {
       cent = calc_room_offset(r, (rel_start + rel_end) * 0.5, -1);
-      cent.y -= height * 0.5;
+      //cent.y -= height * 0.5;
     }
     offset_body(wall, &cent);
   }
   return wall;
+}
+
+event* make_basic_vision_event(body* b) {
+  polygon* event_area = vision_triangle(150, 200, 0);
+  event* e = make_event(event_area);
+  set_event_by_name(e, "basic_decide_event");
+  add_event_to_body(b,e);
+  return e;  
+}
+
+//side vision, event should prioritize fast moving things, result is rotating body towards thing
+event* make_side_vision_event(body* b) {
+  polygon* event_area = vision_cone(150, 110, 5, 0);
+  event* e = make_event(event_area);
+  set_event_by_name(e, "side_sight");
+  add_event_to_body(b,e);
+  return e;  
+}
+
+//main vision, event should prioritize the closest thing in range, result is anaylzing thing in range and ?
+event* make_main_vision_event(body* b) {
+  polygon* event_area = vision_cone(220, 20, 2, 0);
+  event* e = make_event(event_area);
+  set_event_by_name(e, "main_sight");
+  add_event_to_body(b,e);
+  return e;  
+}
+
+//hearing, should behave like side vision by noticing things that are moving quickly
+event* make_hearing_event(body* b) {
+  polygon* event_area = createNormalPolygon(9);
+  set_scale(event_area, 20);
+  event* e = make_event(event_area);
+  set_event_by_name(e, "side_sight");
+  add_event_to_body(b,e);
+  return e;  
+}
+
+event* make_foot_step_event(body* b) {
+  polygon* area = clonePolygon(get_polygon(get_collider(b)));
+  event* e = make_event(area);
+  set_event_by_name(e, "foot_step");
+  add_event_to_body(b,e);
+  return e;
+}
+
+event* make_grab_event(body* b) {
+  polygon* area = clonePolygon(get_polygon(get_collider(b)));
+  set_scale(area, get_scale(area) + 3);
+  event* e = make_event(area);
+  set_event_by_name(e, "grab");
+  add_event_to_body(b,e);
+  set_auto_check(e, 0);
+  return e;
+}
+
+//making the cones of vision
+//just make an isosolece triangle of base_width and height
+//make an event out of it and attach to a body
+polygon* vision_cone(int radius, double theta_deg, int steps, double rot_off) {
+  double theta = theta_deg * DEG_2_RAD;
+  if (theta > M_PI) {
+    fprintf(stderr, "warning, theta for vision cone would be concave, capping it to a cemi-circle\n");
+    theta = M_PI;
+  }
+  polygon* cone = createPolygon(steps + 1);
+  virt_pos point = *zero_pos;
+  double theta_step = theta / steps;
+  rot_off -= theta / 2.0;
+  set_base_point(cone, 0, &point);
+  for (int i = 0; i < steps; i++) {
+    point = (virt_pos){.x = radius, .y = 0};
+    virt_pos_rotate(&point, i * theta_step + rot_off, &point);
+    set_base_point(cone, i + 1, &point);
+  }
+  generate_normals_for_polygon(cone);
+  return cone;
+  
+}
+
+polygon* vision_triangle(int base, int depth, double rot_off) {
+  polygon* tri = createPolygon(3);
+  virt_pos point = *zero_pos;
+  set_base_point(tri, 0, &point);
+  point = (virt_pos){.x = depth, .y = base / 2};
+  virt_pos_rotate(&point, rot_off, &point);
+  set_base_point(tri, 1, &point);
+  point = (virt_pos){.x = depth, .y = -base / 2};
+  virt_pos_rotate(&point, rot_off, &point);
+  set_base_point(tri, 2, &point);
+  generate_normals_for_polygon(tri);
+  return tri;
 }
 
 struct compound_spawner_struct {
@@ -137,7 +232,8 @@ compound_spawner* create_compound_spawner(char* name, int cap, int x_pos, int y_
     spawn->spawner = &makeSlime;
   }
   else if (strcmp(name, TEST_SPAWN) == 0) {
-    spawn->spawner = &tunctish;
+    //spawn->spawner = &tunctish;
+    spawn->spawner = &monkey;
   }
   else if (strcmp(name, TRASHCAN_SPAWN) == 0) {
     spawn->spawner = &makeTrashCan;
@@ -359,12 +455,15 @@ compound* makeCentipede(int segments) {
 
 compound* makeCrab() {
   compound* centComp = create_compound();
+  add_smarts_to_comp(centComp);
+  smarts* sm = get_compound_smarts(centComp);
+  att* bits = get_comp_attributes(sm);
   polygon* poly;
   collider* coll;
   fizzle* fizz;
   body* body;
   virt_pos* center = &(virt_pos){.x = 0, .y = 0};
-  poly = createRectangle(60, 40);
+  poly = createRectangle(90, 60);
 
   set_center(poly, center);
   coll = make_collider_from_polygon(poly);
@@ -374,9 +473,13 @@ compound* makeCrab() {
   set_bounce(fizz, 0.3);
   set_gravity(fizz, g);
   body = createBody(fizz, coll);
+  make_foot_step_event(body);
   add_body_to_compound(centComp, body);
 
   set_picture_by_name(body, CRAB_FN );
+
+  set_prey(bits, 1);
+  set_hunter(bits, 1);
 
   return centComp;
 }
@@ -421,90 +524,150 @@ compound* tunctish() {
   
   body* torso = makeNormalBody(13,7);
 
+  make_foot_step_event(torso);
+
+  set_body_center(torso, &center);
+  
+  poltergeist* torso_polt = make_poltergeist();
+  set_polt_by_name(torso_polt, "bb_polt");
+  set_poltergeist(torso, torso_polt);
+
+  tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
+  
+  set_shared_input_origin(*torso_si, torso, SI_CENTER);
+  
+  set_shared_input(torso, torso_si);
+  
+  add_body_to_compound(comp, torso);
+
+  eyes(torso);
+  hand(torso);
+  
+  set_compound_gravity(comp, g);
+
+
+  set_hunter(get_comp_attributes(get_compound_smarts(comp)), 1);
+  return comp;
+}
+
+compound* monkey() {
+  compound* comp = create_compound();
+  add_smarts_to_comp(comp);
+  shared_input** torso_si = create_shared_input_ref();
+  virt_pos center = (virt_pos){.x = 0, .y = 0};
+  
+  body* torso = makeNormalBody(13,4);
+
+  make_foot_step_event(torso);
+  
+  set_body_center(torso, &center);
+
+  poltergeist* torso_polt = make_poltergeist();
+  set_polt_by_name(torso_polt, "bb_polt");
+  set_poltergeist(torso, torso_polt);
+  
+  tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
+  
+  set_shared_input_origin(*torso_si, torso, SI_CENTER);
+  
+  set_shared_input(torso, torso_si);
+  add_body_to_compound(comp, torso);
+
+  eyes(torso);
+  hand(torso);
+  
+  set_compound_gravity(comp, g);
+
+
+  set_hunter(get_comp_attributes(get_compound_smarts(comp)), 1);
+  set_prey(get_comp_attributes(get_compound_smarts(comp)), 1);
+  return comp;
+}
+
+//parts
+void eyes(body* anchor) {
+  compound* comp = get_owner(anchor);
+  shared_input** si_ref = get_shared_input_ref(anchor);
+  
   body* left_eye_anchor = makeNormalBody(3,1);
   body* right_eye_anchor = makeNormalBody(3,1);
   body* left_eye = makeNormalBody(9, 2);
   body* right_eye = makeNormalBody(9, 2);
-  body* hand = makeNormalBody(3,3);
-
-  polygon* range = createNormalPolygon(9);
-  set_scale(range, 7.1);
-  event* foot_step_event = make_event(range);
-  set_event(foot_step_event, &foot_step);
-  add_event_to_body(torso, foot_step_event);
-
-  polygon* hand_range = createNormalPolygon(3);
-  set_scale(hand_range, 5);
-  event* grabber_event = make_event(hand_range);
-  set_event(grabber_event, &holder_grab_event);
-  set_auto_check(grabber_event, 0);
-  add_event_to_body(hand, grabber_event);
- 
-  int torso_bb_width = get_bb_width(get_collider(torso));
-  //int torso_bb_height = get_bb_height(get_collider(torso));
-
-  set_body_center(torso, &center);
-  virt_pos left_eye_p, right_eye_p;
-  polygon* torso_poly = get_polygon(get_collider(torso));
-  set_rotation(torso_poly, 0);
   
-  left_eye_p = get_center(torso_poly);
-  right_eye_p = get_center(torso_poly);
-  virt_pos eye_offset = (virt_pos){.x = torso_bb_width * -0.5 * .75,
-				   .y = torso_bb_width * -0.5 * 0.2};
+  make_side_vision_event(left_eye);
+  make_side_vision_event(right_eye);
+
+  make_main_vision_event(left_eye);
+  make_main_vision_event(right_eye);
+  
+  int anchor_width = get_bb_width(get_collider(anchor));
+  int anchor_height = get_bb_height(get_collider(anchor));
+  
+  virt_pos left_eye_p, right_eye_p;
+  polygon* a_poly = get_polygon(get_collider(anchor));
+  //set_rotation(a_poly, 0);
+  
+  left_eye_p = get_center(a_poly);
+  right_eye_p = get_center(a_poly);
+  virt_pos eye_offset = (virt_pos){.x = anchor_width * -0.5 * .75,
+				   .y = anchor_height * -0.5 * 0.2};
   virt_pos_add(&eye_offset, &left_eye_p, &left_eye_p);
   eye_offset.x *= -1;
   virt_pos_add(&eye_offset, &right_eye_p, &right_eye_p);
 
   set_body_center(left_eye_anchor, &left_eye_p);
   set_body_center(right_eye_anchor, &right_eye_p);
-  set_body_center(left_eye, &center);
-  set_body_center(right_eye, &center);
-
-  poltergeist* hand_polt = make_poltergeist();
-  set_polt_by_name(hand_polt, "hand_polt");
-  set_poltergeist(hand, hand_polt);
-
+  set_body_center(left_eye, &left_eye_p);
+  set_body_center(right_eye, &right_eye_p);
+  
+  poltergeist* eye_polt = make_poltergeist();
+  set_polt_by_name(eye_polt, "look_polt");
+  set_poltergeist(left_eye, eye_polt);
+  set_poltergeist(right_eye, eye_polt);
   
   tether* left_eye_tether = tether_bodies(left_eye_anchor, left_eye, one_way_tether);
   tether* right_eye_tether = tether_bodies(right_eye_anchor, right_eye, one_way_tether);
-  tether* hand_tether = tether_bodies(torso, hand, one_way_tether);
-  set_tether_k(hand_tether, .08);
-  //set_tether_k(hand_tether, 0.15);
-  //set_tether_distance(hand_tether, 80);
-  //hand_tether->tether_type = TETHER_SPRING;
-  
+    
   add_tether_to_compound(comp, left_eye_tether);
   add_tether_to_compound(comp, right_eye_tether);
-  add_tether_to_compound(comp, hand_tether);
   
-  tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
   tile_texture_for_body(left_eye, EYE_FN, 3,3,0,0);
   tile_texture_for_body(right_eye, EYE_FN, 3,3,0,0);
-  tile_texture_for_body(hand, BEACH_TREE_FN, 3,3,0,0);
   
-  set_shared_input_origin(*torso_si, torso, SI_CENTER);
-  
-  set_shared_input(torso, torso_si);
-  set_shared_input(left_eye_anchor, torso_si);
-  set_shared_input(right_eye_anchor, torso_si);
-
-  add_body_to_compound(comp, torso);
+  set_shared_input(left_eye_anchor, si_ref);
+  set_shared_input(right_eye_anchor, si_ref);
 
   add_body_to_compound(comp, left_eye_anchor);
-  add_body_to_compound(comp, right_eye_anchor);
+  //add_body_to_compound(comp, right_eye_anchor);
   
   add_body_to_compound(comp, left_eye);
-  add_body_to_compound(comp, right_eye);
+  //add_body_to_compound(comp, right_eye);
 
+  return;
+}
+
+void hand(body* anchor) {
+  compound* comp = get_owner(anchor);
+  body* hand = makeNormalBody(3,3);
+  make_grab_event(hand);
+  
+  poltergeist* hand_polt = make_poltergeist();
+  set_polt_by_name(hand_polt, "hand_polt");
+  set_poltergeist(hand, hand_polt);
+  
+  tether* hand_tether = tether_bodies(anchor, hand, one_way_tether);
+  set_tether_k(hand_tether, .08);
+  add_tether_to_compound(comp, hand_tether);
+  
+  tile_texture_for_body(hand, DEF_FN, 3,3,0,0);
+  
   add_body_to_compound(comp, hand);
   
-  set_compound_gravity(comp, g);
-
-
-  
-  return comp;
+  return;
 }
+////
+
+
 
 
 compound* makeTrashCan() {
@@ -599,6 +762,7 @@ void make_compound_user(compound* comp) {
   set_poltergeist(head, polt);
   set_user(comp_att, 1);
   set_travel(comp_att, 1);
+  center_cam_on_body(head);
 }
 
 //just some standard map transitions, 
@@ -612,15 +776,13 @@ void write_maps_to_disk() {
   map* aMap = NULL;
   FILE* mapFile = NULL;
   
-  /*
-    aMap = make_origin_map();
-    mapFile = fopen(ORIGIN_MAP_NAME, "w+");
-    xml_write_map(mapFile, aMap);
-    fclose(mapFile);
-  */
-  
   aMap = make_beach_map();
   mapFile = fopen(BEACH_MAP_NAME, "w+");
+  xml_write_map(mapFile, aMap);
+  fclose(mapFile);
+
+  aMap = make_basic_map();
+  mapFile = fopen(BASIC_MAP_NAME, "w+");
   xml_write_map(mapFile, aMap);
   fclose(mapFile);
   
@@ -650,14 +812,15 @@ map* make_origin_map() {
   plane* plane = create_plane(map, MAIN_PLANE_NAME);
   virt_pos center = (virt_pos){.x = getScreenWidth() / 2, .y = getScreenHeight() / 2};
 
-  //compound* user = makeCrab(center.x, center.y);
-  compound* user = tunctish();
-  //compound* user = makeTrashCan(center.x, center.y);
+  compound* user = makeCrab();
+  //compound* user = tunctish();
+  //compound* user = makeTrashCan();
   make_compound_user(user);
   add_compound_to_plane(plane, user);
   offset_compound(user, &center);
 
   insert_load_zone_into_plane(ORIGIN_MAP_NAME, BEACH_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
+  //insert_load_zone_into_plane(ORIGIN_MAP_NAME, BASIC_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
   add_plane(origin_map, plane);
   return origin_map;
 }
@@ -696,7 +859,10 @@ map* make_beach_map() {
 
   virt_pos monster_offset = calc_room_offset(&starting_room,-0.5, -0.9);
   compound_spawner* monster_spawn = create_compound_spawner(TEST_SPAWN, -1, monster_offset.x, monster_offset.y);
-  //add_spawner_to_plane(main, monster_spawn);
+  add_spawner_to_plane(main, monster_spawn);
+  
+  gohei_spawn = create_compound_spawner(GOHEI_SPAWN, -1, monster_offset.x, monster_offset.y);
+  add_spawner_to_plane(main, gohei_spawn);
   
   
   body* left_wall = add_wall_to_room(&starting_room, ROOM_WALL_LEFT, -1,1);
@@ -754,4 +920,41 @@ map* make_beach_map() {
   add_plane(beach, main);
   add_plane(beach, fg);
   return beach;
+}
+
+map* make_basic_map() {
+  map* basic = create_map(BASIC_MAP_NAME);
+
+  int map_width = getScreenWidth() * 1.5;
+  int map_height = getScreenHeight() * 1.5;
+  virt_pos cent = (virt_pos){.x = map_width * 0.5, .y = map_height * 0.5};
+  room starting_room;
+  init_room(&starting_room, &cent, map_width * 0.8, map_height * 0.8);
+  int cols = 20;
+  int rows = 14;
+  int width = map_width / cols;
+  int height = map_height / rows;
+
+  spatial_hash_map* map = create_shm(width, height, cols, rows);
+
+
+  plane* main = create_plane(map, MAIN_PLANE_NAME);
+
+  
+  body* left_wall = add_wall_to_room(&starting_room, ROOM_WALL_LEFT, -1,1);
+  body* right_wall = add_wall_to_room(&starting_room, ROOM_WALL_RIGHT, -1,1);
+  body* down_wall = add_wall_to_room(&starting_room, ROOM_WALL_BOTTOM, -1, 1);
+  body* up_wall = add_wall_to_room(&starting_room, ROOM_WALL_TOP, -1, 1);
+  
+  compound* wall_comp = create_compound();
+  add_body_to_compound(wall_comp, left_wall);
+  add_body_to_compound(wall_comp, right_wall);
+  add_body_to_compound(wall_comp, down_wall);
+  add_body_to_compound(wall_comp, up_wall);
+  add_compound_to_plane(main, wall_comp);
+  
+  
+  
+  add_plane(basic, main);
+  return basic;
 }

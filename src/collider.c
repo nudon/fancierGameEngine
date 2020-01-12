@@ -229,16 +229,19 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
   double orig_rot = get_rotation(poly);
   set_rotation(poly, 0);
   double min, max, x_len, y_len;
-  double rots[3];
-  double areas[3];
+  double rots[2];
+  double areas[2];
+  double mid;
   int rot_index;
   rots[0] = 0;
   rots[1] = M_PI / 4;
-  double rot_threshold = M_PI / 256;
+  double area_thresh = 1;
   virt_pos cent = get_center(poly);
-  while(rots[1] - rots[0] > rot_threshold) {
-    rots[2] = (rots[1] + rots[0] )/ 2;
-    for (int i = 0; i < 3; i++) {
+  areas[0] = 0;
+  areas[1] = area_thresh + 1;
+  while(fabs(areas[0] - areas[1]) > area_thresh) {
+    mid = (rots[1] + rots[0] )/ 2;
+    for (int i = 0; i < 2; i++) {
       set_rotation(poly, rots[i]);
       extreme_projections_of_polygon(poly, &cent, x_axis, &min, &max);
       x_len = fabs(max - min);
@@ -247,11 +250,11 @@ void find_bb_for_polygon(polygon* poly, polygon* result) {
       areas[i] = y_len * x_len;
     }
     if (areas[0] < areas[1]) {
-      rots[1] = rots[2];
+      rots[1] = mid;
       rot_index = 0;
     }
     else {
-      rots[0] = rots[2];
+      rots[0] = mid;
       rot_index = 1;
     }
   }

@@ -31,9 +31,8 @@ map* make_street_map();
 
 
 map* load_origin_map();
-map* load_room_map();
-map* load_streets_map();
 map* make_beach_map();
+map* make_basic_map();
 map* load_map_by_name(char* name);
 
 void write_maps_to_disk();
@@ -42,6 +41,7 @@ void write_maps_to_disk();
 compound* makeCrab();
 compound* makeSlime();
 compound* tunctish();
+compound* monkey();
 compound* makeTrashCan();
 compound* makeGohei();
 

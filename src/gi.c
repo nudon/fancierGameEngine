@@ -91,8 +91,10 @@ struct compound_stats_struct {
 };
 
 struct compound_memory_struct{
+  ad_vec look;
   ad_vec danger;
   ad_vec helpfull;
+  ad_vec attack;
   ad_vec movement;
 };
 
@@ -312,8 +314,10 @@ void free_comp_stats(comp_stats* rm) {
 
 comp_memory* make_comp_memory() {
   comp_memory* new = malloc(sizeof(comp_memory));
+  init_ad_vec(&new->look, zero_vec, 0.1);
   init_ad_vec(&new->movement, zero_vec, COMP_MOVE_ALPHA);
   init_ad_vec(&new->helpfull, zero_vec, 0.5);
+  init_ad_vec(&new->attack, zero_vec, 0.5);
   init_ad_vec(&new->danger, zero_vec, 0.5);
   return new;
 }
@@ -324,6 +328,7 @@ void free_comp_memory(comp_memory* rm) {
 
 void update_comp_memory(comp_memory* c_mem) {
   double dt_scale = get_dT() * FPS;
+  timed_calc_ad_vec(&c_mem->look, dt_scale);
   timed_calc_ad_vec(&c_mem->movement, dt_scale);
   timed_calc_ad_vec(&c_mem->helpfull, dt_scale);
   timed_calc_ad_vec(&c_mem->danger, dt_scale);
@@ -353,102 +358,56 @@ void set_comp_attributes(smarts* sm, att* atts) {
 compound* get_smarts_compound(smarts* sm) {
   return sm->c;
 }
-
-///old stuff to be transfered
-
-event* make_basic_vision_event(body* b) {
-  polygon* event_area = vision_triangle(150, 200, 0);
-  event* e = make_event(event_area);
-  set_event(e, basic_decide_event);
-  add_event_to_body(b,e);
-  return e;  
-}
-
-//side vision, event should prioritize fast moving things, result is rotating body towards thing
-event* make_side_vision_event(body* b) {
-  polygon* event_area = vision_cone(150, 110, 5, 0);
-  event* e = make_event(event_area);
-  //set_event(e, basic_decide_event);
-  add_event_to_body(b,e);
-  return e;  
-}
-
-//main vision, event should prioritize the closest thing in range, result is anaylzing thing in range and ?
-event* make_main_vision_event(body* b) {
-  polygon* event_area = vision_cone(220, 20, 2, 0);
-  event* e = make_event(event_area);
-  //set_event(e, basic_decide_event);
-  add_event_to_body(b,e);
-  return e;  
-}
-
-//hearing, should behave like side vision by noticing things that are moving quickly
-event* make_hearing_event(body* b) {
-  polygon* event_area = createNormalPolygon(9);
-  set_scale(event_area, 20);
-  event* e = make_event(event_area);
-  //set_event(e, basic_decide_event);
-  add_event_to_body(b,e);
-  return e;  
-}
-
-
 //visual systmes
 
-//making the cones of vision
-//just make an isosolece triangle of base_width and height
-//make an event out of it and attach to a body
 
-polygon* vision_cone(int radius, double theta_deg, int steps, double rot_off) {
-  double theta = theta_deg * DEG_2_RAD;
-  if (theta > M_PI) {
-    fprintf(stderr, "warning, theta for vision cone would be concave, capping it to a cemi-circle\n");
-    theta = M_PI;
+void add_to_smarts(smarts* sm, char* tag, vector_2* add) {
+  int b = sm->b != NULL;
+  if (strcmp(tag, SM_ATTACK) == 0) {
+    add_to_ad_vec(&sm->c_mem->attack, add);
   }
-  polygon* cone = createPolygon(steps);
-  virt_pos point = *zero_pos;
-  double theta_step = theta / steps;
-  rot_off -= theta / 2.0;
-  for (int i = 0; i < steps; i++) {
-    point = (virt_pos){.x = radius, .y = 0};
-    virt_pos_rotate(&point, i * theta_step + rot_off, &point);
-    set_base_point(cone, i, &point);
+  else if (strcmp(tag, SM_MOVE) == 0) {
+    if (b) {
+      add_to_ad_vec(&sm->b_mem->movement, add);
+    }
+    else {
+      add_to_ad_vec(&sm->c_mem->movement, add);
+    }
   }
-  generate_normals_for_polygon(cone);
-  return cone;
-  
-}
-
-polygon* vision_triangle(int base, int depth, double rot_off) {
-  polygon* tri = createPolygon(3);
-  virt_pos point = *zero_pos;
-  set_base_point(tri, 0, &point);
-  point = (virt_pos){.x = depth, .y = base / 2};
-  virt_pos_rotate(&point, rot_off, &point);
-  set_base_point(tri, 1, &point);
-  point = (virt_pos){.x = depth, .y = -base / 2};
-  virt_pos_rotate(&point, rot_off, &point);
-  set_base_point(tri, 2, &point);
-  generate_normals_for_polygon(tri);
-  return tri;
-}
-
-void add_to_smarts_movement(smarts* sm, vector_2* add) {
-  if (sm->b != NULL) {
-    add_to_ad_vec(&sm->b_mem->movement, add);
+  else if (strcmp(tag, SM_LOOK) == 0) {
+    add_to_ad_vec(&sm->c_mem->look, add);
   }
-  else if (sm->c != NULL) {
-    add_to_ad_vec(&sm->c_mem->movement, add);
+  else if (strcmp(tag, SM_DANGER) == 0) {
+    add_to_ad_vec(&sm->c_mem->danger, add);
+  }
+  else if (strcmp(tag, SM_USEFULL) == 0) {
+    add_to_ad_vec(&sm->c_mem->helpfull, add);
   }
 }
 
-vector_2 get_smarts_movement(smarts* sm) {
-  if (sm->b != NULL) {
-    return get_ad_vec(&sm->b_mem->movement);
+vector_2 get_from_smarts(smarts* sm, char* tag) {
+  int b = sm->b != NULL;
+  if (strcmp(tag, SM_ATTACK) == 0) {
+    return get_ad_vec(&sm->c_mem->attack);
   }
-  else if (sm->c != NULL) {
-    return get_ad_vec(&sm->c_mem->movement);
+  else if (strcmp(tag, SM_MOVE) == 0) {
+    if (b) {
+      return get_ad_vec(&sm->b_mem->movement);
+    }
+    else {
+      return get_ad_vec(&sm->c_mem->movement);
+    }
   }
+  else if (strcmp(tag, SM_LOOK) == 0) {
+    return get_ad_vec(&sm->c_mem->look);
+  }
+  else if (strcmp(tag, SM_DANGER) == 0) {
+    return get_ad_vec(&sm->c_mem->danger);
+  }
+  else if (strcmp(tag, SM_USEFULL) == 0) {
+    return get_ad_vec(&sm->c_mem->helpfull);
+  }
+  fprintf(stderr, "error, couldn't find vector with name \"%s\"\n", tag);
   return *zero_vec;
 }
 
@@ -517,11 +476,12 @@ void pickup_action(compound* c) {
     events = get_body_events(b)->start;
     while(!done && events!=NULL) {
       e = (event*)events->stored;
-      if (strcmp(get_event_name(e), "holder_grab") == 0) {
+      if (strcmp(get_event_name(e), "grab") == 0 && get_shared_input(b) == NULL) {
 	check_event(shm, e);
 	if (get_shared_input(b) != NULL) {
 	  set_temp_owner(get_shared_input(b), c);
 	  done = 1;
+	  printf("picked up\n");
 	}
       }
       events = events->next;
@@ -536,29 +496,33 @@ void throw_action(compound* c) {
   gen_node* events;
   body* b;
   event* e;
-  /*
-  smarts* b_sm;
-  att* b_atts;
-  */
   shared_input* si = NULL;
   int done = 0;
+  vector_2 throw_f = *zero_vec;
+  double throw_s = 6;
+  fizzle* obj_f = NULL;
   while(!done && curr!=NULL) {
     b = (body*)curr->stored;
     events = get_body_events(b)->start;
     while(!done && events!=NULL) {
       e = (event*)events->stored;
-      if (strcmp(get_event_name(e), "holder_grab") == 0) {
+      if (strcmp(get_event_name(e), "grab") == 0) {
 	//so far holders are individual bodies that use other compounds si
 	//removing should si will release object
 	si = get_shared_input(b);
 	if (si != NULL) {
+	  obj_f = get_fizzle(b);
 	  un_set_shared_input(b);
 	  un_set_temp_owner(si);
+	  get_tether(get_fizzle(b), &throw_f);
+	  vector_2_scale(&throw_f, -1 * throw_s, &throw_f);
+	  add_tether(obj_f, &throw_f);
 	  //also need to reset holdable attributes
 	  compound* c = get_smarts_compound(get_body_smarts(get_shared_input_tracking_body(si)));
 	  att* atts = get_comp_attributes(get_compound_smarts(c));
 	  set_holdable(atts, 1);					  
 	  done = 1;
+	  printf("thrown\n");
 	}
       }
       events = events->next;
@@ -589,3 +553,47 @@ void un_set_temp_owner(shared_input* si) {
     curr = curr->next;
   }
 }
+
+vector_2 vision_inv_distance_scale(vector_2* vec) {
+  double mag = vector_2_magnitude(vec);
+  double eq = 100;
+  double scale = 0;
+  vector_2 ret = *zero_vec;
+  if (mag == 0) {
+    fprintf(stderr, "warning, gave zero_vec for line of sight to inv_distance_scale\n"); 
+    return ret;
+  }
+  if (mag < eq) {
+    scale = 1;
+  }
+  else {
+    scale = eq / mag;
+  }
+  scale *= eq / mag;
+  vector_2_scale(vec, scale, &ret);
+  return ret;
+}
+
+vector_2 vision_speed_scale(vector_2* vec, vector_2* velocity) {
+  double mag = vector_2_magnitude(vec);
+  double vel = vector_2_magnitude(velocity);
+  double eq = 50;
+  double  scale;
+  vector_2 ret = *zero_vec;
+  if (vel == 0) {
+    fprintf(stderr, "warning, gave zero_vec for line of sight to speed_scale\n"); 
+    scale = 0;
+    return ret;
+  }
+  if (vel < eq) {
+    scale = vel / eq;
+  }
+  else {
+    scale = 1;
+  }
+  scale *= eq / mag;
+  vector_2_scale(vec, scale, &ret);
+  return ret;
+}
+ 
+ 
