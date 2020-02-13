@@ -18,11 +18,13 @@ poltergeist* make_poltergeist();
 
 void give_standard_poltergeist(poltergeist* polt);
 void give_user_poltergeist(poltergeist* polt);
+void give_builder_poltergeist(poltergeist* polt);
 
 void apply_poltergeist(poltergeist* polt, struct body_struct* body, vector_2* t_disp, double* r_disp);
 
 void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp);
 void user_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp);
+void builder_poltergeist(body* builder, vector_2* t_disp, double* r_disp);
 void standard_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp);
 void look_poltergeist(body* body, vector_2* t_disp, double* r_disp);
 void holder_poltergeist(body* b, vector_2* t_disp, double* r_disp);

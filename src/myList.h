@@ -28,25 +28,25 @@ typedef struct gen_list_struct gen_list;
 
 */
 
-void appendToGen_list(gen_list* list, gen_node* new);
-void prependToGen_list(gen_list* list, gen_node* new);
-void removeFromGen_list(gen_list* list, gen_node* node);
+void list_append(gen_list* list, gen_node* new);
+void list_prepend(gen_list* list, gen_node* new);
+void list_remove(gen_list* list, gen_node* node);
 
-int add_if_unique_data(gen_list* list, gen_node* node);
+int list_unique_add(gen_list* list, gen_node* node);
 
-int already_in_a_list(gen_node* node);
+int already_in_list(gen_node* node);
 
 void remove_node(gen_node* node);
 
-gen_list* createGen_list();
+gen_list* create_gen_list();
 
-void initGen_list(gen_list* new);
+void init_gen_list(gen_list* new);
 
-gen_node* createGen_node(void* data);
+gen_node* create_gen_node(void* data);
 
-void freeGen_node(gen_node* old);
+void free_gen_node(gen_node* old);
 
-void freeGen_list(gen_list* old);
+void free_gen_list(gen_list* old);
 
 void set_data(gen_node* n, void* d);
 void* get_data(gen_node* n);

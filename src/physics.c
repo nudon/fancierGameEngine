@@ -21,6 +21,9 @@ tether* default_tether = &((tether){.point_1 = NULL, .point_2 = NULL, .fizz_1 = 
 
 tether* one_way_tether = &((tether){.point_1 = NULL, .point_2 = NULL, .fizz_1 = NULL, .fizz_2 = NULL, .weight_1 = 0, .weight_2 = 1, .tether_k = .45, .tether_distance = 2, .tether_type = TETHER_ROPE});
 
+tether* rev_one_way_tether = &((tether){.point_1 = NULL, .point_2 = NULL, .fizz_1 = NULL, .fizz_2 = NULL, .weight_1 = 1, .weight_2 = 0, .tether_k = .45, .tether_distance = 2, .tether_type = TETHER_ROPE});
+
+
 double timeInMS() {
   struct timespec curr;
   clock_gettime(CLOCK_REALTIME, &curr);

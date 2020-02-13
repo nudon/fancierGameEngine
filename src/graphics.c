@@ -18,8 +18,8 @@ static int SCREEN_HEIGHT = 480;
 
 int FPS = 60;
 
-double x_virt_to_pixel_scale = 1.0 / 1.5;
-double y_virt_to_pixel_scale = 1.0 / 1.5;
+double x_virt_to_pixel_scale = 1.0 / 2;
+double y_virt_to_pixel_scale = 1.0 / 2;
 
 picture* def_pic = NULL;
 
@@ -165,10 +165,11 @@ camera* getCam(){
 void center_cam_on_body(body* body) {
   static int cam_init = 0;
   polygon* p = get_polygon(get_collider(body));
-  if (!cam_init) {
-    set_camera_center(getCam(), read_only_polygon_center(p));
-    cam_init = 1;
+  if (cam_init) {
+    fprintf(stderr, "warning, setting camera on a new body\n");
   }
+  set_camera_center(getCam(), read_only_polygon_center(p));
+  cam_init = 1;
 }
 
 void set_camera_center(camera* cam, virt_pos* cent) {
@@ -247,14 +248,14 @@ void myDrawCirc(int x, int y, int rad) {
 
 //game constructs 
 
-void draw_plane(plane* plane, camera* cam) {
+void draw_plane(camera* cam, plane* plane) {
   gen_node* curr_compound;
   compound* temp;
   SDL_SetRenderDrawColor(cam->rend,0,0,0,SDL_ALPHA_OPAQUE);
   curr_compound = get_compounds(plane)->start;
   while (curr_compound != NULL) {
     temp = (compound*)curr_compound->stored;
-    draw_compound(temp, cam);
+    draw_compound(cam, temp);
     curr_compound = curr_compound->next;
   }
   //draw_hash_map(cam, get_shm(plane)); 
@@ -266,7 +267,7 @@ void draw_map(camera* cam, map* map) {
   plane* p = NULL;
   while(curr != NULL) {
     p = (plane*)curr->stored;
-    draw_plane(p, cam);
+    draw_plane(cam, p);
     curr = curr->next;
   }
   SDL_SetRenderDrawColor(cam->rend, 0, 0, 255, SDL_ALPHA_OPAQUE);
@@ -409,7 +410,7 @@ void drawWallIndication(camera* cam, SDL_Rect* rect) {
   }
 }
 
-void draw_compound(compound* c, camera* cam) {
+void draw_compound(camera* cam, compound* c) {
   SDL_SetRenderDrawColor(cam->rend, 255, 0, 0, SDL_ALPHA_OPAQUE);
   gen_node* curr = get_bodies(c)->start;
   body* temp_body = NULL;

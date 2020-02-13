@@ -151,7 +151,7 @@ void check_event(spatial_hash_map* map, event* e) {
     set_center(eventPoly, &temp);
   }
   entries_for_collider(map, area, cells);
-  initGen_list(&hits);
+  init_gen_list(&hits);
   store_unique_colliders_in_list(map, cells, &hits);
   aHit = hits.start;
   while(aHit != NULL) {

@@ -5,8 +5,11 @@
 #define FOREGROUND_PLANE_NAME "foreground"
 #define MAIN_PLANE_NAME "main"
 
-#define TRASHCAN_SPAWN "trashcan_spawn"
-#define BLUE_SLIME_SPAWN "blue_slime_spawn"
-#define TEST_SPAWN "test_spawn"
-#define GOHEI_SPAWN "gohei_spawn"
+#define MAP_DIR "./maps/"
+#define ORIGIN_MAP_NAME MAP_DIR"origin.map" 
+#define BEACH_MAP_NAME MAP_DIR"beach.map" 
+#define BASIC_MAP_NAME MAP_DIR"basic.map" 
+#define SUBWAY_CAR_MAP_NAME MAP_DIR"subwaycar.map"
+
+
 #endif

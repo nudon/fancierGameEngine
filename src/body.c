@@ -263,7 +263,7 @@ body* createBody(fizzle* fizz, struct collider_struct* coll) {
   coll->body = new;
   new->owner = NULL;
   new->pic = NULL;
-  new->event_list = createGen_list();
+  new->event_list = create_gen_list();
   new->status = 0;
   new->pic = make_picture(NULL);
   new->uniform_input = NULL;
@@ -279,7 +279,7 @@ body* cloneBody(body* src) {
   new->coll->body = new;
   new->owner = NULL;
   new->pic = src->pic;
-  new->event_list = createGen_list();
+  new->event_list = create_gen_list();
   //new->status = 0;
   new->uniform_input = NULL;
   if (src->smarts != NULL) {
@@ -296,6 +296,7 @@ void free_body(body* rm) {
   free_fizzle(rm->fizz);
   free_collider(rm->coll);
   free_shared_input_ref(rm->uniform_input);
+  free_body_smarts(rm);
   free(rm);
 }
 
@@ -335,6 +336,11 @@ void set_body_center(body* b, virt_pos* vp) {
   set_center(get_polygon(get_collider(b)), vp);
 }
 
+void set_body_gravity(body* b, vector_2* grav) {
+  set_gravity(get_fizzle(b), grav);
+  set_gravity(get_base_fizzle(b), grav);    
+}
+
 picture* get_picture(body* aBody) {
   return aBody->pic;
 }
@@ -360,7 +366,7 @@ void set_picture_by_name(body* aBody, char* fn) {
 
 
 void add_event_to_body(body* b, event* e) {
-  prependToGen_list(b->event_list, createGen_node(e));
+  list_prepend(b->event_list, create_gen_node(e));
   set_event_body(e, b);
 }
 
@@ -374,7 +380,7 @@ void resolve_collisions(spatial_hash_map* map, body* main_body) {
   
   vector* occupied = main_coll->collider_node->active_cells;
   gen_list list;
-  initGen_list(&list);
+  init_gen_list(&list);
   store_unique_colliders_in_list(map, occupied, &list);
   gen_node* currNode = list.start;
   body* currBody;

@@ -136,6 +136,18 @@ void add_smarts_to_body(body* b) {
   sm->c_atts = c_sm->c_atts;
 }
 
+void free_body_smarts(body* b) {
+  smarts* sm = get_body_smarts(b);
+  if (sm == NULL) {
+    return;
+  }
+  set_body_smarts(b, NULL);
+  free_body_stats(sm->b_stats);
+  free_body_memory(sm->b_mem);
+  free_attributes(sm->b_atts);
+
+}
+
 void add_smarts_to_comp(compound* c) {
   smarts* sm = get_compound_smarts(c);
   if (sm == NULL) {
@@ -150,6 +162,18 @@ void add_smarts_to_comp(compound* c) {
     sm->c_mem = make_comp_memory();
   }
   sm->c = c;
+}
+
+
+void free_compound_smarts(compound* c) {
+  smarts* sm = get_compound_smarts(c);
+  if (sm == NULL) {
+    return;
+  }
+  set_compound_smarts(c, NULL);
+  free_comp_stats(sm->c_stats);
+  free_comp_memory(sm->c_mem);
+  free_attributes(sm->c_atts);
 }
 
 void update_smarts(smarts* sm) {

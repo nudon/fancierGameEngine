@@ -41,8 +41,6 @@ int matrix_index_hash(void* i) {
   return m->y_index * m->y_index * 13 + m->x_index * m->x_index * 7;
 }
 
-
-
 int update(spatial_hash_map* map, collider* coll, virt_pos* displace, double rot) {
   polygon* poly = get_polygon(coll);
   int change = 0;
@@ -108,11 +106,13 @@ collider_ref* get_collider_ref(collider* coll) { return coll->collider_node; }
 
 void free_collider(collider* rm) {
   collider_ref* cr = rm->collider_node;
-  int size = cr->max_ref_amount;
-  for (int i = 0; i < size; i++) {
-    remove_node(cr->active_cell_nodes[i]);
+  if (cr != NULL) {
+    int size = cr->max_ref_amount;
+    for (int i = 0; i < size; i++) {
+      remove_node(cr->active_cell_nodes[i]);
+    }
+    free_cr(cr);
   }
-  free_cr(cr);
   set_center(rm->bbox, NULL);
   freePolygon(rm->shape);
   freePolygon(rm->bbox);
@@ -124,11 +124,11 @@ void free_cr(collider_ref* cr) {
   //clean & free list nodes
   for (int i = 0; i < size; i++) {
     remove_node(cr->active_cell_nodes[i]);
-    freeGen_node(cr->active_cell_nodes[i]);
+    free_gen_node(cr->active_cell_nodes[i]);
   }
   //free collider node
   remove_node(cr->cr_node);
-  freeGen_node(cr->cr_node);
+  free_gen_node(cr->cr_node);
   
   //then free vectors
   matrix_index* m = NULL;
@@ -202,7 +202,7 @@ void set_cr_vectors(collider* coll, collider_ref* node, box* cell_dim) {
 
 
   for(int i = 0; i < size; i++) {
-    node->active_cell_nodes[i] = createGen_node(node);
+    node->active_cell_nodes[i] = create_gen_node(node);
     setElementAt(node->active_cells,i, createMatrixIndex());
     setElementAt(node->old_cells,i, createMatrixIndex());
   }
@@ -441,7 +441,7 @@ void remove_collider_from_shm_entries(spatial_hash_map* map, collider_ref* node,
     cell = get_entry_in_shm(map, elementAt(entries_to_clear,i));
     if (cell  != NULL) {
       list_node = node->active_cell_nodes[i];
-      removeFromGen_list(cell->colliders_in_cell, list_node);
+      list_remove(cell->colliders_in_cell, list_node);
     }
     i++;
   }
@@ -458,7 +458,7 @@ void add_collider_to_shm_entries(spatial_hash_map* map, collider_ref* node, vect
     if (cell  != NULL) {
       list_node = node->active_cell_nodes[i];
       remove_node(list_node);
-      prependToGen_list(cell->colliders_in_cell, list_node);
+      list_prepend(cell->colliders_in_cell, list_node);
     }
     i++;
   }
@@ -484,7 +484,7 @@ int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_l
 	    assert(0 && "Have old list references, stop that");
 	  }
 	  */
-	  prependToGen_list(result, collider_cr_node);
+	  list_prepend(result, collider_cr_node);
 	}
 	curr = curr->next;
       }
@@ -510,7 +510,7 @@ collider_ref* make_cr_from_collider(collider* coll) {
   collider_ref* new = malloc(sizeof(collider_ref));
   new->collider = coll;
   new->status = DEFAULT;
-  new->cr_node = createGen_node(coll);
+  new->cr_node = create_gen_node(coll);
   coll->collider_node = new;
   new->table = create_hash_table( matrix_index_compare, matrix_index_hash, 0);
   return new;
@@ -554,7 +554,7 @@ void free_shm(spatial_hash_map* rm) {
 
 spatial_map_cell* create_shm_cell() {
   spatial_map_cell* new = malloc(sizeof(spatial_map_cell));
-  new->colliders_in_cell = createGen_list();
+  new->colliders_in_cell = create_gen_list();
   return new;
 }
 
@@ -563,7 +563,7 @@ void free_shm_cell(void* rmv) {
   //can free colliders within freeNpc or other freeObject functions
   //this just needs to clean up the gen_list for now.
   spatial_map_cell* rm = (spatial_map_cell*)rmv;
-  freeGen_list(rm->colliders_in_cell);
+  free_gen_list(rm->colliders_in_cell);
   free(rm);
 }
 

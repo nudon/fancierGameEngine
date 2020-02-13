@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <libxml/parser.h>
 #include "map_io.h"
+#include "objects.h"
 
 map* xml_read_map(xmlNodePtr map_node);
 
@@ -64,6 +65,7 @@ map* load_map(char* filename) {
 }
 
 void xml_write_map(FILE* file_out, map* map) {
+  prep_for_save(map);
   fprintf(file_out, "<map id=\"%s\">\n", get_map_name(map));
   gen_node* curr = get_planes(map)->start;
   plane* aPlane = NULL;
@@ -230,6 +232,9 @@ compound_spawner* xml_read_spawner(xmlNodePtr spawn_node) {
 }
 
 void xml_write_compound(FILE* file_out, compound* comp) {
+  if (get_spawner_p(comp) != NULL) {
+    return;
+  }
   fprintf(file_out, "<compound>\n");
   gen_node* cur = get_bodies(comp)->start;
   while(cur != NULL) {
@@ -284,7 +289,7 @@ body* xml_read_body(xmlNodePtr body_node) {
   collider* coll = NULL;
   polygon* poly = NULL;
   picture* pic = NULL;
-  gen_list* temp_event_list = createGen_list();
+  gen_list* temp_event_list = create_gen_list();
   event* e = NULL;
   poltergeist* polt = NULL;
   char* text = (char*)xmlGetProp(body_node, (const xmlChar*)"poltergeist");
@@ -307,7 +312,7 @@ body* xml_read_body(xmlNodePtr body_node) {
   while(child != NULL) {
     if (xmlStrcmp(child->name, (const xmlChar*)"event") == 0) {
       e = xml_read_event(child);
-      prependToGen_list(temp_event_list, createGen_node(e));
+      list_prepend(temp_event_list, create_gen_node(e));
     }
     child = child->next;
   }
@@ -321,7 +326,7 @@ body* xml_read_body(xmlNodePtr body_node) {
     add_event_to_body(body, e);
     curr = curr->next;
   }
-  freeGen_list(temp_event_list);
+  free_gen_list(temp_event_list);
   return body;
 }
 

@@ -36,4 +36,6 @@ event* get_lz_event(load_zone* lz);
 int trigger_map_change(load_zone* lz, compound* trav);
 void check_load_triggers(map* map);
 
+void refund_spawners_in_map(map* m);
+
 #endif

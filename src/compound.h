@@ -6,10 +6,13 @@ typedef struct compound_struct compound;
 #include "body.h"
 #include "myList.h"
 #include "attributes.h"
+#include "objects.h"
 #include "gi.h"
 
 compound* create_compound();
 body* get_compound_head(compound* c);
+void set_spawner_p(compound* c, compound_spawner* cs);
+compound_spawner* get_spawner_p(compound* c);
 compound* mono_compound(body* b);
 
 gen_list* get_bodies(compound* comp);
@@ -36,4 +39,5 @@ void set_compound_gravity(compound* c, vector_2* grav);
 void set_compound_smarts(compound* c, smarts* sm);
 smarts* get_compound_smarts(compound * c);
 
+void free_compound(compound* rm);
 #endif

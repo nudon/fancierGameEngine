@@ -4,6 +4,7 @@
 #include "input.h"
 #include "geometry.h"
 #include "util.h"
+#include "builder.h"
 //so, library is responsible for moving things
 //kind of general, want movement to handle projectile, simple geometric movements, as well as playable and npc character movement
 
@@ -77,6 +78,16 @@ void give_standard_poltergeist(poltergeist* polt) {
   polt->posession = &standard_poltergeist;
 }
 
+static int BUILD_POLT = 0;
+
+void give_builder_poltergeist(poltergeist* polt) {
+  if (BUILD_POLT) {
+    assert( 0 && "created 2 builders\n");
+  }
+  polt->posession = &builder_poltergeist;
+  BUILD_POLT = 1;
+}
+
 static int USER_POLTERGEIST = 0;
 
 void give_user_poltergeist(poltergeist* polt) {
@@ -105,6 +116,10 @@ void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) 
 void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
   get_input_for_body(user_body, t_disp, r_disp);
   reorient(user_body, x_axis, t_disp, r_disp);
+}
+
+void builder_poltergeist(body* builder, vector_2* t_disp, double* r_disp) {
+  builder_input(builder, t_disp, r_disp);
 }
 
 void basic_brain(body* b, vector_2* t_disp, double* r_disp) {
@@ -147,8 +162,8 @@ void look_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
     return;
   }
   reorient(body, &c_dir, t_disp, r_disp);
-  printf("\n\nrotation force of %f for vector", *r_disp);
-  print_vector(&c_dir);
+  //printf("\n\nrotation force of %f for vector", *r_disp);
+  // print_vector(&c_dir);
 }
 
 //takes body, applys a constant force in direction of torsos velocity

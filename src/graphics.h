@@ -59,7 +59,7 @@ void draw_line(camera* cam, virt_pos* start, virt_pos* end);
 
 //game constructs
 
-void draw_plane(plane* plane, camera* cam);
+void draw_plane(camera* cam, plane* plane);
 void draw_map(camera* cam, map* map);
 void draw_events_in_map(camera* cam, map* map);
 void draw_events_in_list(camera* cam, gen_list* list);
@@ -67,7 +67,7 @@ void draw_tethers_in_list(camera* cam, gen_list* list);
 void draw_load_zones_in_map(camera* cam, map* map);
 void draw_hash_map(camera* cam, spatial_hash_map* map);
 void drawWallIndication(camera* cam, SDL_Rect* rect);
-void draw_compound(compound* c, camera* cam);
+void draw_compound(camera* cam, compound* c);
 void draw_polygon_outline(camera* cam, polygon* poly);
 void draw_body_picture(camera* cam, body* body);
 void draw_picture(camera* cam, picture* pic, SDL_Rect* src, SDL_Rect* dst, double rot, SDL_RendererFlip flip);

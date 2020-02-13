@@ -18,11 +18,11 @@ struct plane_struct {
 plane* create_plane(spatial_hash_map* empty_map, char* name) {
   plane* new = malloc(sizeof(plane));
   new->map = empty_map;
-  new->compounds_in_plane = createGen_list();
-  new->tethers_in_plane = createGen_list();
-  new->events_in_plane = createGen_list();
-  new->load_zones_in_plane = createGen_list();
-  new->spawners_in_plane = createGen_list();
+  new->compounds_in_plane = create_gen_list();
+  new->tethers_in_plane = create_gen_list();
+  new->events_in_plane = create_gen_list();
+  new->load_zones_in_plane = create_gen_list();
+  new->spawners_in_plane = create_gen_list();
   new->z_level = 1;
   new->plane_name = strdup(name);
   return new;
@@ -63,7 +63,7 @@ void set_z_level(plane* plane, double nz) {
 }
 
 void add_compound_to_plane(plane* plane, compound* comp) {
-  prependToGen_list(get_compounds(plane), createGen_node(comp));
+  list_prepend(get_compounds(plane), create_gen_node(comp));
   insert_compound_in_shm(plane->map, comp);
 }
 
@@ -87,18 +87,18 @@ int remove_compound_from_plane(plane* plane, compound* comp) {
 }
 
 void add_tether_to_plane(plane* plane, tether* teth) {
-  prependToGen_list(get_tethers(plane), createGen_node(teth));
+  list_prepend(get_tethers(plane), create_gen_node(teth));
 }
 
 void add_event_to_plane(plane* plane, event* event) {
-  prependToGen_list(get_events(plane), createGen_node(event));
+  list_prepend(get_events(plane), create_gen_node(event));
 }
 
 void add_load_zone_to_plane(plane* plane, load_zone* lz) {
-  prependToGen_list(get_load_zones(plane), createGen_node(lz));
+  list_prepend(get_load_zones(plane), create_gen_node(lz));
 }
 
 void add_spawner_to_plane(plane* plane, compound_spawner* spawn) {
-  prependToGen_list(get_spawners(plane), createGen_node(spawn));
+  list_prepend(get_spawners(plane), create_gen_node(spawn));
 }
 

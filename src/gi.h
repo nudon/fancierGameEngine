@@ -20,6 +20,8 @@ smarts * make_smarts();
 void update_smarts(smarts* sm);
 void add_smarts_to_body(body* b);
 void add_smarts_to_comp(compound* b);
+void free_body_smarts(body* b);
+void free_compound_smarts(compound* c);
 
 //body stuff
 void contact_damage(body* b1, body* b2);

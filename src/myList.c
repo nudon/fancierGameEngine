@@ -7,7 +7,7 @@
 //and also a function to only add something to list if data/stored is a unique pointer
 
 
-void appendToGen_list(gen_list* list, gen_node* new) {
+void list_append(gen_list* list, gen_node* new) {
   if (list->start == NULL) {
     list->start = new;
   }
@@ -27,7 +27,7 @@ void appendToGen_list(gen_list* list, gen_node* new) {
   new->list = list;
 }
 
-void prependToGen_list(gen_list* list, gen_node* new) {
+void list_prepend(gen_list* list, gen_node* new) {
   if (list->end == NULL) {
     list->end = new;
   }
@@ -47,7 +47,7 @@ void prependToGen_list(gen_list* list, gen_node* new) {
   new->list = list;
 }
 
-void removeFromGen_list(gen_list* list, gen_node* node) {
+void list_remove(gen_list* list, gen_node* node) {
   if (node != NULL) {
     if (node->prev == NULL && node->next == NULL) {
       list->start = NULL;
@@ -73,7 +73,7 @@ void removeFromGen_list(gen_list* list, gen_node* node) {
   }
 }
 
-int add_if_unique_data(gen_list* list, gen_node* node) {
+int list_unique_add(gen_list* list, gen_node* node) {
   gen_node* curr = list->start;
   int done = 0, unique = 1;
   while(!done && curr != NULL) {
@@ -84,33 +84,33 @@ int add_if_unique_data(gen_list* list, gen_node* node) {
     curr = curr->next;
   }
   if (unique) {
-    appendToGen_list(list, node);
+    list_append(list, node);
   }
   return unique;
 }
 
-int already_in_a_list(gen_node* node) {
+int already_in_list(gen_node* node) {
   return node->list != NULL;
 }
 
 void remove_node(gen_node* node) {
-  if (already_in_a_list(node)) {
-    removeFromGen_list(node->list, node);
+  if (already_in_list(node)) {
+    list_remove(node->list, node);
   }
 }
 
-gen_list* createGen_list() {
+gen_list* create_gen_list() {
   gen_list* new = malloc(sizeof(gen_list));
-  initGen_list(new);
+  init_gen_list(new);
   return new;
 }
 
-void initGen_list(gen_list* new) {
+void init_gen_list(gen_list* new) {
   new->start = NULL;
   new->end = NULL;
 }
 
-gen_node* createGen_node(void* data) {
+gen_node* create_gen_node(void* data) {
   gen_node* new = malloc(sizeof(gen_node));
   new->next = NULL;
   new->prev = NULL;
@@ -119,18 +119,18 @@ gen_node* createGen_node(void* data) {
   return new;
 }
 
-void freeGen_node(gen_node* old) {
+void free_gen_node(gen_node* old) {
   free(old);
 }
 
-void freeGen_list(gen_list* old) {
+void free_gen_list(gen_list* old) {
   gen_node* temp;
   gen_node* current;
   current = old->start;
   while(current != NULL) {
     temp = current;
     current = temp->next;
-    freeGen_node(temp);
+    free_gen_node(temp);
   }
   free(old);
 }

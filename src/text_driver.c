@@ -7,9 +7,11 @@
 #include "game_state.h"
 #include "input.h"
 #include "events.h"
+#include "shapes.h"
 #include "creations.h"
 #include "map_io.h"
 #include "map.h"
+#include "builder.h"
 
 static void myClose();
 
@@ -40,11 +42,20 @@ int main(int argc, char** args) {
 }
 
 
+void play_logic(map* m) {
+  update_map(m);
+  inc_physics_frame();
+}
+
+
+
+
 void main_loop() {
   double ms_per_frame = 1000.0 / FPS;
   int update_wait;      
   camera* cam = getCam();
   map* map = getMap();
+  int mode = 0;
   update_corner(cam);
   time_update();
   while (!getQuit()) {
@@ -52,11 +63,16 @@ void main_loop() {
     SDL_RenderClear(cam->rend);
     set_dT(time_since_update());
     time_update();
-
-    update_map(map);
+    
+    mode = getMode();
+    if (mode == PLAY_MODE) {
+      play_logic(map);
+    }
+    else if (mode == BUILD_MODE) {
+      builder_logic(map);
+    }
+    
     update_corner(cam);
-    //printf("loop tick\n");
-    inc_physics_frame();
     draw_map(cam, map);
     update_wait = ms_per_frame - time_since_update();	
     if (update_wait > 0) {

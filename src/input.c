@@ -1,5 +1,4 @@
 #include "geometry.h"
-
 #include "input.h"
 #include "game_state.h"
 #include "collider.h"
@@ -86,6 +85,9 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
 	case SDLK_LEFT:
 	  *rot_disp -= rot_delta;
 	  break;
+	case SDLK_m:
+	  setMode(BUILD_MODE);
+	  break;
 	default:
 
 	  break;
@@ -113,6 +115,7 @@ int get_input_for_body(body* b, vector_2* trans_disp, double* rot_disp) {
 	  break;
 	case SDLK_SPACE:
 	  cut_compound(get_owner(b));
+	  break;
 	default:
 	  break;
 	}

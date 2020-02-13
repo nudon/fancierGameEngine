@@ -2,7 +2,8 @@
 #include <string.h>
 #include "map.h"
 #include "myList.h"
-#include "creations.h"
+#include "objects.h"
+#include "map_io.h"
 #include "util.h"
 
 void flush_travel_list_for_map(map* map);
@@ -17,7 +18,7 @@ map* current_map = NULL;
 
 map* create_map(char* name) {
   map* new = malloc(sizeof(map));
-  new->planes_in_map = createGen_list();
+  new->planes_in_map = create_gen_list();
   new->map_name = strdup(name);
   return new;
 }
@@ -44,7 +45,7 @@ gen_list* get_planes(map* map) {
 }
 
 void add_plane(map* map, plane* plane) {
-  prependToGen_list(get_planes(map), createGen_node(plane));
+  list_prepend(get_planes(map), create_gen_node(plane));
 }
 
 char* get_map_name(map* m) { return m->map_name; }
@@ -147,7 +148,7 @@ void map_load_insert_travel_list(char* map_name, char* plane_name) {
     plane_names[plane_i] = strdup(plane_name);
 
     gen_lists_for_planes = gen_lists_for_plane_in_map[map_i];
-    gen_lists_for_planes[plane_i] = createGen_list();
+    gen_lists_for_planes[plane_i] = create_gen_list();
   }
   else {
     //fprintf(stderr, "Duplicate insertion into travel list: map=%s, plane=%s\n", map_name, plane_name);
@@ -203,7 +204,7 @@ int trigger_map_change(load_zone* lz, compound* trav) {
     curr_plane = get_plane_by_name(getMap(), get_lz_from_plane(lz));
     remove_compound_from_plane(curr_plane, trav);
     move = map_load_get_travel_list(get_lz_to_map(lz), get_lz_to_plane(lz));
-    appendToGen_list(move, createGen_node(trav));
+    list_append(move, create_gen_node(trav));
     //also need to set trav's position
     set_compound_position(trav, &(lz->dest));
     if (is_user(att)) {
@@ -212,7 +213,7 @@ int trigger_map_change(load_zone* lz, compound* trav) {
 	//should be safe to do so now
 	//only dangerous if I trigger 2 loading zones at the same time
 	map* newMap = NULL;
-	newMap = load_map_by_name(lz->to_map);
+	newMap = load_map(lz->to_map);
 	setMap(newMap);
 	trigger_spawners_in_map(newMap);
 	flush_travel_list_for_map(newMap);
@@ -255,7 +256,7 @@ void flush_travel_list_for_plane(gen_list* compound_list, plane* dest) {
     temp = curr;
     curr = curr->next;
     remove_node(temp);
-    freeGen_node(temp);
+    free_gen_node(temp);
   }
 }
 
@@ -277,7 +278,7 @@ void check_load_triggers(map* map) {
       lz = (load_zone*)curr_lz_node->stored;
       anEvent = lz->trigger;
       event_poly = get_polygon(get_event_collider(anEvent));
-      initGen_list(&hits);
+      init_gen_list(&hits);
       store_event_triggers(get_shm(curr_plane), anEvent, &hits);
       aHit = hits.start;
       while(aHit != NULL) {
@@ -299,3 +300,24 @@ void check_load_triggers(map* map) {
   }
 }
 
+void prep_for_save(map* m) {
+  //do any special steps needed prior to saving map
+  refund_spawners_in_map(m);
+}
+
+void refund_spawners_in_map(map* m) {
+  gen_node* curr_plane_node = get_planes(m)->start;
+  gen_node* curr_comp_node = NULL;
+  plane* curr_plane = NULL;
+  compound* comp = NULL;
+  while(curr_plane_node != NULL) {
+    curr_plane = (plane*)curr_plane_node->stored;
+    curr_comp_node = get_compounds(curr_plane)->start;
+    while(curr_comp_node != NULL) {
+      comp = (compound*)curr_comp_node->stored;
+      refund_spawner(get_spawner_p(comp));
+      curr_comp_node = curr_comp_node->next;
+    }
+    curr_plane_node = curr_plane_node->next;
+  }
+}

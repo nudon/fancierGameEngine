@@ -17,6 +17,7 @@ typedef struct tether_struct tether;
 extern vector_2* g;
 extern tether* default_tether;
 extern tether* one_way_tether;
+extern tether* rev_one_way_tether;
 
 struct fizzle_struct {
   fizzle* anotherFizzle;

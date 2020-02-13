@@ -48,6 +48,7 @@ fizzle* get_fizzle(body* aBody);
 //double get_mass(body* aBody);
 //vector_2* get_velocity(body* aBody);
 virt_pos get_body_center(body* b);
+void set_body_gravity(body* b, vector_2* grav);
 void set_body_center(body* b, virt_pos* vp);
 picture* get_picture(body* aBody);
 void set_poltergeist(body* b, poltergeist* polt);
