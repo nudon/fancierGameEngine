@@ -13,6 +13,7 @@ map* make_origin_map();
 map* make_beach_map();
 map* make_basic_map();
 
+
 void write_maps_to_disk();
 
 void make_compound_builder(compound* comp);

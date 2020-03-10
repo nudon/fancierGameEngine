@@ -1,11 +1,18 @@
 #include "builder.h"
 #include "shapes.h"
 #include "objects.h"
+#include "names.h"
 #include "game_state.h"
+#include "map_io.h"
+
 
 int builder_spawn_flag;
 
 int builder_plane_change_flag;
+
+int save_map_flag;
+
+int load_map_flag;
 
 char* builder_spawn_name;
 
@@ -14,8 +21,6 @@ char** spawn_set = NULL;
 compound_spawner* spawner_copy = NULL;
 compound* spawned_item_copy = NULL;
 map* spawner_map;
-
-compound* builder = NULL;
 
 void replace_spawned_copy();
 
@@ -62,7 +67,7 @@ void set_spawner_set(char* set[]) {
 }
 void replace_spawned_copy() {
   plane* main_plane = (plane*)get_planes(spawner_map)->start->stored;
-  virt_pos cent = get_body_center(get_compound_head(builder));
+  virt_pos cent = get_body_center(get_compound_head(getBuilder()));
   if (spawner_copy != NULL) {
     free_compound_spawner(spawner_copy);
   }
@@ -105,12 +110,19 @@ void set_plane_list(gen_list* list) {
 
 void builder_logic(map* m) {
   static map* prev_m = NULL;
+  plane* pl = NULL;
+  virt_pos cent;
+  compound_spawner* spawner = NULL;
+  int NAME_LEN = 30;
+  char map_name[NAME_LEN];
+  compound* builder = getBuilder();
   if (builder == NULL) {
     spawner_map = create_map("builder_map");
     add_plane(spawner_map, create_plane(create_shm(100,100,1,1) , "main_plane"));
     
     builder = mono_compound(makeNormalBody(13, 9));
     make_compound_builder(builder);
+    center_cam_on_body(get_compound_head(builder));
     set_spawner_set(spawn_array);
   }
   if (prev_m != m) {
@@ -118,13 +130,37 @@ void builder_logic(map* m) {
     prev_m = m;
   }
   run_body_poltergeist(get_compound_head(builder));
-  virt_pos cent = get_body_center(get_compound_head(builder));
+  cent = get_body_center(get_compound_head(builder));
   if (builder_spawn_flag) {
-    compound_spawner* spawner = create_compound_spawner(spawner_entry(), -1, cent.x, cent.y);
-    plane* pl = plane_entry();
+    spawner = create_compound_spawner(spawner_entry(), -1, cent.x, cent.y);
+    pl = plane_entry();
     add_spawner_to_plane(pl, spawner);
     trigger_spawner(spawner, pl);
     builder_spawn_flag = 0;
+  }
+  if (save_map_flag) {
+    fprintf(stdout, "input filename of map to save, max of %i characters\n", NAME_LEN);
+    fgets(map_name, NAME_LEN, stdin);
+    if (strlen(map_name) > 1) {
+      map_name[strlen(map_name) - 1] = '\0';
+    }
+    set_map_name(m, map_name);
+    save_map(m, map_name);
+    save_map_flag = 0;
+  }
+  if (load_map_flag) {
+    fprintf(stdout, "input filename of map to load, max of %i characters\n", NAME_LEN);
+    fgets(map_name, NAME_LEN, stdin);
+    if (strlen(map_name) > 1) {
+      map_name[strlen(map_name) - 1] = '\0';
+    }
+    map* temp = load_map(map_name);
+    plane* m_p = get_plane_by_name(temp, MAIN_PLANE_NAME);
+    if (temp != NULL) {
+      setMap(temp);
+    }
+    add_compound_to_plane(m_p, getUser());
+    load_map_flag = 0;
   }
   body* head = get_compound_head(spawned_item_copy);
   set_body_center(head, &cent);
@@ -134,11 +170,25 @@ void builder_logic(map* m) {
   draw_compound(getCam(), spawned_item_copy);
 }
 
+/*
+  basic inputs
+  normal arrow keys for movement
+
+  ctrl inputes
+  left/right changes active spawn item
+  up/down changes active map plane
+  m switches into/out of builder mode
+  l loads map
+  s saves map
+  b moves user to builder
+  u moves builder to user
+ */
 int builder_input(body* b, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
   int up = 0, down = 0, left = 0, right = 0;
   int spawner = 0, spawn_idx_inc = 0, spawn_idx_dec = 0, plane_next = 0, plane_prev = 0;
+  int load_map = 0, save_map = 0, to_user = 0, to_builder = 0;
   int mov_mag = 10;
   virt_pos offset = *zero_pos, t_vp = *zero_pos;
   while (SDL_PollEvent(&e) != 0 ) {
@@ -163,6 +213,18 @@ int builder_input(body* b, vector_2* trans_disp, double* rot_disp) {
 	  break;
 	case SDLK_m:
 	  setMode(PLAY_MODE);
+	  break;
+	case SDLK_l:
+	  load_map = 1;
+	  break;
+	case SDLK_s:
+	  save_map = 1;
+	  break;
+	case SDLK_b:
+	  to_builder = 1;
+	  break;
+	case SDLK_u:
+	  to_user = 1;
 	  break;
 	default:
 
@@ -238,10 +300,29 @@ int builder_input(body* b, vector_2* trans_disp, double* rot_disp) {
     prev_plane();
   }
 
+  if (save_map) {
+    save_map_flag = 1;
+  }
+  if (load_map) {
+    load_map_flag = 1;
+  }
+
   t_vp = get_body_center(b);
   virt_pos_add(&t_vp, &offset, &t_vp);
   set_body_center(b, &t_vp);
-  
+
+
+
+  if (to_user) {
+    body* user_head = get_compound_head(getUser());
+    virt_pos user_p = get_body_center(user_head);
+    set_compound_position(getBuilder(), &user_p);
+  }
+  else if (to_builder) {
+    body* builder_head = get_compound_head(getBuilder());
+    virt_pos build_p = get_body_center(builder_head);
+    set_compound_position(getUser(), &build_p);
+  }
   
   setQuit(quit);
   return quit;

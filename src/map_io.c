@@ -3,7 +3,9 @@
 #include <libxml/parser.h>
 #include "map_io.h"
 #include "objects.h"
+#include "game_state.h"
 
+void xml_write_map(FILE* file_out, map* map);
 map* xml_read_map(xmlNodePtr map_node);
 
 void test_xml_parse();
@@ -56,12 +58,31 @@ char* get_charp_prop(xmlNodePtr node, char* id);
 xmlNodePtr get_child_by_name(xmlNodePtr parent, char* name);
 xmlNodePtr get_child_by_name_and_id(xmlNodePtr parent, char* name, char* id);
 
-
 map* load_map(char* filename) {
   xmlDocPtr doc = xmlParseFile(filename);
-  xmlNodePtr root = xmlDocGetRootElement(doc);
-  map* the_map = xml_read_map(root);
+  xmlNodePtr root;
+  map* the_map = NULL;
+  if (doc != NULL) {
+     root = xmlDocGetRootElement(doc);
+     the_map = xml_read_map(root);
+     xmlFreeDoc(doc);
+  }
+  else {
+    fprintf(stderr, "error, unable to find map %s\n, ", filename);
+  }
+  
   return the_map;
+}
+
+void save_map(map* m, char* filename) {
+  FILE* mapFile = fopen(filename, "w+");
+  if (mapFile != NULL) {
+    xml_write_map(mapFile, m);
+    fclose(mapFile);
+  }
+  else {
+    fprintf(stderr, "error, unable to save map to %s\n", filename);
+  }
 }
 
 void xml_write_map(FILE* file_out, map* map) {
@@ -232,7 +253,7 @@ compound_spawner* xml_read_spawner(xmlNodePtr spawn_node) {
 }
 
 void xml_write_compound(FILE* file_out, compound* comp) {
-  if (get_spawner_p(comp) != NULL) {
+  if (get_spawner_p(comp) != NULL || comp == getUser()) {
     return;
   }
   fprintf(file_out, "<compound>\n");
@@ -436,7 +457,7 @@ polygon* xml_read_polygon(xmlNodePtr polygon_node) {
       }
       else {
 	ival = atoi((const char*)text);
-	if (val >= sides) {
+	if (ival >= sides) {
 	  fprintf(stderr, "xml file contained a corner indexed beyond polygons sides\n");
 	}
 	set_base_point(poly, ival, &vp);
@@ -492,11 +513,13 @@ smarts* xml_read_smarts(xmlNodePtr smarts_node) {
   if (strcmp(text, "body") == 0) {
     att* b_atts = xml_read_attributes(child);
     sm = make_smarts();
+    smarts_body_init(sm);
     set_body_attributes(sm, b_atts);
   }
   else if (strcmp(text, "compound") == 0) {
     att* c_atts = xml_read_attributes(child);
     sm = make_smarts();
+    smarts_comp_init(sm);
     set_comp_attributes(sm, c_atts);
   }
   free(text);

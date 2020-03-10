@@ -14,9 +14,7 @@ gen_list* get_planes(map* map);
 plane* get_plane_by_name(map* m, char* name);
 void add_plane(map* map, plane* plane);
 char* get_map_name(map* m);
-map* getMap();
-void setMap(map* new);
-
+void set_map_name(map* m, char* name);
 
 //load_zone functions
 void init_map_load();
@@ -36,6 +34,8 @@ event* get_lz_event(load_zone* lz);
 int trigger_map_change(load_zone* lz, compound* trav);
 void check_load_triggers(map* map);
 
+void prep_for_save(map* m);
+void prep_for_load(map* m);
 void refund_spawners_in_map(map* m);
 
 #endif

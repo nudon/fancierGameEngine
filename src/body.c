@@ -1,4 +1,5 @@
 #include "body.h"
+#include "game_state.h"
 #include <math.h>
 
 void impact_torque(body* b1, body* b2, vector_2* b1_norm, vector_2* b2_norm, virt_pos* poc);
@@ -415,7 +416,7 @@ void resolve_collision(spatial_hash_map* map, body* body1, body* body2) {
     impact(body1, body2, &b1_norm);
 
     if (calc_contact_point(p1, p2, &b1_norm, &poc) > 0) {
-      draw_virt_pos(getCam(), &poc);
+      //draw_virt_pos(getCam(), &poc);
       impact_torque(body1, body2, &b1_norm, &b2_norm, &poc);
     }
   }

@@ -4,6 +4,6 @@
 
 map* load_map(char* filename);
 
-void xml_write_map(FILE* file_out, map* map);
+void save_map(map* m, char* filename);
 
 #endif 

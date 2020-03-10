@@ -17,6 +17,9 @@ typedef struct smarts_struct smarts;
 
 //smarts stuff
 smarts * make_smarts();
+void smarts_body_init(smarts* sm);
+void smarts_comp_init(smarts* sm);
+
 void update_smarts(smarts* sm);
 void add_smarts_to_body(body* b);
 void add_smarts_to_comp(compound* b);

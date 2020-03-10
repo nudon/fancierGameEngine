@@ -56,6 +56,7 @@ void main_loop() {
   camera* cam = getCam();
   map* map = getMap();
   int mode = 0;
+  setMode(PLAY_MODE);
   update_corner(cam);
   time_update();
   while (!getQuit()) {

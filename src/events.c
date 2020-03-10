@@ -266,8 +266,7 @@ void foot_placement(event* e, body* trigger, virt_pos* poc) {
   vector_2 dir = *zero_vec;
   virt_pos tc = get_body_center(trigger);
   virt_pos sc = get_body_center(self);
-  //somehow set checks for this
-  //could check if trigger mass is inf, or have some attribute for it
+ 
   if (self_comp != trigger_comp) {
     if (poc != NULL) {
       tc = *poc;
@@ -284,20 +283,10 @@ void foot_placement(event* e, body* trigger, virt_pos* poc) {
 void foot_step(event* e, body* trigger, virt_pos* poc) {
   body* self = get_event_body(e);
   compound* self_comp = get_owner(self);
-  compound* trigger_comp = get_owner(trigger);
-  
-  //somehow set checks for this
-  //could check if trigger mass is inf, or have some attribute for it
+    
   if (foreign_body(self, trigger)) {
     jump_action_reset(self_comp);
   }
-
-  //to be triggered when a foot is on ground
-  //thinking, add to main body and maybe also foot
-  //for foot, add -1 * gravity
-  //for body, probably add -1 / 2 * gravity
-  //issue is how to determine what is the main body/torso
-  //could implicity take head of body part list
 }
 
 void grab_event(event* e, body* trigger, virt_pos* poc) {
@@ -310,8 +299,7 @@ void grab_event(event* e, body* trigger, virt_pos* poc) {
     return;
   }
   att* trig_atts = get_comp_attributes(t_comp_sm);
-  //somehow set checks for this
-  //could check if trigger mass is inf, or have some attribute for it
+ 
   if (self_comp != trigger_comp) {
     if (is_holdable(trig_atts)) {
       if (get_shared_input(self) != get_shared_input(trigger)) {

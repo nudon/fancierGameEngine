@@ -11,7 +11,7 @@
 #include "names.h"
 #include "room.h"
 #include "objects.h"
-
+#include "game_state.h"
 
 virt_pos ORIGIN_BEACH_POS = (virt_pos){.x= 345, .y=270};
 
@@ -40,7 +40,7 @@ void make_compound_user(compound* comp) {
   set_poltergeist(head, polt);
   set_user(comp_att, 1);
   set_travel(comp_att, 1);
-  center_cam_on_body(head);
+  setUser(comp);
 }
 
 void make_compound_builder(compound* comp) {
@@ -52,7 +52,7 @@ void make_compound_builder(compound* comp) {
   set_poltergeist(head, polt);
   //set_user(comp_att, 1);
   //set_travel(comp_att, 1);
-  center_cam_on_body(head);
+  setBuilder(comp);
 }
 
 map* load_origin_map() {
@@ -255,11 +255,11 @@ map* make_subway_car_map() {
   //ceiling_roper(2, up_wall);
   spawn_point = calc_room_offset(&car, 0, 0.9);
   spawner = create_compound_spawner(CEILING_GRASS_SHORT, -1 , spawn_point.x, spawn_point.y);
-  add_spawner_to_plane(main, spawner);
+  //add_spawner_to_plane(main, spawner);
 
   spawn_point = calc_room_offset(&car, -0.5, -0.9);
   spawner = create_compound_spawner(FLOOR_GRASS_SHORT, -1 , spawn_point.x, spawn_point.y);
-  add_spawner_to_plane(main, spawner);
+  //add_spawner_to_plane(main, spawner);
   
   add_compound_to_plane(main, wall_comp);
   add_plane(basic, main);
@@ -268,23 +268,15 @@ map* make_subway_car_map() {
 
 void write_maps_to_disk() {
   map* aMap = NULL;
-  FILE* mapFile = NULL;
-  
+ 
   aMap = make_beach_map();
-  mapFile = fopen(BEACH_MAP_NAME, "w+");
-  xml_write_map(mapFile, aMap);
-  fclose(mapFile);
+  save_map(aMap, BEACH_MAP_NAME);
 
   aMap = make_basic_map();
-  mapFile = fopen(BASIC_MAP_NAME, "w+");
-  xml_write_map(mapFile, aMap);
-  fclose(mapFile);
-  
+  save_map(aMap, BASIC_MAP_NAME);
+    
   aMap = make_subway_car_map();
-  mapFile = fopen(SUBWAY_CAR_MAP_NAME, "w+");
-  xml_write_map(mapFile, aMap);
-  fclose(mapFile);
-  
+  save_map(aMap, SUBWAY_CAR_MAP_NAME);
   
   printf("Wrote maps to disk\n");
 }

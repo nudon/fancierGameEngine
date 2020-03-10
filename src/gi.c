@@ -4,6 +4,7 @@
 #include "attributes.h"
 #include "map.h"
 #include "names.h"
+#include "game_state.h"
 //temp folder for game intelligence stuff
 typedef struct stam_struct stam;
 
@@ -112,28 +113,42 @@ smarts * make_smarts() {
   return new;
 }
 
+void smarts_body_init(smarts* sm) {
+  sm->b_stats = create_body_stats(BODY_HEALTH,BODY_DMG_SCALE, BODY_DMG_LIMIT, BODY_DMG);
+  sm->b_mem = make_body_memory();
+  sm->b_atts = make_attributes();
+  set_body_attribute(sm->b_atts);
+}
+
+void smarts_comp_init(smarts* sm) {
+  sm->c_stats = create_comp_stats(1,10,1,1);
+  sm->c_mem = make_comp_memory();
+  sm->c_atts = make_attributes();
+  set_comp_attribute(sm->c_atts);
+}
+
 void add_smarts_to_body(body* b) {
   smarts* sm = get_body_smarts(b);
   if (sm == NULL) {
     sm = make_smarts();
+    smarts_body_init(sm);
     set_body_smarts(b, sm);
-    sm->b_stats = create_body_stats(BODY_HEALTH,BODY_DMG_SCALE, BODY_DMG_LIMIT, BODY_DMG);
-    sm->b_mem = make_body_memory();
-    sm->b_atts = make_attributes();
-    set_body_attribute(sm->b_atts);
+
   }
+  /*
   else if (sm->b_mem == NULL) {
     sm->b_mem = make_body_memory();
   }
+  */
   sm->b = b;
 
 
   compound* c = get_owner(b);
-  smarts * c_sm = get_compound_smarts(c);
+  //smarts * c_sm = get_compound_smarts(c);
   sm->c = c;
-  sm->c_stats = c_sm->c_stats;
-  sm->c_mem = c_sm->c_mem;
-  sm->c_atts = c_sm->c_atts;
+  //sm->c_stats = c_sm->c_stats;
+  //sm->c_mem = c_sm->c_mem;
+  //sm->c_atts = c_sm->c_atts;
 }
 
 void free_body_smarts(body* b) {
@@ -151,12 +166,9 @@ void free_body_smarts(body* b) {
 void add_smarts_to_comp(compound* c) {
   smarts* sm = get_compound_smarts(c);
   if (sm == NULL) {
-    sm = make_smarts(); 
+    sm = make_smarts();
+    smarts_comp_init(sm);
     set_compound_smarts(c, sm);
-    sm->c_stats = create_comp_stats(1,10,1,1);
-    sm->c_mem = make_comp_memory();
-    sm->c_atts = make_attributes();
-    set_comp_attribute(sm->c_atts);
   }
   else if (sm->c_mem == NULL) {
     sm->c_mem = make_comp_memory();
@@ -376,13 +388,12 @@ att* get_comp_attributes(smarts* sm) {
 
 
 void set_comp_attributes(smarts* sm, att* atts) {
-  copy_attributes(atts, sm->b_atts);
+  copy_attributes(atts, sm->c_atts);
 }
 
 compound* get_smarts_compound(smarts* sm) {
   return sm->c;
 }
-//visual systmes
 
 
 void add_to_smarts(smarts* sm, char* tag, vector_2* add) {

@@ -5,6 +5,7 @@
 #include "objects.h"
 #include "map_io.h"
 #include "util.h"
+#include "game_state.h"
 
 void flush_travel_list_for_map(map* map);
 void flush_travel_list_for_plane(gen_list* compound_list, plane* dest);
@@ -14,7 +15,6 @@ struct map_struct {
   char* map_name;
 };
 
-map* current_map = NULL;
 
 map* create_map(char* name) {
   map* new = malloc(sizeof(map));
@@ -48,16 +48,15 @@ void add_plane(map* map, plane* plane) {
   list_prepend(get_planes(map), create_gen_node(plane));
 }
 
-char* get_map_name(map* m) { return m->map_name; }
-
-
-map* getMap() {
-  return current_map;
+char* get_map_name(map* m) {
+  return m->map_name;
 }
 
-void setMap(map* new) {
-  //might want to eventually do some save routine
-  current_map = new;
+void set_map_name(map* m, char* name) {
+  if (m->map_name != NULL) {
+    free(m->map_name);
+  }
+  m->map_name = strdup(name);
 }
 
 
@@ -215,8 +214,6 @@ int trigger_map_change(load_zone* lz, compound* trav) {
 	map* newMap = NULL;
 	newMap = load_map(lz->to_map);
 	setMap(newMap);
-	trigger_spawners_in_map(newMap);
-	flush_travel_list_for_map(newMap);
 	map_load_create_travel_lists(newMap);
       }
     }
@@ -305,6 +302,12 @@ void prep_for_save(map* m) {
   refund_spawners_in_map(m);
 }
 
+void prep_for_load(map* m) {
+  //activate spawners 
+  trigger_spawners_in_map(m);
+  flush_travel_list_for_map(m);
+}
+
 void refund_spawners_in_map(map* m) {
   gen_node* curr_plane_node = get_planes(m)->start;
   gen_node* curr_comp_node = NULL;
@@ -315,7 +318,10 @@ void refund_spawners_in_map(map* m) {
     curr_comp_node = get_compounds(curr_plane)->start;
     while(curr_comp_node != NULL) {
       comp = (compound*)curr_comp_node->stored;
-      refund_spawner(get_spawner_p(comp));
+      if (get_spawner_p(comp) != NULL) {
+	refund_spawner(get_spawner_p(comp));
+	remove_compound_from_plane(curr_plane, comp);
+      }
       curr_comp_node = curr_comp_node->next;
     }
     curr_plane_node = curr_plane_node->next;

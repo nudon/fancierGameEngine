@@ -1,8 +1,8 @@
 #include "graphics.h"
+#include "game_state.h"
 
 static void myDrawRect(camera* cam, int x1, int y1, int x2, int y2);
 static void myDrawCirc(int x, int y, int rad);
-static camera* gamgam;
 
 static void add_surface(char* fn);
 static void add_texture(char* fn);
@@ -151,14 +151,6 @@ camera* make_camera() {
   cam->center = NULL;
   cam->corner = *zero_pix;
   return cam;
-}
-
-void setCam(camera* cam) {
-  gamgam = cam;
-}
-
-camera* getCam(){
-  return gamgam;
 }
 
 
