@@ -1,6 +1,8 @@
 #ifndef FILE_MYSHAPES_SEEN
 #define FILE_MYSHAPES_SEEN
-
+/*
+  one of the pre-created object files, generally dealing with simple blocks
+ */
 #include "compound.h"
 #include "sizes.h"
 

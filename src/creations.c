@@ -1,5 +1,3 @@
-//sort of behaves like a collection of prefabs
-
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -12,48 +10,9 @@
 #include "room.h"
 #include "objects.h"
 #include "game_state.h"
+#include "guts.h"
 
 virt_pos ORIGIN_BEACH_POS = (virt_pos){.x= 345, .y=270};
-
-
-event* make_load_event(virt_pos* cent) {
-  polygon* poly = createNormalPolygon(7);
-  set_center(poly, cent);
-  event* load = make_event(poly);
-  return load;
-}
-
-
-void insert_load_zone_into_plane(char* from_map, char* to_map, plane* from_plane, char* to_plane_name, virt_pos* from_pos, virt_pos* to_pos) {
-  char* from_plane_name = get_plane_name(from_plane);
-  event* load_event = make_load_event(from_pos);
-  load_zone* lz = make_load_zone(from_map, to_map, from_plane_name, to_plane_name, to_pos, load_event);
-  add_load_zone_to_plane(from_plane, lz);
-}
-
-void make_compound_user(compound* comp) {
-  body* head = get_compound_head(comp);
-  poltergeist* polt = make_poltergeist();
-  smarts * sm = get_compound_smarts(comp);
-  att* comp_att = get_comp_attributes(sm);
-  give_user_poltergeist(polt);
-  set_poltergeist(head, polt);
-  set_user(comp_att, 1);
-  set_travel(comp_att, 1);
-  setUser(comp);
-}
-
-void make_compound_builder(compound* comp) {
-  body* head = get_compound_head(comp);
-  poltergeist* polt = make_poltergeist();
-  //smarts * sm = get_compound_smarts(comp);
-  //att* comp_att = get_comp_attributes(sm);
-  give_builder_poltergeist(polt);
-  set_poltergeist(head, polt);
-  //set_user(comp_att, 1);
-  //set_travel(comp_att, 1);
-  setBuilder(comp);
-}
 
 map* load_origin_map() {
   return load_map(ORIGIN_MAP_NAME);
@@ -80,9 +39,9 @@ map* make_origin_map() {
   add_compound_to_plane(plane, user);
   offset_compound(user, &center);
 
-  //insert_load_zone_into_plane(ORIGIN_MAP_NAME, BEACH_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
+  insert_load_zone_into_plane(ORIGIN_MAP_NAME, BEACH_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
   //insert_load_zone_into_plane(ORIGIN_MAP_NAME, BASIC_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
-  insert_load_zone_into_plane(ORIGIN_MAP_NAME, SUBWAY_CAR_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
+  //insert_load_zone_into_plane(ORIGIN_MAP_NAME, SUBWAY_CAR_MAP_NAME, plane, MAIN_PLANE_NAME, &center, &ORIGIN_BEACH_POS);
   add_plane(origin_map, plane);
   return origin_map;
 }
@@ -251,15 +210,13 @@ map* make_subway_car_map() {
   add_body_to_compound(wall_comp, down_wall);
   add_body_to_compound(wall_comp, up_wall);
 
-  //wont work because of fizzles being lost in serialization, will have to make a spawner
-  //ceiling_roper(2, up_wall);
-  spawn_point = calc_room_offset(&car, 0, 0.9);
+    spawn_point = calc_room_offset(&car, 0, 0.9);
   spawner = create_compound_spawner(CEILING_GRASS_SHORT, -1 , spawn_point.x, spawn_point.y);
-  //add_spawner_to_plane(main, spawner);
-
+  add_spawner_to_plane(main, spawner);
+  
   spawn_point = calc_room_offset(&car, -0.5, -0.9);
   spawner = create_compound_spawner(FLOOR_GRASS_SHORT, -1 , spawn_point.x, spawn_point.y);
-  //add_spawner_to_plane(main, spawner);
+  add_spawner_to_plane(main, spawner);
   
   add_compound_to_plane(main, wall_comp);
   add_plane(basic, main);

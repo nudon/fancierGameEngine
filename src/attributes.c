@@ -5,19 +5,13 @@
 #include "attributes.h"
 
 
-//pair bits, prey run from hunters
-//should probably make hunters chase prey
-#define COMP_PREY 0
+#define COMP_PREY 0 
 #define COMP_HUNTER 1
-//designated to mark the user so user only events like camera/map transitions happen
 #define COMP_USER 2
-//travel bit because I probably don't want things like walls to traverse maps
 #define COMP_TRAVEL 3
 #define COMP_HOLDABLE 4
 
-//sets whether the body is immune to damage
 #define BODY_INVULN 0
-//sets whether the body can deal damage
 #define BODY_DAMAGER 1
 
 #define NUM_BITS 8

@@ -12,6 +12,8 @@
 #include "map_io.h"
 #include "map.h"
 #include "builder.h"
+#include "shared_input.h"
+#include "guts.h"
 
 static void myClose();
 
@@ -27,11 +29,13 @@ void move_compound(spatial_hash_map* map, compound* c);
 
 int main(int argc, char** args) {
   init_graphics();
-  
+  init_poltergeists();
+  init_events();
+  init_map_load();
+  init_spawn_set();
   write_maps_to_disk();
   
   map* map = make_origin_map();
-  //map* map = make_beach_map();
   
   map_load_create_travel_lists(map);
   setMap(map);
@@ -206,7 +210,7 @@ void update_compounds(spatial_hash_map* map, gen_list* compound_list) {
 int move_body(spatial_hash_map* map, body* b, virt_pos* t_disp, double r_disp) {
   shared_input* si = get_shared_input(b);
   if (si != NULL) {
-    add_to_shared_input(t_disp, r_disp, si);
+    shared_input_add_movement(si,t_disp, r_disp);
     return 1;
   }
   else {
@@ -233,9 +237,9 @@ void move_compound(spatial_hash_map* map, compound* c) {
     si = get_shared_input(b);
     rot_offset = get_rotation_offset(get_polygon(get_collider(b)));
     if (si != NULL)  {
-      get_avg_movement(si, &avg_t_disp, &avg_r_disp);
+      shared_input_get_avg_movement(si, &avg_t_disp, &avg_r_disp);
       orig_offset = *zero_pos;
-      curr_offset = get_si_offset(b);
+      curr_offset = shared_input_get_offset(b);
       t_disp = *zero_pos;
       pull_shared_reflections(b);
       if (!isZeroPos(&rot_offset)) {

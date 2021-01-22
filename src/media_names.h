@@ -1,5 +1,9 @@
 #ifndef FILE_MEDIA_NAMES_SEEN
 #define FILE_MEDIA_NAMES_SEEN
+/*
+  standard names for pictures 
+ */
+
 
 #define MEDIA_FOLDER "./media/"
 #define CRAB_FN MEDIA_FOLDER"crab.png"

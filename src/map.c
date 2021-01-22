@@ -60,8 +60,6 @@ void set_map_name(map* m, char* name) {
 }
 
 
-//map loading warzone
-
 struct load_zone_struct {
   char* from_map;
   char* to_map;
@@ -73,15 +71,7 @@ struct load_zone_struct {
   event* trigger;
 };
 
-//when things change maps, need to remove objects from current map and place in a waiting queue for dest map
-//when new map loads, empty the respective waiting queue into map
-//oh also there needs to be queues for each plane in map
-//so this got implemented as a 2-layer map from map/plane names to lists
-
-//initializes outer most_maps
-void map_load_init();
-
-//initializes innter_maps to contain map/plane keys
+//initializes inner_maps to contain map/plane keys
 void map_load_insert_travel_list(char* map_name, char* plane_name);
 //returns the gen list for map/plane keys
 gen_list* map_load_get_travel_list(char* map_name, char* plane_name);
@@ -150,7 +140,7 @@ void map_load_insert_travel_list(char* map_name, char* plane_name) {
     gen_lists_for_planes[plane_i] = create_gen_list();
   }
   else {
-    //fprintf(stderr, "Duplicate insertion into travel list: map=%s, plane=%s\n", map_name, plane_name);
+    //travel lists have already been created
   }
 }
 
@@ -194,7 +184,6 @@ event* get_lz_event(load_zone* lz) { return lz->trigger; }
 #define MAP_CHANGE 1
 int trigger_map_change(load_zone* lz, compound* trav) {
   att* att = get_comp_attributes(get_compound_smarts(trav));
-  //att* att = get_attributes(trav);
   plane* curr_plane = NULL;
   gen_list* move = NULL;
   int ret = MAP_NOCHANGE;
@@ -204,13 +193,10 @@ int trigger_map_change(load_zone* lz, compound* trav) {
     remove_compound_from_plane(curr_plane, trav);
     move = map_load_get_travel_list(get_lz_to_map(lz), get_lz_to_plane(lz));
     list_append(move, create_gen_node(trav));
-    //also need to set trav's position
     set_compound_position(trav, &(lz->dest));
     if (is_user(att)) {
       if (lz->from_map != lz->to_map) {
 	//update global map
-	//should be safe to do so now
-	//only dangerous if I trigger 2 loading zones at the same time
 	map* newMap = NULL;
 	newMap = load_map(lz->to_map);
 	setMap(newMap);
@@ -222,7 +208,6 @@ int trigger_map_change(load_zone* lz, compound* trav) {
 }
 
 void flush_travel_list_for_map(map* map) {
-  //go through all planes in map and flush traveel lists
   int map_i = char_search(map_names, get_map_name(map), MAP_LIM);
   int plane_i = 0;
   char* plane_name = NULL;

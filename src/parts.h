@@ -1,14 +1,10 @@
 #ifndef FILE_MYPARTS_SEEN
 #define FILE_MYPARTS_SEEN
+/*
+  one of the pre-created object files, generally for creating special body parts or appendages
+ */
 
 #include "events.h"
-
-event* make_basic_vision_event(body* b);
-event* make_side_vision_event(body* b);
-event* make_main_vision_event(body* b);
-event* make_hearing_event(body* b);
-event* make_foot_step_event(body* b);
-event* make_grab_event(body* b);
 
 //parts
 void eyes(body* anchor);

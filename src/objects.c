@@ -1,109 +1,24 @@
 #include "objects.h"
 #include "compound.h"
 #include "room.h"
+#include "spawner.h"
+#include "guts.h"
 
-char* spawn_array[] = {TRASHCAN_SPAWN, BLUE_SLIME_SPAWN, GOHEI_SPAWN, CEILING_GRASS_SHORT, FLOOR_GRASS_SHORT, /* more things here */ NULL };
+//char* spawn_array[] = {TRASHCAN_SPAWN, BLUE_SLIME_SPAWN, GOHEI_SPAWN, CEILING_GRASS_SHORT, FLOOR_GRASS_SHORT, /* more things here */ NULL };
 
-struct compound_spawner_struct {
-  char* compound_name;
-  int spawn_cap;
-  virt_pos spawn_center;
-  compound* (*spawner) (void);
-};
+#define MAIN_SET_SIZE 20
+spawner_set* main_set = NULL;
 
-char* get_spawner_name(compound_spawner* spawn) {
-  return spawn->compound_name;
-}
-
-int get_spawner_cap(compound_spawner* spawn) {
-  return spawn->spawn_cap;
-}
-
-void get_spawner_pos(compound_spawner* spawn, virt_pos* result) {
-  *result = spawn->spawn_center;
-}
-
-compound_spawner* create_compound_spawner(char* name, int cap, int x_pos, int y_pos) {
-  compound_spawner* spawn = malloc(sizeof(compound_spawner));
-  spawn->compound_name = strdup(name);
-  spawn->spawn_cap = cap;
-  spawn->spawn_center = (virt_pos){.x = x_pos, .y = y_pos};
-  if (strcmp(name, BLUE_SLIME_SPAWN) == 0) {
-    spawn->spawner = &makeSlime;
+void init_spawn_set() {
+  if (main_set != NULL) {
+    fprintf(stderr, "error, re-initializing spawn set\n");
   }
-  else if (strcmp(name, TEST_SPAWN) == 0) {
-    //spawn->spawner = &tunctish;
-    spawn->spawner = &monkey;
-  }
-  else if (strcmp(name, TRASHCAN_SPAWN) == 0) {
-    spawn->spawner = &makeTrashCan;
-  }
-  else if (strcmp(name, GOHEI_SPAWN) == 0) {
-    spawn->spawner = &makeGohei;
-  }
-  else if (strcmp(name, CEILING_GRASS_SHORT) == 0) {
-    spawn->spawner = &ceiling_grass_short;
-  }
-  else if (strcmp(name, FLOOR_GRASS_SHORT) == 0) {
-    spawn->spawner = &floor_grass_short;
-  }
-  else {
-    fprintf(stderr, "warning, unable to find spawner for %s\n", name);
-  }
-  return spawn;
-}
-
-void free_compound_spawner(compound_spawner* rm) {
-  free(rm);
-}
-
-void trigger_spawners_in_map(map* map) {
-  gen_node* curr_plane = get_planes(map)->start;
-  gen_node* curr_spawner;
-  plane* p = NULL;
-  compound_spawner* spawn = NULL;
-  while(curr_plane != NULL) {
-    p = (plane*)curr_plane->stored;
-    curr_spawner = get_spawners(p)->start;
-    while(curr_spawner != NULL) {
-      spawn = (compound_spawner*)curr_spawner->stored;
-      trigger_spawner(spawn, p);
-      curr_spawner = curr_spawner->next;
-    }
-    curr_plane = curr_plane->next;
-  }
-}
-
-
-compound* compound_from_spawner(compound_spawner* spawn) {
-  compound* spawned = NULL;
-  virt_pos pos = *zero_pos;
-  if (spawn->spawn_cap != 0) {
-    if (spawn->spawn_cap > 0) {
-      spawn->spawn_cap--;
-    }
-    get_spawner_pos(spawn, &pos);
-    spawned = spawn->spawner();
-    set_spawner_p(spawned, spawn);
-    offset_compound(spawned, &pos);
-  }
-  return spawned;
-}
-
-void trigger_spawner(compound_spawner* spawn, plane* insert) {
-  compound* spawned = compound_from_spawner(spawn);
-  if (spawned != NULL) { 
-    add_compound_to_plane(insert, spawned);
-  }
-}
-
-void refund_spawner(compound_spawner* spawn) {
-  if (spawn == NULL) {
-    return;
-  }
-  if (spawn->spawn_cap >= 0) {
-    spawn->spawn_cap++;
-  }
+  main_set = create_spawner_set(MAIN_SET_SIZE);
+  spawner_set_append(main_set, TEST_SPAWN, &monkey);
+  spawner_set_append(main_set, TRASHCAN_SPAWN, &makeTrashCan);
+  spawner_set_append(main_set, GOHEI_SPAWN, &makeGohei);
+  spawner_set_append(main_set, CEILING_GRASS_SHORT, &ceiling_grass_short);
+  spawner_set_append(main_set, FLOOR_GRASS_SHORT, &floor_grass_short);
 }
 
 compound* makeCentipede(int segments) {
@@ -215,7 +130,7 @@ compound* tunctish() {
   set_poltergeist(torso, torso_polt);
 
   tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
-  set_shared_input_origin(*torso_si, torso, SI_CENTER);
+  shared_input_set_origin(*torso_si, torso, SI_CENTER);
   set_shared_input(torso, torso_si);
   add_body_to_compound(comp, torso);
 
@@ -242,7 +157,7 @@ compound* monkey() {
   set_poltergeist(torso, torso_polt);
   
   tile_texture_for_body(torso, DEF_FN, 6,6,0,0);
-  set_shared_input_origin(*torso_si, torso, SI_CENTER);
+  shared_input_set_origin(*torso_si, torso, SI_CENTER);
   
   set_shared_input(torso, torso_si);
   add_body_to_compound(comp, torso);
@@ -293,7 +208,7 @@ compound* makeTrashCan() {
   bottom = blankBody(bp);
   lside = blankBody(lp);
   rside = blankBody(rp);
-  set_shared_input_origin(*si, bottom, SI_CENTER);
+  shared_input_set_origin(*si, bottom, SI_CENTER);
   set_shared_input(bottom, si);
   set_shared_input(lside, si);
   set_shared_input(rside, si);
@@ -321,7 +236,7 @@ compound* makeGohei() {
   set_body_center(right_side, &offset);
   offset.x *= -1;
   set_body_center(left_side, &offset);
-  set_shared_input_origin(*si, handle, SI_CENTER);
+  shared_input_set_origin(*si, handle, SI_CENTER);
   set_shared_input(handle, si);
   set_shared_input(right_side, si);
   set_shared_input(left_side, si);

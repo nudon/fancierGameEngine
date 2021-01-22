@@ -4,35 +4,28 @@
 #include "names.h"
 #include "game_state.h"
 #include "map_io.h"
-
-
-int builder_spawn_flag;
-
-int builder_plane_change_flag;
-
-int save_map_flag;
-
-int load_map_flag;
-
-char* builder_spawn_name;
-
-char** spawn_set = NULL;
-
-compound_spawner* spawner_copy = NULL;
-compound* spawned_item_copy = NULL;
-map* spawner_map;
+#include "spawner.h"
 
 void replace_spawned_copy();
 
-//used to change spawned object
+int builder_plane_change_flag;
+int save_map_flag;
+int load_map_flag;
+int builder_spawn_flag;
+
+spawner_set* spawn_set = NULL;
 int spawner_index;
-int spawner_len;
+compound_spawner* spawner_copy = NULL;
+compound* spawned_item_copy = NULL;
+
+map* spawner_map;
+
 void inc_spawner_index() {
   if (spawn_set == NULL) {
     return;
   }
   spawner_index++;
-  if (spawner_index == spawner_len) {
+  if (spawner_index == get_spawner_set_len(spawn_set)) {
     spawner_index = 0;
   }
   replace_spawned_copy();
@@ -43,28 +36,51 @@ void dec_spawner_index() {
   }
   spawner_index--;
   if (spawner_index == -1) {
-    spawner_index = spawner_len - 1;
+    spawner_index = get_spawner_set_len(spawn_set) - 1;
   }
   replace_spawned_copy();
 }
 
 char* spawner_entry() {
-  return spawn_set[spawner_index];
+  return get_name_from_idx(spawn_set, spawner_index);
 }
 
-void set_spawner_set(char* set[]) {
-  if (set == NULL) {
+void set_spawner_set(spawner_set* ss) {
+  if (ss == NULL) {
     return;
   }
-  int len = 0;
-  while(set[len] != NULL) {
-    len++;
-  }
   spawner_index = 0;
-  spawn_set = set;
-  spawner_len = len;
+  spawn_set = ss;
   replace_spawned_copy();
 }
+
+gen_list* plane_list;
+gen_node* plane_nd;
+void next_plane() {
+  plane_nd = plane_nd->next;
+  if (plane_nd == NULL) {
+    plane_nd = plane_list->start;
+  }
+  
+}
+
+void prev_plane() {
+  plane_nd = plane_nd->prev;
+  if (plane_nd == NULL) {
+    plane_nd = plane_list->end;
+  }
+}
+
+plane* plane_entry() {
+  return (plane*)plane_nd->stored;
+}
+
+void set_plane_list(gen_list* list) {
+  plane_list = list;
+  plane_nd = plane_list->start;
+}
+
+
 void replace_spawned_copy() {
   plane* main_plane = (plane*)get_planes(spawner_map)->start->stored;
   virt_pos cent = get_body_center(get_compound_head(getBuilder()));
@@ -84,29 +100,6 @@ void replace_spawned_copy() {
 }
 
 
-//used to change the active plane
-gen_list* plane_list;
-gen_node* plane_nd;
-void next_plane() {
-  plane_nd = plane_nd->next;
-  if (plane_nd == NULL) {
-    plane_nd = plane_list->start;
-  }
-  
-}
-void prev_plane() {
-  plane_nd = plane_nd->prev;
-  if (plane_nd == NULL) {
-    plane_nd = plane_list->end;
-  }
-}
-plane* plane_entry() {
-  return (plane*)plane_nd->stored;
-}
-void set_plane_list(gen_list* list) {
-  plane_list = list;
-  plane_nd = plane_list->start;
-}
 
 void builder_logic(map* m) {
   static map* prev_m = NULL;
@@ -123,7 +116,7 @@ void builder_logic(map* m) {
     builder = mono_compound(makeNormalBody(13, 9));
     make_compound_builder(builder);
     center_cam_on_body(get_compound_head(builder));
-    set_spawner_set(spawn_array);
+    set_spawner_set(main_set);
   }
   if (prev_m != m) {
     set_plane_list(get_planes(m));
@@ -164,7 +157,6 @@ void builder_logic(map* m) {
   }
   body* head = get_compound_head(spawned_item_copy);
   set_body_center(head, &cent);
-  //set_compound_position(spawned_item_copy, &cent);
   play_logic(spawner_map);
   //draw_compound(getCam(), builder);
   draw_compound(getCam(), spawned_item_copy);

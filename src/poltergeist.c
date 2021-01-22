@@ -5,13 +5,11 @@
 #include "geometry.h"
 #include "util.h"
 #include "builder.h"
-//so, library is responsible for moving things
-//kind of general, want movement to handle projectile, simple geometric movements, as well as playable and npc character movement
+#include "guts.h"
 
 
 struct poltergeist_struct {
   void (*posession) (struct body_struct* body, vector_2* t_disp, double* r_disp);
-  //might also have map/body as fields, 
 };
 
 
@@ -112,91 +110,6 @@ void no_poltergeist(struct body_struct* body, vector_2* t_disp, double* r_disp) 
   *r_disp = 0;
 }
 
-
-void user_poltergeist(body* user_body, vector_2* t_disp, double* r_disp) {
-  get_input_for_body(user_body, t_disp, r_disp);
-  reorient(user_body, x_axis, t_disp, r_disp);
-}
-
-void builder_poltergeist(body* builder, vector_2* t_disp, double* r_disp) {
-  builder_input(builder, t_disp, r_disp);
-}
-
-void basic_brain(body* b, vector_2* t_disp, double* r_disp) {
-  vector_2 use, danger, move;
-  compound* c = get_owner(b);
-  smarts* sm = get_compound_smarts(c);
-  use = get_from_smarts(sm, SM_USEFULL);
-  danger = get_from_smarts(sm, SM_DANGER);
-  move = get_from_smarts(sm, SM_MOVE);
-  double use_mag = vector_2_magnitude(&use);
-  double danger_mag = vector_2_magnitude(&danger);
-  if (use_mag > 100) {
-    pickup_action(c);
-  }
-  if (danger_mag > 100) {
-    throw_action(c);
-  }
-  translate(b, &move, t_disp, r_disp);
-  reorient(b, x_axis, t_disp, r_disp);
-}
-
-void standard_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
-  smarts* sm = get_body_smarts(body);
-  if (sm == NULL) {
-    return;
-  }
-  vector_2 dir = get_from_smarts(sm, SM_MOVE);
-  translate(body,&dir, t_disp, r_disp);
-  //also reorient so body is "facing" dir
-  reorient(body, &dir, t_disp, r_disp);
-}
-
-void look_poltergeist(body* body, vector_2* t_disp, double* r_disp) {
-  smarts* sm = get_compound_smarts(get_owner(body));
-  if (sm == NULL) {
-    return;
-  }
-  vector_2 c_dir = get_from_smarts(sm, SM_LOOK);
-  if (isCloseEnoughToZeroVec(&c_dir)) {
-    return;
-  }
-  reorient(body, &c_dir, t_disp, r_disp);
-  //printf("\n\nrotation force of %f for vector", *r_disp);
-  // print_vector(&c_dir);
-}
-
-//takes body, applys a constant force in direction of torsos velocity
-//paired with a tether between body and torso, holds body in front of torso
-void holder_poltergeist(body* b, vector_2* t_disp, double* r_disp) {
-  compound* c = get_owner(b);
-  smarts* c_sm = get_compound_smarts(c);
-  body* head = get_compound_head(c);
-  vector_2 dir = *zero_vec, offset = *zero_vec;
-  double theta;
-  vector_2 temp = *zero_vec;
-  fizzle* fizz = get_fizzle(b);
-  fizzle* base_fizz = get_base_fizzle(b);
-  offset = vector_between_bodies(head, b);
-  theta = angle_of_vector(&offset);
-  if (offset.v1 < 0) {
-    set_reflections(get_polygon(get_collider(b)), -1,1);
-    offset.v1 *= -1;
-    offset.v2 *= -1;
-    theta = angle_of_vector(&offset);
-  }
-  else {
-    set_reflections(get_polygon(get_collider(b)), 1,1);
-  }
-  push_shared_reflections(b);
-  set_rotation(get_polygon(get_collider(b)), theta);
-  get_tether(base_fizz, &temp);
-  set_tether(base_fizz, zero_vec);
-  add_tether(fizz, &temp);
-  
-  dir = get_from_smarts(c_sm, SM_MOVE);
-  translate(b, &dir, t_disp, r_disp);
-}
 
 void reorient(body* b, vector_2* vec, vector_2* t_disp, double* r_disp) {
   vector_2 dir = *vec;

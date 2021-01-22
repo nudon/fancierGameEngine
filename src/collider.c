@@ -3,7 +3,6 @@
 #include <assert.h>
 #include "myList.h"
 #include "myMatrix.h"
-//#include "myVector.h"
 #include "collider.h"
 #include "graphics.h"
 
@@ -145,24 +144,46 @@ void free_cr(collider_ref* cr) {
 
 void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
   collider* coll = NULL;
+  body* b = NULL;
   gen_node* curr = get_bodies(comp)->start;
+  gen_node* curr_e = NULL;
   while(curr != NULL) {
-    coll = get_collider((body*)curr->stored);
+    b = (body*)curr->stored;
+    coll = get_collider(b);
     insert_collider_in_shm(map, coll);
+    
+    curr_e = get_body_events(b)->start;
+    while (curr_e != NULL) {
+      event* e = (event*)get_data(curr_e);
+      init_event_collider(map, e);
+      curr_e = curr_e->next;
+    }
+    
     curr = curr->next;
   }
 }
 
 void remove_compound_from_shm(spatial_hash_map* map, compound* comp) {
   gen_node* curr_body = get_bodies(comp)->start;
+  gen_node* curr_e = NULL;
   collider* coll = NULL;
   collider_ref* cr = NULL;
+  body* b = NULL;
   while(curr_body != NULL) {
-    coll = get_collider((body*)curr_body->stored);
+    b = (body*)get_data(curr_body);
+    coll = get_collider(b);
     cr = coll->collider_node;
     remove_collider_from_shm_entries(map, cr, cr->active_cells);
     free_cr(cr);
     coll->collider_node = NULL;
+
+    curr_e = get_body_events(b)->start;
+    while (curr_e != NULL) {
+      event* e = (event*)get_data(curr_e);
+      clear_event_collider(e);
+      curr_e = curr_e->next;
+    }
+
     curr_body = curr_body->next;
   }  
 }
@@ -216,12 +237,10 @@ int calc_max_cell_span(double boxW, double boxH, double cellW, double cellH) {
   //multiply by 4 to find cells spanned by entire thing
   //since cell size can very and things can rotate, use the min of cellW, cellH
   double cellD = fmin(cellW, cellH);
-  int size = ceil((boxW / 2) / cellD + 1) * ceil((boxH / 2) / cellD + 1) * 4 * 1.5;
-  /*
-  if (size < 4) {
-    size = 4;
-  }
-  */
+  int w_span = ceil((boxW / 2) / cellD + 1) * 2;
+  int h_span = ceil((boxH / 2) / cellD + 1) * 2;
+  int size = ceil(w_span * h_span * 1.5);
+  
   return size;
 }
 
@@ -495,14 +514,14 @@ int store_unique_colliders_in_list(spatial_hash_map* map, vector* entries, gen_l
 
 void clean_collider_list(gen_list* list) {
   gen_node* curr= list->start;
-  gen_node* collider_cr_node;
+  gen_node* temp;
   collider_ref* cr;
   while (curr != NULL) {
     cr = ((collider*)(curr->stored))->collider_node;
     cr->status = DEFAULT;
-    collider_cr_node = curr;
+    temp = curr;
     curr = curr->next;
-    remove_node(collider_cr_node);
+    remove_node(temp);
   }
 }
 

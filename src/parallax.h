@@ -1,8 +1,12 @@
 #ifndef FILE_PARALLAX_NOTSEEN
 #define FILE_PARALLAX_NOTSEEN
+/*
+  can be used to implement parallax scrolling, though it isn't being used.
+ */
 #include "geometry.h"
 #include "myList.h"
 #include "graphics.h"
+
 
 typedef
 struct {

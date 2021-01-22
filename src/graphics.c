@@ -81,10 +81,7 @@ int init_rend(SDL_Renderer** rend) {
 	int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
 	if ((IMG_Init(imgFlags) & imgFlags)) {
 	  if (TTF_Init() != -1) {
-	    //initialize my libraries
-	    init_poltergeists();
-	    init_events();
-	    init_map_load();
+	    //good to go
 	  }
 	  else {
 	    fail = 5;
@@ -254,7 +251,6 @@ void draw_plane(camera* cam, plane* plane) {
 }
 
 void draw_map(camera* cam, map* map) {
-  //printf("cam {.x = %i, .y = %i }\n", cam->center->x, cam->center->y);
   gen_node* curr = get_planes(map)->start;
   plane* p = NULL;
   while(curr != NULL) {
@@ -347,7 +343,6 @@ void draw_hash_map(camera* cam, spatial_hash_map* map) {
     vf.x = map_width;
     vf.y = y;
     draw_line(cam, &vs, &vf);
-    //SDL_RenderDrawLine( x, 0, x, map_height;
   }
   //draw vertical lines
   for (int col_i = 1; col_i <= cols; col_i++) {

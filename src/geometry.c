@@ -13,9 +13,8 @@ struct polygon_struct {
   virt_pos* base_corners;
   //rotated corners, to store rotated posistions of corners to cut back calculations
   virt_pos* corners;
-  //normals, haven't considered much about them
-  //having them be unit vectors would be nice
-  //otherwise some way of determining which normal corresponds to which side or pair of corners
+  //base normals and rotated corners
+  //normal[i] is normal vector of side p[i]-p[i+1] 
   vector_2* base_normals; 
   vector_2* normals;
   virt_pos rotation_offset;
@@ -209,7 +208,6 @@ int get_sides(polygon* p) {
 }
 
 void get_actual_point(polygon* poly, int i, virt_pos* result) {
-  //virt_pos_add(&(poly->corners[i]), poly->center, result);
   *result = poly->corners[i];
 }
 
@@ -314,9 +312,8 @@ virt_pos get_rotation_offset(polygon* p) {
   t.y *= p->y_reflection;
   return t;
 }
-
- int do_polygons_intersect(polygon* p1, polygon* p2) {
-   //returns 1 if true, zero if false
+//returns 1 if true, zero if false
+int do_polygons_intersect(polygon* p1, polygon* p2) {
   double p1_min, p1_max, p2_min, p2_max;
   vector_2 normal_vector;
   int isDone = 0, ret = 1, index = 0, polygon = 1;;
@@ -351,10 +348,9 @@ virt_pos get_rotation_offset(polygon* p) {
   return ret;  
 }
 
+//returns 1 if the polygons intersect and mtv is filled with minimum translation vector to solve collisions
+//returns 0 if no collision
 int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv) {
-  //returns 1 if the polygons intersect and mtv is filled with minimum translation vector to solve collisions
-  //returns 0 if no collision
-
   double p1_min, p1_max, p2_min, p2_max;
   vector_2 normal_vector;
   int isDone = 0, ret = 0, index = 0, polygon = 1;
@@ -609,8 +605,6 @@ void get_parallell_comp(vector_2* vec, vector_2* line, vector_2* result) {
 }
 
 void get_orthogonal_comp(vector_2* vec, vector_2* line, vector_2* result) {
-  //could either rotate line and project onto that, but then component might be negative if I'm done
-  //or, get parallell component, then subtract out of point
   vector_2 parallell;
   get_parallell_comp(vec, line, &parallell);
   vector_2_sub(vec, &parallell, result);
@@ -800,8 +794,8 @@ void vector_2_to_virt_pos_zero(vector_2* in, virt_pos* out) {
   out->y = (int)in->v2;
 }
 
+//points from p1 to p2
 vector_2 vector_between_points( virt_pos* p1, virt_pos* p2) {
-  //p1 is start, p2 is end
   vector_2 result;
   result.v1 = p2->x - p1->x;
   result.v2 = p2->y - p1->y;
@@ -815,7 +809,6 @@ void print_vector(vector_2* vec) {
 void print_point(virt_pos* pos) {
   fprintf(stdout, "point is x:%d, y:%d\n", pos->x, pos->y);
 }
-
 
 int sign_of(double val) {
   if (val == 0) {
@@ -870,10 +863,9 @@ void free_polygon_center(polygon* p) {
   free(p->center);
 }
 
+//needed to have camera track the user, and also for tethers
+//does not actually enforce read_only
 virt_pos* read_only_polygon_center(polygon* p) {
-  //old version of get_polygon_center, because returning pointer is sometimes needed
-  //no actual enforcing of read only status
-  //soft solution by returning seperate virt_pos* that just gets reassigned to center
   return p->center;
   
 }

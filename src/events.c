@@ -1,28 +1,9 @@
 #include <stdio.h>
 #include "events.h"
 #include "util.h"
+#include "guts.h"
 
-//so, events
-
-//basically, lots of similarity with regular collision detection
-//only difference is instead of doing collision, you call some arbitrary function
-
-
-//might also have some bitmask or validation function
-//onTrigger might have a different method signature latter. body might change to compound
-//might also have to store body/compound of attached collider as well
-
-//also have to do some mapping from strings to trigger functions for map loading
-
-//standard events
 static void no_event(TRIGGER_ARGS);
-static void basic_decide_event(TRIGGER_ARGS);
-static void foot_placement(TRIGGER_ARGS);
-static void foot_step(TRIGGER_ARGS);
-static void grab_event(TRIGGER_ARGS);
-static void side_sight_event(TRIGGER_ARGS);
-static void main_sight_event(TRIGGER_ARGS);
-
 
 typedef struct event_struct {
   collider* coll;
@@ -44,9 +25,6 @@ void init_events() {
   func_names[i] = "no_event";
   func_funcs[i] = no_event;
   i = first_empty_index(func_names, FUNC_LIM);
-  func_names[i] = "basic_decide_event";
-  func_funcs[i] = basic_decide_event;
-  i = first_empty_index(func_names, FUNC_LIM);
   func_names[i] = "side_sight";
   func_funcs[i] = side_sight_event;
   i = first_empty_index(func_names, FUNC_LIM);
@@ -63,7 +41,7 @@ void init_events() {
 }
 
 char* get_event_name(event* e) {
-  char* ret = "";
+  char* ret = NULL;
   for (int i = 0; i < FUNC_LIM; i++) {
     if (e->onTrigger == func_funcs[i]) {
       ret = func_names[i];
@@ -79,9 +57,6 @@ void set_event_by_name(event* e, char* func) {
   }
 }
 
-//things to do in here
-//have to take some event shape/range as a poly
-//some pointer to virt_pos to center it to
 event* make_event(polygon* poly) {
   event* new = malloc(sizeof(event));
   collider* coll = make_collider_from_polygon(poly);
@@ -116,9 +91,7 @@ void trigger_event(event* e, body* arg, virt_pos* poc) {
   e->onTrigger(e, arg, poc);
 }
 
-//this will be some prototype for activating events
 void check_events(spatial_hash_map* map, gen_list* e) {
-  //will have list be of events in map
   gen_node* curr = e->start;
   event* anEvent;
   while(curr != NULL) {
@@ -130,13 +103,21 @@ void check_events(spatial_hash_map* map, gen_list* e) {
   }
 }
 
+void init_event_collider(spatial_hash_map* map, event* e) {
+  collider* area = get_event_collider(e);
+  collider_ref* cr = make_cr_from_collider(area);
+  box cell_shape = get_cell_shape(map);
+  set_cr_vectors(area, cr, &cell_shape);
+}
+
+void clear_event_collider(event* e) {
+  collider* area = get_event_collider(e);
+  collider_ref* cr = get_collider_ref(area);
+  free_cr(cr);
+}
+
 void check_event(spatial_hash_map* map, event* e) {
   collider* area = e->coll;
-  if (area->collider_node == NULL) {
-    collider_ref* cr = make_cr_from_collider(area);
-    box cell_shape = get_cell_shape(map);
-    set_cr_vectors(area, cr, &cell_shape);
-  }
   vector* cells = area->collider_node->active_cells;
   gen_list hits;
   gen_node* aHit = NULL;
@@ -198,117 +179,4 @@ void no_event(event* e, body* b, virt_pos* poc) {
 
 }
 
-void basic_decide_event(event* e, body* b2, virt_pos* poc) {
 
-}
-
-void side_sight_event(event* e, body* b2, virt_pos* poc) {
-  body* self = get_event_body(e);
-  compound* self_comp = get_owner(self);
-  smarts* s_comp_sm = get_compound_smarts(self_comp);
-  vector_2 vel = *zero_vec, add = *zero_vec;
-  get_velocity(get_fizzle(b2), &vel);
-  if (foreign_body(self, b2) && !isCloseEnoughToZeroVec(&vel)) {
-    add = vector_between_bodies(self, b2);
-
-    add = vision_speed_scale(&add, &vel);
-    add_to_smarts(s_comp_sm, SM_LOOK,  &add);
-  }  
-}
-
-void main_sight_event(event* e, body* b2, virt_pos* poc) {
-  body* self = get_event_body(e);
-  compound* self_comp = get_owner(self);
-  compound* trigger_comp = get_owner(b2);
-
-  smarts* t_comp_sm = get_compound_smarts(trigger_comp);
-  smarts* s_comp_sm = get_compound_smarts(self_comp);
-  if (t_comp_sm == NULL) {
-    return;
-  }
-  att* trig_atts = get_comp_attributes(t_comp_sm);
-  att* self_atts = get_comp_attributes(s_comp_sm);
-  vector_2 dir = *zero_vec;
-  int run = is_hunter(trig_atts) && is_prey(self_atts);
-  int chase = is_hunter(self_atts) && is_prey(trig_atts);
-  int pickup  = is_holdable(trig_atts);
-  if (foreign_body(self, b2)) {
-    if (pickup) {
-      dir = vector_between_bodies(self, b2);
-      dir = vision_inv_distance_scale(&dir);
-      add_to_smarts(s_comp_sm, SM_USEFULL, &dir);
-    }
-    if (chase && run) {
-      dir = vector_between_bodies(self, b2);
-      dir = vision_inv_distance_scale(&dir);
-      add_to_smarts(s_comp_sm, SM_ATTACK, &dir);
-    }
-    if (chase) {
-      dir = vector_between_bodies(self, b2);
-      dir = vision_inv_distance_scale(&dir);
-      add_to_smarts(s_comp_sm, SM_USEFULL, &dir);
-    }
-    if (run) {
-      dir = vector_between_bodies(b2 , self);
-      dir = vision_inv_distance_scale(&dir);
-      add_to_smarts(s_comp_sm, SM_DANGER, &dir);
-    }
-  }    
-}
-
-
-
-void foot_placement(event* e, body* trigger, virt_pos* poc) {
-  body* self = get_event_body(e);
-  compound* self_comp = get_owner(self);
-  compound* trigger_comp = get_owner(trigger);
-  
-  vector_2 dir = *zero_vec;
-  virt_pos tc = get_body_center(trigger);
-  virt_pos sc = get_body_center(self);
- 
-  if (self_comp != trigger_comp) {
-    if (poc != NULL) {
-      tc = *poc;
-    }
-    dir = vector_between_points(&sc, &tc);
-    if (!isZeroVec(&dir)) {
-      make_unit_vector(&dir, &dir);
-      smarts* b_sm = get_body_smarts(self);
-      add_to_smarts(b_sm, SM_MOVE, &dir);
-    }
-  }
-}
-
-void foot_step(event* e, body* trigger, virt_pos* poc) {
-  body* self = get_event_body(e);
-  compound* self_comp = get_owner(self);
-    
-  if (foreign_body(self, trigger)) {
-    jump_action_reset(self_comp);
-  }
-}
-
-void grab_event(event* e, body* trigger, virt_pos* poc) {
-  body* self = get_event_body(e);
-  compound* self_comp = get_owner(self);
-  compound* trigger_comp = get_owner(trigger);
-
-  smarts* t_comp_sm = get_compound_smarts(trigger_comp);
-  if (t_comp_sm == NULL) {
-    return;
-  }
-  att* trig_atts = get_comp_attributes(t_comp_sm);
- 
-  if (self_comp != trigger_comp) {
-    if (is_holdable(trig_atts)) {
-      if (get_shared_input(self) != get_shared_input(trigger)) {
-	shared_input** si = get_shared_input_ref(trigger);
-	virt_pos temp = get_shared_input_origin(*si);
-	set_body_center(self, &temp);
-	set_shared_input(self, si);
-	set_holdable(trig_atts,0);
-      }
-    }
-  }
-}

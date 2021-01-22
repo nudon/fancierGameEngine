@@ -1,6 +1,16 @@
 #ifndef FILE_GEOMETRY_SEEN
 #define FILE_GEOMETRY_SEEN
 
+/*
+  holds lots of geometry/vector manipulation functions, and supports some polygons
+
+  a polygon has to be a convex shape, and holds information about the center and corners. Can be rotated, and also have reflections applied to it
+  
+  vectors and points are just x/y pairs, ad_vec is a special type of vector that supports exponential decay, which is used a bit with game intelligence
+*/
+
+
+
 #define RAD_2_DEG 180 / M_PI
 #define DEG_2_RAD M_PI / 180
 
@@ -32,21 +42,25 @@ extern vector_2* x_axis;
 
 extern vector_2* y_axis;
 
+//creation and cloning and freeing, with some special creation
 polygon* createPolygon(int sides);
 polygon* clonePolygon(polygon* src);
 polygon* createNormalPolygon(int sides);
 polygon* createRectangle(int width, int height);
-
 void freePolygon(polygon* poly);
 
+//sets side normals
 void generate_normals_for_polygon(polygon* poly);
 
+//more creators, which specifically don't init normals. 
 void make_normal_polygon(polygon* poly);
 void make_square(polygon* poly);
 
+//some rough modification of polygon
 void stretch_deform_vert(polygon* poly, double amount);
 void stretch_deform_horz(polygon* poly, double amount);
 
+//getters and setters
 void set_scale(polygon* p, double scale);
 double get_scale(polygon* p);
 int get_sides(polygon* p);
@@ -54,19 +68,25 @@ virt_pos get_center(polygon* poly);
 void set_center(polygon* poly, virt_pos* val);
 void set_center_p(polygon* p, virt_pos* cent_p);
 
+//more getters and setters
 void set_rotation(polygon* poly, double new);
 double get_rotation(polygon* poly);
 void set_rotation_offset(polygon* poly, virt_pos* offset);
 virt_pos get_rotation_offset(polygon* p);
 
+//updates normals and actual-points of poly
 void recalc_corners_and_norms(polygon* poly);
 void recalc_corners(polygon* p);
+
+//getters/setters
 void get_actual_point(polygon* poly, int i, virt_pos* result);
 void get_base_point(polygon* poly, int i, virt_pos* result);
 void set_base_point(polygon* poly, int i, virt_pos* set);
 void get_actual_normal(polygon* poly, int i, vector_2* result);
 
+//checks if polygons intersect
 int do_polygons_intersect(polygon* p1, polygon* p2);
+//finds minimum translation vector of polygons
 int find_mtv_of_polygons(polygon* p1, polygon* p2, vector_2* mtv);
 void get_normals_of_collision(polygon* p1, polygon* p2, vector_2* normal, vector_2* body1_norm, vector_2* body2_norm);
 int calc_contact_point(polygon* p1, polygon* p2, vector_2* mtv, virt_pos* result);
@@ -137,6 +157,7 @@ double difference_of_radians(double r1, double r2);
 
 void add_offset_to_center(polygon* p, virt_pos* off);
 void free_polygon_center(polygon* p);
+
 virt_pos* read_only_polygon_center(polygon* p);
 
 void set_reflections(polygon* p, int x_r, int y_r);

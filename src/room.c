@@ -16,24 +16,6 @@ virt_pos calc_room_offset(room* r, double rel_len, double rel_height) {
   return offset;
 }
 
-void offset_body(body* b, virt_pos* offset) {
-  virt_pos cent;
-  cent = get_body_center(b);
-  virt_pos_add(&cent, offset, &cent);
-  set_body_center(b, &cent);
-}
-
-void offset_compound(compound* c, virt_pos* offset) {
-  gen_node* curr = get_bodies(c)->start;
-  body* b = NULL;
-  while(curr != NULL) {
-    b = (body*)curr->stored;
-    offset_body(b, offset);
-    
-    curr = curr->next;
-  }
-}
-
 void add_compound_to_room(compound* c, room* r, double rel_len, double rel_height) {
   virt_pos offset = calc_room_offset(r, rel_len, rel_height);
   offset_compound(c, &offset);

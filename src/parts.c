@@ -1,60 +1,7 @@
 #include "parts.h"
 #include "shapes.h"
-event* make_basic_vision_event(body* b) {
-  polygon* event_area = vision_triangle(150, 200, 0);
-  event* e = make_event(event_area);
-  set_event_by_name(e, "basic_decide_event");
-  add_event_to_body(b,e);
-  return e;  
-}
+#include "guts.h"
 
-//side vision, event should prioritize fast moving things, result is rotating body towards thing
-event* make_side_vision_event(body* b) {
-  polygon* event_area = vision_cone(150, 110, 5, 0);
-  event* e = make_event(event_area);
-  set_event_by_name(e, "side_sight");
-  add_event_to_body(b,e);
-  return e;  
-}
-
-//main vision, event should prioritize the closest thing in range, result is anaylzing thing in range and ?
-event* make_main_vision_event(body* b) {
-  polygon* event_area = vision_cone(220, 20, 2, 0);
-  event* e = make_event(event_area);
-  set_event_by_name(e, "main_sight");
-  add_event_to_body(b,e);
-  return e;  
-}
-
-//hearing, should behave like side vision by noticing things that are moving quickly
-event* make_hearing_event(body* b) {
-  polygon* event_area = createNormalPolygon(9);
-  set_scale(event_area, 20);
-  event* e = make_event(event_area);
-  set_event_by_name(e, "side_sight");
-  add_event_to_body(b,e);
-  return e;  
-}
-
-event* make_foot_step_event(body* b) {
-  polygon* area = clonePolygon(get_polygon(get_collider(b)));
-  event* e = make_event(area);
-  set_event_by_name(e, "foot_step");
-  add_event_to_body(b,e);
-  return e;
-}
-
-event* make_grab_event(body* b) {
-  polygon* area = clonePolygon(get_polygon(get_collider(b)));
-  set_scale(area, get_scale(area) + 3);
-  event* e = make_event(area);
-  set_event_by_name(e, "grab");
-  add_event_to_body(b,e);
-  set_auto_check(e, 0);
-  return e;
-}
-
-//parts
 void eyes(body* anchor) {
   compound* comp = get_owner(anchor);
   shared_input** si_ref = get_shared_input_ref(anchor);
@@ -167,8 +114,6 @@ void var_grav_roper(int segments, body* base, vector_2* grav) {
   body* b = NULL;
   sub_roper(segments, base, one_way_tether);
   curr = curr->next;
-  //curr = curr->next;
-  //curr = get_bodies(get_owner(base))->end;
   while(curr != NULL) {
     b = (body*)curr->stored;
     set_body_gravity(b, grav);
@@ -190,5 +135,3 @@ void floor_roper(int segments, body* base) {
   more_g.v2 *= -16;
   var_grav_roper(segments, base, &more_g);
 }
-
-

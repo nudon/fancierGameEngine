@@ -1,6 +1,15 @@
 #ifndef FILE_PHYSICS_NOTSEEN
 #define FILE_PHYSICS_NOTSEEN
+/*
+  a physics system that uses fizzle's as sort of a point mass, and simulates the physics 
 
+  internal time values are in millisecond units, though the standard get_dT returns in the unit of a second
+
+  for tethers types
+  TETHERa_BARRIER defines sort of a barrier, pushes objects away if they are closer than td
+  TETHER_SPRING, defines an ideal spring situation, pushes/pulls objects to maintain a distance of td
+  TETHER_ROPE defines a standard rope, pulls objects together if they are farther than td
+ */
 #include <time.h>
 
 typedef struct fizzle_struct fizzle;

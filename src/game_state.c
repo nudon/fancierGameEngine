@@ -8,8 +8,8 @@ static compound* user = NULL;
 
 static compound* builder = NULL;
 
-int quit = 0;
-int mode = PLAY_MODE;
+static int quit = 0;
+static int mode = PLAY_MODE;
 
 void setQuit(int new) {
   quit = new;
@@ -42,7 +42,6 @@ map* getMap() {
 }
 
 void setMap(map* new) {
-  //might want to eventually do some save routine
   if (current_map != new) {
     prep_for_load(new);
   }

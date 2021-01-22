@@ -1,6 +1,8 @@
 #ifndef FILE_PLANE_SEEN
 #define FILE_PLANE_SEEN
-
+/*
+  a simple plane which holds a spatial hash map and general list of game objects that are inserted in the plane
+ */
 typedef struct plane_struct plane;
 
 #include "collider.h"
@@ -9,6 +11,7 @@ typedef struct plane_struct plane;
 #include "events.h"
 #include "map.h"
 #include "creations.h"
+#include "spawner.h"
 
 
 

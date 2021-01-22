@@ -352,7 +352,7 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
       t2_to_t1.v1 = 1;
       t1_to_t2.v1 = -1;
     }
-    //hardcode for critically camped system, coef should eventually be a tether field
+    //hardcode for critically dampened system, coef should eventually be a tether field
     double damp_coef = -70 * pow(teth->tether_k, 0.5);
     fizzle* f1 = get_end_fizzle(teth->fizz_1);
     fizzle* f2 = get_end_fizzle(teth->fizz_2);
@@ -379,11 +379,6 @@ void get_tether_force(tether* teth, vector_2* t1, vector_2* t2) {
 
     vector_2_scale(t1, teth->weight_1, t1);
     vector_2_scale(t2, teth->weight_2, t2);
-    /*
-    printf("diff is %f k is %f\n", diff, teth->tether_k);
-    printf("t1 has mag %f\n", vector_2_magnitude(t1));
-    printf("t2 has mag %f\n", vector_2_magnitude(t2));
-    */
   }
 }
 

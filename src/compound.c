@@ -1,7 +1,3 @@
-//kind of a skeleton for now
-//in future, want to include compounds which are just collections of bodies
-//main use/idea is that collisions between objects from same collections are ignored
-//can suport multi-segmented things like centipides or the such
 #include "compound.h"
 #include "objects.h"
 #include "gi.h"
@@ -24,7 +20,6 @@ compound* create_compound() {
   compound* new = malloc(sizeof(compound));
   new->bp = create_gen_list();
   new->self_tethers = create_gen_list();
-  //new->compound_intelligence = create_gi();
   new->smarts = NULL;
   new->spawner = NULL;
   return new;
@@ -32,6 +27,17 @@ compound* create_compound() {
 
 body* get_compound_head(compound* c) {
   return (body*)c->bp->start->stored;
+}
+
+void offset_compound(compound* c, virt_pos* offset) {
+  gen_node* curr = get_bodies(c)->start;
+  body* b = NULL;
+  while(curr != NULL) {
+    b = (body*)curr->stored;
+    offset_body(b, offset);
+    
+    curr = curr->next;
+  }
 }
 
 void set_spawner_p(compound* c, compound_spawner* cs) {
@@ -82,12 +88,10 @@ void cut_compound(compound* c) {
     remove_node(prev);
     free_gen_node(prev);
   }
-  //initGen_list(get_compound_tethers(c));
 }
 
 //join together bodies of comp
 //teth, optional. if !NULL, copy setup from teth. else use a default
-//genList, a list to append created tethers to.
 void tether_join_compound(compound* comp, tether* teth) {
   gen_node* curr_body = comp->bp->start;
   body* b1 = NULL, *b2 = NULL;
