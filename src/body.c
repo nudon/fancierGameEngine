@@ -14,6 +14,7 @@ struct body_struct {
   //used for holding ai related events
   gen_list* event_list;
   smarts* smarts;
+  flags* drawing_flags;
 };
 
 
@@ -65,6 +66,8 @@ body* createBody(fizzle* fizz, struct collider_struct* coll) {
   new->pic = make_picture(NULL);
   new->uniform_input = NULL;
   new->smarts = NULL;
+  new->drawing_flags = NULL;
+  body_init_drawing_flags(new);
   return new;
 }
 
@@ -86,7 +89,23 @@ body* cloneBody(body* src) {
   else {
     new->smarts = NULL;
   }
+  if (src->drawing_flags != NULL) {
+    copy_flags(body_get_draw_flags(src), body_get_draw_flags(new));
+  }
   return new;
+}
+
+void body_init_drawing_flags(body* b) {
+  if (b->drawing_flags != NULL) {
+    fprintf(stderr, "Warning, initing body drawing flags when it's already set\n");
+  }
+  flags* f = make_flags();
+  flags_set_type_draw(f);
+  //set_draw_outline(f,1);
+  set_draw_picture(f,1);
+  set_draw_events(f,1);
+  //set_draw_bbox(f,1);
+  b->drawing_flags = f;
 }
 
 void free_body(body* rm) {
@@ -179,6 +198,9 @@ gen_list* get_body_events(body* b) {
   return b->event_list;
 }
 
+flags* body_get_draw_flags(body* b) {
+  return b->drawing_flags;
+}
 
 
 

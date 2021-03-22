@@ -28,7 +28,7 @@ typedef struct compound_memory_struct comp_memory;
 #include "events.h"
 #include "body.h"
 #include "collider.h"
-#include "attributes.h"
+#include "flags.h"
 
 
 
@@ -59,15 +59,15 @@ void damage_body(body* b, double amt);
 void set_contact_damage(body* b, int val);
 
 //getters and setters, though the setter copies the bit-field value of atts
-att* get_body_attributes(smarts* sm);
-void set_body_attributes(smarts* sm, att* atts);
+flags* get_body_flags(smarts* sm);
+void set_body_flags(smarts* sm, flags* f);
 
 //compound stuff
 
 //merely takes amt from c's health, or sets to zero if dead
 void damage_compound(compound* c, double amt);
-att* get_comp_attributes(smarts* sm);
-void set_comp_attributes(smarts* sm, att* atts);
+flags* get_comp_flags(smarts* sm);
+void set_comp_flags(smarts* sm, flags* f);
 //vector_2 get_comp_movement(smarts* sm);
 
 

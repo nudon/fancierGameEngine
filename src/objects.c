@@ -55,7 +55,7 @@ compound* makeCrab() {
   compound* centComp = create_compound();
   add_smarts_to_comp(centComp);
   smarts* sm = get_compound_smarts(centComp);
-  att* bits = get_comp_attributes(sm);
+  flags* bits = get_comp_flags(sm);
   polygon* poly;
   collider* coll;
   fizzle* fizz;
@@ -107,7 +107,7 @@ compound* makeSlime() {
   poltergeist* p = make_poltergeist();
   give_standard_poltergeist(p);
   set_poltergeist(slime_body, p);
-  //set_hunter(get_attributes(centComp), 1);
+  //set_hunter(get_flags(centComp), 1);
   make_basic_vision_event(slime_body);
   set_contact_damage(slime_body, 5);
 
@@ -138,7 +138,7 @@ compound* tunctish() {
   hand(torso);
   
   set_compound_gravity(comp, g);
-  set_hunter(get_comp_attributes(get_compound_smarts(comp)), 1);
+  set_hunter(get_comp_flags(get_compound_smarts(comp)), 1);
   return comp;
 }
 
@@ -167,8 +167,8 @@ compound* monkey() {
   
   set_compound_gravity(comp, g);
 
-  set_hunter(get_comp_attributes(get_compound_smarts(comp)), 1);
-  set_prey(get_comp_attributes(get_compound_smarts(comp)), 1);
+  set_hunter(get_comp_flags(get_compound_smarts(comp)), 1);
+  set_prey(get_comp_flags(get_compound_smarts(comp)), 1);
   return comp;
 }
 
@@ -251,8 +251,8 @@ compound* makeGohei() {
   //set_compound_gravity(gohei, g);
   
   smarts* sm = get_compound_smarts(gohei);
-  att* c_atts = get_comp_attributes(sm);
-  set_holdable(c_atts, 1);
+  flags* c_flags = get_comp_flags(sm);
+  set_holdable(c_flags, 1);
 
   return gohei;
 }

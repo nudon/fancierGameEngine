@@ -36,6 +36,9 @@ void init_events() {
   i = first_empty_index(func_names, FUNC_LIM);
   func_names[i] = "grab";
   func_funcs[i] = grab_event;
+  i = first_empty_index(func_names, FUNC_LIM);
+  func_names[i] = "builder_select";
+  func_funcs[i] = builder_select_event;
   
   
 }

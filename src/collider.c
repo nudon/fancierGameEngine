@@ -119,6 +119,9 @@ void free_collider(collider* rm) {
 }
 
 void free_cr(collider_ref* cr) {
+  if (cr == NULL) {
+    return;
+  }
   int size = cr->max_ref_amount;
   //clean & free list nodes
   for (int i = 0; i < size; i++) {
@@ -154,7 +157,7 @@ void insert_compound_in_shm(spatial_hash_map* map, compound* comp) {
     
     curr_e = get_body_events(b)->start;
     while (curr_e != NULL) {
-      event* e = (event*)get_data(curr_e);
+      event* e = (event*)list_get_data(curr_e);
       init_event_collider(map, e);
       curr_e = curr_e->next;
     }
@@ -170,7 +173,7 @@ void remove_compound_from_shm(spatial_hash_map* map, compound* comp) {
   collider_ref* cr = NULL;
   body* b = NULL;
   while(curr_body != NULL) {
-    b = (body*)get_data(curr_body);
+    b = (body*)list_get_data(curr_body);
     coll = get_collider(b);
     cr = coll->collider_node;
     remove_collider_from_shm_entries(map, cr, cr->active_cells);
@@ -179,7 +182,7 @@ void remove_compound_from_shm(spatial_hash_map* map, compound* comp) {
 
     curr_e = get_body_events(b)->start;
     while (curr_e != NULL) {
-      event* e = (event*)get_data(curr_e);
+      event* e = (event*)list_get_data(curr_e);
       clear_event_collider(e);
       curr_e = curr_e->next;
     }

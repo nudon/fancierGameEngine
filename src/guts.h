@@ -83,6 +83,8 @@ event* make_foot_step_event(body* b);
 
 event* make_grab_event(body* b);
 
+event* make_builder_select_event(body* b);
+
 
 void side_sight_event(event* e, body* b2, virt_pos* poc);
 
@@ -93,5 +95,7 @@ void foot_placement(event* e, body* trigger, virt_pos* poc);
 void foot_step(event* e, body* trigger, virt_pos* poc);
 
 void grab_event(event* e, body* trigger, virt_pos* poc);
+
+void builder_select_event(event* e, body* b2, virt_pos* poc);
 
 #endif

@@ -34,4 +34,5 @@ void add_tether_to_plane(plane* plane, tether* teth);
 void add_event_to_plane(plane* plane, event* event);
 void add_load_zone_to_plane(plane* plane, load_zone* lz);
 void add_spawner_to_plane(plane* plane, compound_spawner* spawn);
+int remove_spawner_from_plane(plane* plane, compound_spawner* spawn);
 #endif

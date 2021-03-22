@@ -48,7 +48,12 @@ void free_gen_node(gen_node* old);
 
 void free_gen_list(gen_list* old);
 
-void set_data(gen_node* n, void* d);
-void* get_data(gen_node* n);
+void list_set_data(gen_node* n, void* d);
+void* list_get_data(gen_node* n);
+
+gen_node* list_get_start(gen_list* list);
+gen_node* list_get_end(gen_list* list);
+gen_node* list_get_next(gen_node* curr);
+gen_node* list_get_prev(gen_node* curr);
 
 #endif

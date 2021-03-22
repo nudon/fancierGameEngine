@@ -183,18 +183,18 @@ event* get_lz_event(load_zone* lz) { return lz->trigger; }
 #define MAP_NOCHANGE 0
 #define MAP_CHANGE 1
 int trigger_map_change(load_zone* lz, compound* trav) {
-  att* att = get_comp_attributes(get_compound_smarts(trav));
+  flags* flag = get_comp_flags(get_compound_smarts(trav));
   plane* curr_plane = NULL;
   gen_list* move = NULL;
   int ret = MAP_NOCHANGE;
-  if (is_travel(att)) {
+  if (is_travel(flag)) {
     ret = MAP_CHANGE;
     curr_plane = get_plane_by_name(getMap(), get_lz_from_plane(lz));
     remove_compound_from_plane(curr_plane, trav);
     move = map_load_get_travel_list(get_lz_to_map(lz), get_lz_to_plane(lz));
     list_append(move, create_gen_node(trav));
     set_compound_position(trav, &(lz->dest));
-    if (is_user(att)) {
+    if (is_user(flag)) {
       if (lz->from_map != lz->to_map) {
 	//update global map
 	map* newMap = NULL;

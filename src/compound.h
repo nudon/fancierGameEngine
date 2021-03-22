@@ -9,7 +9,7 @@ typedef struct compound_struct compound;
 
 #include "body.h"
 #include "myList.h"
-#include "attributes.h"
+#include "flags.h"
 #include "objects.h"
 #include "gi.h"
 

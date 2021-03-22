@@ -3,7 +3,7 @@
 #include <math.h>
 #include "gi.h"
 #include "gi_structs.h"
-#include "attributes.h"
+#include "flags.h"
 #include "map.h"
 #include "names.h"
 #include "game_state.h"
@@ -37,12 +37,12 @@ struct smarts_struct {
   compound* c;
   comp_memory* c_mem;
   comp_stats* c_stats;
-  att* c_atts;
+  flags* c_flags;
 
   body* b;
   body_memory* b_mem;
   body_stats* b_stats;
-  att* b_atts;
+  flags* b_flags;
 };
 
 smarts * make_smarts() {
@@ -50,26 +50,26 @@ smarts * make_smarts() {
   new->c = NULL;
   new->c_mem = NULL;
   new->c_stats = NULL;
-  new->c_atts = NULL;
+  new->c_flags = NULL;
   new->b = NULL;
   new->b_mem = NULL;
   new->b_stats = NULL;
-  new->b_atts = NULL;
+  new->b_flags = NULL;
   return new;
 }
 
 void smarts_body_init(smarts* sm) {
   sm->b_stats = create_body_stats(BODY_HEALTH,BODY_DMG_SCALE, BODY_DMG_LIMIT, BODY_DMG);
   sm->b_mem = make_body_memory();
-  sm->b_atts = make_attributes();
-  set_body_attribute(sm->b_atts);
+  sm->b_flags = make_flags();
+  flags_set_type_body(sm->b_flags);
 }
 
 void smarts_comp_init(smarts* sm) {
   sm->c_stats = create_comp_stats(1,10,1,1);
   sm->c_mem = make_comp_memory();
-  sm->c_atts = make_attributes();
-  set_comp_attribute(sm->c_atts);
+  sm->c_flags = make_flags();
+  flags_set_type_comp(sm->c_flags);
 }
 
 void add_smarts_to_body(body* b) {
@@ -95,7 +95,7 @@ void free_body_smarts(body* b) {
   set_body_smarts(b, NULL);
   free_body_stats(sm->b_stats);
   free_body_memory(sm->b_mem);
-  free_attributes(sm->b_atts);
+  free_flags(sm->b_flags);
 
 }
 
@@ -118,7 +118,7 @@ void free_compound_smarts(compound* c) {
   set_compound_smarts(c, NULL);
   free_comp_stats(sm->c_stats);
   free_comp_memory(sm->c_mem);
-  free_attributes(sm->c_atts);
+  free_flags(sm->c_flags);
 }
 
 void update_smarts(smarts* sm) {
@@ -184,10 +184,10 @@ void contact_damage(body* b1, body* b2) {
   if (sm1 == NULL || sm2 == NULL) {
     return;
   }
-  if (is_damager(sm1->b_atts) && !is_invuln(sm2->b_atts)) {
+  if (is_damager(sm1->b_flags) && !is_invuln(sm2->b_flags)) {
     damage_body(b2, sm1->b_stats->contact_damage);
   }
-  if (is_damager(sm2->b_atts) && !is_invuln(sm1->b_atts)) {
+  if (is_damager(sm2->b_flags) && !is_invuln(sm1->b_flags)) {
     damage_body(b1, sm2->b_stats->contact_damage);
   }
 }
@@ -201,7 +201,7 @@ void set_contact_damage(body* b, int val) {
     sm = get_body_smarts(b);
     sm->b_stats->contact_damage = val;
     if (val != 0) {
-      set_damager(sm->b_atts, 1);
+      set_damager(sm->b_flags, 1);
     }
     else {
     }
@@ -239,12 +239,12 @@ vector_2 get_body_movement(smarts* sm) {
   return sm->b_mem->movement.vec;
 }
 
-att* get_body_attributes(smarts* sm) {
-  return sm->b_atts;
+flags* get_body_flags(smarts* sm) {
+  return sm->b_flags;
 }
 
-void set_body_attributes(smarts* sm, att* atts) {
-  copy_attributes(atts, sm->b_atts);
+void set_body_flags(smarts* sm, flags* f) {
+  copy_flags(f, sm->b_flags);
 }
 
 body* get_smarts_body(smarts* sm) {
@@ -303,13 +303,12 @@ void damage_compound(compound* c, double amt) {
   }
 }
 
-att* get_comp_attributes(smarts* sm) {
-  return sm->c_atts;
+flags* get_comp_flags(smarts* sm) {
+  return sm->c_flags;
 }
 
-
-void set_comp_attributes(smarts* sm, att* atts) {
-  copy_attributes(atts, sm->c_atts);
+void set_comp_flags(smarts* sm, flags* f) {
+  copy_flags(f, sm->c_flags);
 }
 
 compound* get_smarts_compound(smarts* sm) {

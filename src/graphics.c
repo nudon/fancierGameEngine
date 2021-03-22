@@ -403,15 +403,25 @@ void draw_compound(camera* cam, compound* c) {
   body* temp_body = NULL;
   polygon* temp_poly = NULL;
   collider* temp_coll = NULL;
+  flags* temp_draw_flags = NULL;
   while(curr != NULL) {
     temp_body = (body*)curr->stored;
     temp_coll = get_collider(temp_body);
     temp_poly = get_polygon(temp_coll);
+    temp_draw_flags = body_get_draw_flags(temp_body);
 
-    draw_body_picture(cam, temp_body);
-    draw_polygon_outline(cam, temp_poly);
-    draw_events_in_list(cam, get_body_events(temp_body));
-    draw_bbox(cam, temp_coll);
+    if (is_draw_picture(temp_draw_flags)) {
+      draw_body_picture(cam, temp_body);
+    }
+    if (is_draw_outline(temp_draw_flags)) {
+      draw_polygon_outline(cam, temp_poly);
+    }
+    if (is_draw_events(temp_draw_flags)) {
+      draw_events_in_list(cam, get_body_events(temp_body));
+    }
+    if (is_draw_bbox(temp_draw_flags)) {
+      draw_bbox(cam, temp_coll);
+    }
     
     curr = curr->next;
   }

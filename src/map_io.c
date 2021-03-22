@@ -48,8 +48,8 @@ void xml_write_virt_pos(FILE* file_out, virt_pos* vp, char* id);
 void xml_read_virt_pos(xmlNodePtr vp_node, virt_pos* result);
 
 
-void xml_write_attributes(FILE* file_out, att* atts);
-att* xml_read_attributes(xmlNodePtr atts);
+void xml_write_flags(FILE* file_out, flags* f);
+flags* xml_read_flags(xmlNodePtr f);
 	    
 double get_double_prop(xmlNodePtr node, char* id);
 int get_int_prop(xmlNodePtr node, char* id);
@@ -490,15 +490,15 @@ void xml_write_smarts(FILE* file_out, smarts* sm) {
     return;
   }
   if (get_smarts_body(sm) != NULL) {
-    //write body mem, stats and atts
+    //write body mem, stats and flags
     fprintf(file_out, "<smarts type=\"body\">\n");
-    xml_write_attributes(file_out, get_body_attributes(sm));
+    xml_write_flags(file_out, get_body_flags(sm));
     fprintf(file_out, "</smarts>\n");
   }
   else if (get_smarts_compound(sm) != NULL) {
-    //write compound mem, stats and atts
+    //write compound mem, stats and flags
     fprintf(file_out, "<smarts type=\"compound\">\n");
-    xml_write_attributes(file_out, get_comp_attributes(sm));
+    xml_write_flags(file_out, get_comp_flags(sm));
     fprintf(file_out, "</smarts>\n");
   }
 }
@@ -507,20 +507,20 @@ smarts* xml_read_smarts(xmlNodePtr smarts_node) {
   if (smarts_node == NULL) {
     return NULL;
   }
-  xmlNodePtr child = get_child_by_name(smarts_node, "decision_att");
+  xmlNodePtr child = get_child_by_name(smarts_node, "decision_flags");
   char* text = get_charp_prop(smarts_node, "type");
   smarts* sm = NULL;
   if (strcmp(text, "body") == 0) {
-    att* b_atts = xml_read_attributes(child);
+    flags* b_flags = xml_read_flags(child);
     sm = make_smarts();
     smarts_body_init(sm);
-    set_body_attributes(sm, b_atts);
+    set_body_flags(sm, b_flags);
   }
   else if (strcmp(text, "compound") == 0) {
-    att* c_atts = xml_read_attributes(child);
+    flags* c_flags = xml_read_flags(child);
     sm = make_smarts();
     smarts_comp_init(sm);
-    set_comp_attributes(sm, c_atts);
+    set_comp_flags(sm, c_flags);
   }
   free(text);
   return sm;
@@ -571,17 +571,17 @@ void xml_read_virt_pos(xmlNodePtr vp_node, virt_pos* result) {
   result->y = ival;
 }
 
-void xml_write_attributes(FILE* file_out, att* atts) {
-  char* text = atts_to_text(atts);
-  fprintf(file_out, "<decision_att bits=\"%s\" />\n", text);
+void xml_write_flags(FILE* file_out, flags* f) {
+  char* text = flags_to_text(f);
+  fprintf(file_out, "<decision_flag bits=\"%s\" />\n", text);
   free(text);
 }
 
-att* xml_read_attributes(xmlNodePtr atts_node) {
-  char* text = (char*)xmlGetProp(atts_node, (const xmlChar*)"bits");
-  att* atts = text_to_atts(text);
+flags* xml_read_flags(xmlNodePtr flags_node) {
+  char* text = (char*)xmlGetProp(flags_node, (const xmlChar*)"bits");
+  flags* f = text_to_flags(text);
   free(text);
-  return atts;
+  return f;
 }
 
 int get_int_prop(xmlNodePtr node, char* id) {

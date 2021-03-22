@@ -135,13 +135,24 @@ void free_gen_list(gen_list* old) {
   free(old);
 }
 
-void set_data(gen_node* n, void* d) {
+void list_set_data(gen_node* n, void* d) {
   n->stored = d;
 }
 
-void* get_data(gen_node* n) {
+void* list_get_data(gen_node* n) {
   return n->stored;
 }
 
+gen_node* list_get_start(gen_list* list) {
+  return list->start;
+}
+gen_node* list_get_end(gen_list* list) {
+  return list->end;
+}
 
-
+gen_node* list_get_next(gen_node* curr) {
+  return curr->next;
+}
+gen_node* list_get_prev(gen_node* curr) {
+  return curr->prev;
+}

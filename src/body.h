@@ -66,6 +66,8 @@ void set_picture_by_name(body* aBody, char* fn);
 void add_event_to_body(body* b, event* e);
 gen_list* get_body_events(body* b);
 
+flags* body_get_draw_flags(body* b);
+
 //creates a tether between two bodies
 tether* tether_bodies(body* b1, body* b2, tether* tether_params);
 

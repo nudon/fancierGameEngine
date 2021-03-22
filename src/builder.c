@@ -5,18 +5,75 @@
 #include "game_state.h"
 #include "map_io.h"
 #include "spawner.h"
+#include "guts.h"
 
 void replace_spawned_copy();
+void set_select_visuals(compound* c);
+void unset_select_visuals(compound* c);
+
 
 int builder_plane_change_flag;
 int save_map_flag;
 int load_map_flag;
 int builder_spawn_flag;
+int builder_delete_flag;
 
 spawner_set* spawn_set = NULL;
 int spawner_index;
 compound_spawner* spawner_copy = NULL;
 compound* spawned_item_copy = NULL;
+
+compound* selected_item = NULL;
+event* select_event = NULL;
+
+void set_builder_selected_item(compound* sel) {
+  fprintf(stderr, "builder selected an item!\n");
+  if(sel==NULL){
+    fprintf(stderr,"but its null...\n");
+  }
+  unset_select_visuals(selected_item);
+  selected_item = sel;
+  set_select_visuals(selected_item);
+}
+
+compound* get_builder_selected_item() {
+  return selected_item;
+}
+
+
+void set_select_visuals(compound* comp) {
+  if (comp == NULL) {
+    return;
+  }
+  gen_node* curr = list_get_start(get_bodies(comp));
+  body* curr_b = NULL;
+  flags* curr_f = NULL;
+  while (curr != NULL) {
+    curr_b = (body*)list_get_data(curr);
+    curr_f = body_get_draw_flags(curr_b);
+
+    set_draw_outline(curr_f, 1);
+
+    curr = list_get_next(curr);
+  }
+}
+
+void unset_select_visuals(compound* comp) {
+  if (comp == NULL) {
+    return;
+  }
+  gen_node* curr = list_get_start(get_bodies(comp));
+  body* curr_b = NULL;
+  flags* curr_f = NULL;
+  while (curr != NULL) {
+    curr_b = (body*)list_get_data(curr);
+    curr_f = body_get_draw_flags(curr_b);
+
+    set_draw_outline(curr_f, 0);
+
+    curr = list_get_next(curr);
+  }
+}
 
 map* spawner_map;
 
@@ -56,20 +113,7 @@ void set_spawner_set(spawner_set* ss) {
 
 gen_list* plane_list;
 gen_node* plane_nd;
-void next_plane() {
-  plane_nd = plane_nd->next;
-  if (plane_nd == NULL) {
-    plane_nd = plane_list->start;
-  }
-  
-}
 
-void prev_plane() {
-  plane_nd = plane_nd->prev;
-  if (plane_nd == NULL) {
-    plane_nd = plane_list->end;
-  }
-}
 
 plane* plane_entry() {
   return (plane*)plane_nd->stored;
@@ -79,6 +123,25 @@ void set_plane_list(gen_list* list) {
   plane_list = list;
   plane_nd = plane_list->start;
 }
+
+void next_plane() {
+  plane_nd = plane_nd->next;
+  if (plane_nd == NULL) {
+    plane_nd = plane_list->start;
+  }
+  clear_event_collider(select_event);
+  init_event_collider(get_shm(plane_entry()), select_event);
+}
+
+void prev_plane() {
+  plane_nd = plane_nd->prev;
+  if (plane_nd == NULL) {
+    plane_nd = plane_list->end;
+  }
+  clear_event_collider(select_event);
+  init_event_collider(get_shm(plane_entry()), select_event);
+}
+
 
 
 void replace_spawned_copy() {
@@ -116,12 +179,16 @@ void builder_logic(map* m) {
     builder = mono_compound(makeNormalBody(13, 9));
     make_compound_builder(builder);
     center_cam_on_body(get_compound_head(builder));
+    select_event = make_builder_select_event(get_compound_head(builder));
     set_spawner_set(main_set);
   }
   if (prev_m != m) {
     set_plane_list(get_planes(m));
     prev_m = m;
+    clear_event_collider(select_event);
+    init_event_collider(get_shm(plane_entry()), select_event);
   }
+  check_event(get_shm(plane_entry()) ,select_event);
   run_body_poltergeist(get_compound_head(builder));
   cent = get_body_center(get_compound_head(builder));
   if (builder_spawn_flag) {
@@ -130,6 +197,20 @@ void builder_logic(map* m) {
     add_spawner_to_plane(pl, spawner);
     trigger_spawner(spawner, pl);
     builder_spawn_flag = 0;
+  }
+  if (builder_delete_flag) {
+    pl = plane_entry();
+    if (selected_item != NULL) {
+      remove_compound_from_plane(pl, selected_item);
+      compound_spawner* cs = get_spawner_p(selected_item);
+      if (cs != NULL) {
+	if (!remove_spawner_from_plane(pl, cs)) {
+	  fprintf(stderr, "Warning, removed item from map but not the spawner\n");
+	}
+      }
+      selected_item = NULL;
+    }
+    builder_delete_flag = 0;
   }
   if (save_map_flag) {
     fprintf(stdout, "input filename of map to save, max of %i characters\n", NAME_LEN);
@@ -155,11 +236,18 @@ void builder_logic(map* m) {
     add_compound_to_plane(m_p, getUser());
     load_map_flag = 0;
   }
+  check_events(get_shm(plane_entry()), get_body_events(get_compound_head(builder)));
   body* head = get_compound_head(spawned_item_copy);
   set_body_center(head, &cent);
   play_logic(spawner_map);
   //draw_compound(getCam(), builder);
   draw_compound(getCam(), spawned_item_copy);
+  if (selected_item != NULL) {
+    draw_compound(getCam(), selected_item);
+  }
+
+  //unset selected flags after draw
+  unset_select_visuals(selected_item);
 }
 
 /*
@@ -174,13 +262,14 @@ void builder_logic(map* m) {
   s saves map
   b moves user to builder
   u moves builder to user
+  d deletes selected item
  */
 int builder_input(body* b, vector_2* trans_disp, double* rot_disp) {
   int quit = 0;
   SDL_Event e;
   int up = 0, down = 0, left = 0, right = 0;
   int spawner = 0, spawn_idx_inc = 0, spawn_idx_dec = 0, plane_next = 0, plane_prev = 0;
-  int load_map = 0, save_map = 0, to_user = 0, to_builder = 0;
+  int load_map = 0, save_map = 0, to_user = 0, to_builder = 0, delete = 0;
   int mov_mag = 10;
   virt_pos offset = *zero_pos, t_vp = *zero_pos;
   while (SDL_PollEvent(&e) != 0 ) {
@@ -218,6 +307,8 @@ int builder_input(body* b, vector_2* trans_disp, double* rot_disp) {
 	case SDLK_u:
 	  to_user = 1;
 	  break;
+	case SDLK_d:
+	  delete = 1;
 	default:
 
 	  break;
@@ -303,8 +394,6 @@ int builder_input(body* b, vector_2* trans_disp, double* rot_disp) {
   virt_pos_add(&t_vp, &offset, &t_vp);
   set_body_center(b, &t_vp);
 
-
-
   if (to_user) {
     body* user_head = get_compound_head(getUser());
     virt_pos user_p = get_body_center(user_head);
@@ -314,6 +403,10 @@ int builder_input(body* b, vector_2* trans_disp, double* rot_disp) {
     body* builder_head = get_compound_head(getBuilder());
     virt_pos build_p = get_body_center(builder_head);
     set_compound_position(getUser(), &build_p);
+  }
+
+  if (delete) {
+    builder_delete_flag = 1;
   }
   
   setQuit(quit);

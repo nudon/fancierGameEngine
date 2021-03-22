@@ -102,3 +102,20 @@ void add_spawner_to_plane(plane* plane, compound_spawner* spawn) {
   list_prepend(get_spawners(plane), create_gen_node(spawn));
 }
 
+int remove_spawner_from_plane(plane* plane, compound_spawner* spawn) {
+  gen_node* curr = get_spawners(plane)->start;
+  int ret = 0;
+  while(curr != NULL) {
+    if ((compound_spawner*)curr->stored == spawn) {
+      remove_node(curr);
+      free(curr);
+      curr = NULL;
+      ret = 1;
+    }
+    else {
+      curr = curr->next;
+    }
+  }
+  return ret;
+}
+

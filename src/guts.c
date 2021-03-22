@@ -222,11 +222,11 @@ void make_compound_user(compound* comp) {
   body* head = get_compound_head(comp);
   poltergeist* polt = make_poltergeist();
   smarts * sm = get_compound_smarts(comp);
-  att* comp_att = get_comp_attributes(sm);
+  flags* comp_flags = get_comp_flags(sm);
   give_user_poltergeist(polt);
   set_poltergeist(head, polt);
-  set_user(comp_att, 1);
-  set_travel(comp_att, 1);
+  set_user(comp_flags, 1);
+  set_travel(comp_flags, 1);
   setUser(comp);
 }
 
@@ -345,10 +345,10 @@ void throw_action(compound* c) {
 	  get_tether(get_fizzle(b), &throw_f);
 	  vector_2_scale(&throw_f, -1 * throw_s, &throw_f);
 	  add_tether(obj_f, &throw_f);
-	  //also need to reset holdable attributes
+	  //also need to reset holdable flags
 	  compound* c = get_smarts_compound(get_body_smarts(shared_input_get_tracking_body(si)));
-	  att* atts = get_comp_attributes(get_compound_smarts(c));
-	  set_holdable(atts, 1);					  
+	  flags* c_flags = get_comp_flags(get_compound_smarts(c));
+	  set_holdable(c_flags, 1);					  
 	  done = 1;
 	  printf("thrown\n");
 	}
@@ -575,7 +575,22 @@ void side_sight_event(event* e, body* b2, virt_pos* poc) {
 
     add = vision_speed_scale(&add, &vel);
     add_to_smarts(s_comp_sm, SM_LOOK,  &add);
-  }  
+  }
+}
+
+
+event* make_builder_select_event(body* b) {
+  polygon* event_area = createNormalPolygon(9);
+  set_scale(event_area, 2);
+  event* e = make_event(event_area);
+  set_event_by_name(e, "builder_select");
+  add_event_to_body(b,e);
+  return e;  
+}
+
+void builder_select_event(event* e, body* b2, virt_pos* poc) {
+  compound* select_comp = get_owner(b2);
+  set_builder_selected_item(select_comp);
 }
 
 void main_sight_event(event* e, body* b2, virt_pos* poc) {
@@ -588,12 +603,12 @@ void main_sight_event(event* e, body* b2, virt_pos* poc) {
   if (t_comp_sm == NULL) {
     return;
   }
-  att* trig_atts = get_comp_attributes(t_comp_sm);
-  att* self_atts = get_comp_attributes(s_comp_sm);
+  flags* trig_flags = get_comp_flags(t_comp_sm);
+  flags* self_flags = get_comp_flags(s_comp_sm);
   vector_2 dir = *zero_vec;
-  int run = is_hunter(trig_atts) && is_prey(self_atts);
-  int chase = is_hunter(self_atts) && is_prey(trig_atts);
-  int pickup  = is_holdable(trig_atts);
+  int run = is_hunter(trig_flags) && is_prey(self_flags);
+  int chase = is_hunter(self_flags) && is_prey(trig_flags);
+  int pickup  = is_holdable(trig_flags);
   if (foreign_body(self, b2)) {
     if (pickup) {
       dir = vector_between_bodies(self, b2);
@@ -660,16 +675,16 @@ void grab_event(event* e, body* trigger, virt_pos* poc) {
   if (t_comp_sm == NULL) {
     return;
   }
-  att* trig_atts = get_comp_attributes(t_comp_sm);
+  flags* trig_flags = get_comp_flags(t_comp_sm);
  
   if (self_comp != trigger_comp) {
-    if (is_holdable(trig_atts)) {
+    if (is_holdable(trig_flags)) {
       if (get_shared_input(self) != get_shared_input(trigger)) {
 	shared_input** si = get_shared_input_ref(trigger);
 	virt_pos temp = shared_input_get_origin(*si);
 	set_body_center(self, &temp);
 	set_shared_input(self, si);
-	set_holdable(trig_atts,0);
+	set_holdable(trig_flags,0);
       }
     }
   }

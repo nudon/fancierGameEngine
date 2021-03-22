@@ -24,4 +24,7 @@ void builder_logic(map* m);
 //checks input and sets various builder.h flags
 int builder_input(body* b, vector_2* trans_disp, double* rot_disp);
 
+//used by event in guts to set variable
+void set_builder_selected_item(compound* sel);
+
 #endif
